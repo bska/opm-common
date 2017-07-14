@@ -17,9 +17,11 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <cstdio>
+#include <cmath>
 #include <ctime>
+#include <cstdio>
 #include <iostream>
+#include <numeric>
 #include <math.h>
 #include <memory>
 #include <optional>
@@ -115,6 +117,57 @@ static Opm::Deck createDeckMissingDIMS() {
 
     Opm::Parser parser;
     return parser.parseString( deckData) ;
+}
+
+static Opm::Deck createRadialGrid() {
+    const auto* input = R"(
+RUNSPEC
+
+DIMENS
+  100 21 20 /
+
+METRIC
+
+RADIAL
+
+GRID
+
+INRAD
+  50.0D0 /
+
+DRV
+  15.0D0 3*20.0D0 25.0D0 6*30.0D0 3*40.0D0 86*50.0D0 /
+
+DTHETAV
+  21*4.285714D0 /
+
+DZV
+  20*0.5D0 /
+
+BOX
+  1 100  1 21  1 1 /
+
+PERMR
+  2100*100.0D0 /
+
+PORO
+  2100*0.25D0 /
+
+TOPS
+  2100*1.0D+3 /
+
+COPY
+  PERMR PERMTHT /
+  PERMR PERMZ /
+/
+
+MULTIPLY
+  PERMZ 0.1D0 /
+/
+)";
+
+    Opm::Parser parser;
+    return parser.parseString(input, Opm::ParseContext());
 }
 
 BOOST_AUTO_TEST_CASE(MissingDimsThrows) {
@@ -2980,4 +3033,73 @@ BOOST_AUTO_TEST_CASE(TEST_COLLAPSED_CELL) {
     Opm::EclipseGrid grid(2,2,2,1,1,0);
     for (std::size_t g = 0; g < grid.getCartesianSize(); g++)
         BOOST_CHECK_EQUAL(grid.getCellVolume(g), 0);
+}
+
+BOOST_AUTO_TEST_CASE(RadialGrid) {
+    const auto deck = createRadialGrid();
+    const auto grid = Opm::EclipseGrid(deck);
+
+    BOOST_CHECK_EQUAL( grid.isRadial() , true );
+    BOOST_CHECK_EQUAL( grid.isCornerPoint() , false );
+
+    {
+        const auto& p = grid.getCornerPos( 0,0,0 , 0 );
+        const auto  inrad = std::hypot( p[0], p[1] );
+
+        BOOST_CHECK_CLOSE( inrad , 50.0 , 1.0e-6 );
+    }
+
+    {
+        const auto rad2deg =
+            180.0 / 3.14159265358979525897932384626450288;
+
+        const auto& p1 = grid.getCornerPos( 0,0,0 , 0 );
+        const auto& p2 = grid.getCornerPos( 0,0,0 , 2 );
+
+        const auto t1 = rad2deg * std::atan2( p1[1], p1[0] );
+        const auto t2 = rad2deg * std::atan2( p2[1], p2[0] );
+
+        BOOST_CHECK_CLOSE( t2 - t1 , -4.285714 , 1.0e-5 );
+    }
+
+    {
+        const auto& p1 = grid.getCornerPos( 0,0,0 , 0 );
+        const auto& p2 = grid.getCornerPos( 0,0,0 , 4 );
+
+        BOOST_CHECK_CLOSE( p2[2] - p1[2] , 0.5 , 1.0e-5 );
+    }
+}
+
+BOOST_AUTO_TEST_CASE(ConsistentRadialVsCPG) {
+    // Corner-point grid
+    {
+        const auto deck = createCARTDeckDEPTHZ();
+        const auto grid = Opm::EclipseGrid(deck);
+
+        BOOST_CHECK_NE( grid.isRadial() , grid.isCornerPoint() );
+    }
+
+    // Corner-point grid
+    {
+        const auto deck = createPinchedCPDeck();
+        const auto grid = Opm::EclipseGrid(deck);
+
+        BOOST_CHECK_NE( grid.isRadial() , grid.isCornerPoint() );
+    }
+
+    // Corner-point grid
+    {
+        const auto deck = createActnumBoxDeck();
+        const auto grid = Opm::EclipseGrid(deck);
+
+        BOOST_CHECK_NE( grid.isRadial() , grid.isCornerPoint() );
+    }
+
+    // Radial grid
+    {
+        const auto deck = createRadialGrid();
+        const auto grid = Opm::EclipseGrid(deck);
+
+        BOOST_CHECK_NE( grid.isRadial() , grid.isCornerPoint() );
+    }
 }

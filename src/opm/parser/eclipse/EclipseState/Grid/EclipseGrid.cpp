@@ -275,7 +275,15 @@ EclipseGrid::EclipseGrid(const Deck& deck, const int * actnum)
 
 
     bool EclipseGrid::circle( ) const{
-        return this->m_circle;
+        return 0 != (this->m_gridtypeflag & (1u << IsFullCircle));
+    }
+
+    bool EclipseGrid::isRadial( ) const{
+        return 0 != (this->m_gridtypeflag & (1u << IsRadialGrid));
+    }
+
+    bool EclipseGrid::isCornerPoint( ) const{
+        return 0 != (this->m_gridtypeflag & (1u << IsCpGrid));
     }
 
     void EclipseGrid::initGrid(const Deck& deck) {
@@ -994,8 +1002,9 @@ EclipseGrid::EclipseGrid(const Deck& deck, const int * actnum)
             for (auto theta : dthetav)
                 total_angle += theta;
 
-            if (std::abs( total_angle - 360 ) < 0.01)
-                m_circle = deck.hasKeyword<ParserKeywords::CIRCLE>();
+            if ((std::abs( total_angle - 360 ) < 0.01) &&
+                deck.hasKeyword<ParserKeywords::CIRCLE>())
+                this->m_gridtypeflag |= (1u << IsFullCircle);
             else {
                 if (total_angle > 360)
                     throw std::invalid_argument("More than 360 degrees rotation - cells will be double covered");
@@ -1043,7 +1052,7 @@ EclipseGrid::EclipseGrid(const Deck& deck, const int * actnum)
 
                 for (std::size_t j = 0; j <= this->getNY(); j++) {
                     /*
-                      The theta value is supposed to go counterclockwise, starting at 'twelve o clock'.
+                      The theta value is supposed to go clockwise, starting at 'twelve o clock'.
                     */
                     double t = M_PI * (90 - tj[j]) / 180;
                     double c = cos( t );
@@ -1071,6 +1080,8 @@ EclipseGrid::EclipseGrid(const Deck& deck, const int * actnum)
 
             }
             initCornerPointGrid( coord, zcorn, nullptr, nullptr);
+            this->m_gridtypeflag |=   1u << IsRadialGrid;
+            this->m_gridtypeflag &= ~(1u << IsCpGrid);
         }
     }
 
@@ -1096,6 +1107,8 @@ EclipseGrid::EclipseGrid(const Deck& deck, const int * actnum)
                 m_mapaxes[n] = mapaxes[n];
             }
         }
+
+        this->m_gridtypeflag |= (1u << IsCpGrid);
     }
 
     void EclipseGrid::initCornerPointGrid(const Deck& deck) {

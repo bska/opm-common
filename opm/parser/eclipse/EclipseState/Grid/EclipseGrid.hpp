@@ -108,6 +108,8 @@ namespace Opm {
 
         bool circle( ) const;
         bool isPinchActive( ) const;
+        bool isRadial( ) const;
+        bool isCornerPoint ( ) const;
         double getPinchThresholdThickness( ) const;
         PinchMode::ModeEnum getPinchOption( ) const;
         PinchMode::ModeEnum getMultzOption( ) const;
@@ -200,10 +202,16 @@ namespace Opm {
         PinchMode::ModeEnum m_multzMode;
         PinchMode::ModeEnum m_pinchGapMode;
 
-        bool m_circle = false;
+        unsigned char m_gridtypeflag = 0;
 
         size_t zcorn_fixed = 0;
         bool m_useActnumFromGdfile = false;
+        
+        enum GridTypeFlag : unsigned int {
+            IsCpGrid     = 0u,
+            IsRadialGrid = 1u,
+            IsFullCircle = 2u,
+        };
 
         // Input grid data.
         std::vector<double> m_zcorn;
@@ -228,6 +236,22 @@ namespace Opm {
         void initGridFromEGridFile(Opm::EclIO::EclFile& egridfile, std::string fileName);
         void resetACTNUM( const int* actnum);
 
+        /*
+          The internal class grid_ptr is a a std::unique_ptr with
+          special copy semantics. The purpose of implementing this is
+          that the EclipseGrid class can now use the default
+          implementation for the copy and move constructors.
+        */
+        using ert_ptr = ERT::ert_unique_ptr<ecl_grid_type , ecl_grid_free>;
+        class grid_ptr : public ert_ptr {
+        public:
+            using ert_ptr::unique_ptr;
+            grid_ptr() = default;
+            grid_ptr(grid_ptr&&) = default;
+            grid_ptr(const grid_ptr& src) :
+                ert_ptr( ecl_grid_alloc_copy( src.get() ) ) {}
+        };
+        grid_ptr m_grid;
         void initBinaryGrid(const Deck& deck);
 
         void initCornerPointGrid(const std::vector<double>& coord ,
