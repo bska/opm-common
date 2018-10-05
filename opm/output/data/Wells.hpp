@@ -22,6 +22,7 @@
 
 #include <initializer_list>
 #include <map>
+#include <unordered_map>
 #include <algorithm>
 #include <stdexcept>
 #include <string>
@@ -119,6 +120,13 @@ namespace Opm {
         template <class MessageBufferType>
         void read(MessageBufferType& buffer);
     };
+    
+    struct Segment {
+       Rates rates;
+       double pressure;
+       std::size_t segNumber;
+   };
+
 
     struct Well {
         Rates rates;
@@ -127,7 +135,8 @@ namespace Opm {
         double temperature;
         int control;
         std::vector< Connection > connections;
-
+	std::unordered_map<std::size_t, Segment> segments;
+	
         inline bool flowing() const noexcept;
         template <class MessageBufferType>
         void write(MessageBufferType& buffer) const;
