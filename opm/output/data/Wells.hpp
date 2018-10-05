@@ -20,13 +20,14 @@
 #ifndef OPM_OUTPUT_WELLS_HPP
 #define OPM_OUTPUT_WELLS_HPP
 
+#include <algorithm>
+#include <cstddef>
 #include <initializer_list>
 #include <map>
-#include <unordered_map>
-#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 namespace Opm {
@@ -128,6 +129,18 @@ namespace Opm {
    };
 
 
+    struct Segment {
+        Rates rates;
+        double pressure;
+        std::size_t segIndex;
+
+        template <class MessageBufferType>
+        void write(MessageBufferType& buffer) const;
+
+        template <class MessageBufferType>
+        void read(MessageBufferType& buffer);
+    };
+
     struct Well {
         Rates rates;
         double bhp;
@@ -135,8 +148,8 @@ namespace Opm {
         double temperature;
         int control;
         std::vector< Connection > connections;
-	std::unordered_map<std::size_t, Segment> segments;
-	
+        std::unordered_map<std::size_t, Segment> segments;
+
         inline bool flowing() const noexcept;
         template <class MessageBufferType>
         void write(MessageBufferType& buffer) const;
@@ -310,6 +323,13 @@ namespace Opm {
     }
 
     template <class MessageBufferType>
+    void Segment::write(MessageBufferType& buffer) const {
+        buffer.write(this->segIndex);
+        this->rates.write(buffer);
+        buffer.write(this->pressure);
+    }
+
+    template <class MessageBufferType>
     void Well::write(MessageBufferType& buffer) const {
         this->rates.write(buffer);
         buffer.write(this->bhp);
@@ -320,6 +340,16 @@ namespace Opm {
         buffer.write(size);
         for (const Connection& comp : this->connections)
             comp.write(buffer);
+
+        {
+            const auto nSeg =
+                static_cast<unsigned int>(this->segments.size());
+            buffer.write(nSeg);
+
+            for (const auto& seg : this->segments) {
+                seg.second.write(buffer);
+            }
+        }
     }
 
     template <class MessageBufferType>
@@ -351,12 +381,21 @@ namespace Opm {
    }
 
     template <class MessageBufferType>
+    void Segment::read(MessageBufferType& buffer) {
+        buffer.read(this->segIndex);
+        this->rates.read(buffer);
+        buffer.read(this->pressure);
+    }
+
+    template <class MessageBufferType>
     void Well::read(MessageBufferType& buffer) {
         this->rates.read(buffer);
         buffer.read(this->bhp);
         buffer.read(this->thp);
         buffer.read(this->temperature);
         buffer.read(this->control);
+
+        // Connection information
         unsigned int size = 0.0; //this->connections.size();
         buffer.read(size);
         this->connections.resize(size);
@@ -365,9 +404,27 @@ namespace Opm {
             auto& comp = this->connections[ i ];
             comp.read(buffer);
         }
+
+        // Segment information (if applicable)
+        const auto nSeg = [&buffer]() -> unsigned int
+        {
+            auto n = 0u;
+            buffer.read(n);
+
+            return n;
+        }();
+
+        for (auto segID = 0*nSeg; segID < nSeg; ++segID) {
+            auto seg = Segment{};
+
+            seg.read(buffer);
+
+            const auto segIndex = seg.segIndex;
+
+            this->segments.emplace(segIndex, std::move(seg));
+        }
     }
 
-}
-}
+}} // Opm::data
 
 #endif //OPM_OUTPUT_WELLS_HPP
