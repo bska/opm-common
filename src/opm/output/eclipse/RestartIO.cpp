@@ -471,11 +471,17 @@ void save(const std::string&  filename,
 
     writeGroup(rst_file.get(), sim_step, ecl_compatible_rst, schedule, sumState, inteHD);
 
-    writeMSWData(rst_file.get(), sim_step, units, schedule, grid, sumState, inteHD);
+    // write only well and MSW data when applicable (i.e whsen present)
+    const auto& wells = schedule.getWells(sim_step);
+    if (!wells.empty()) {
+      const auto numMSW = std::count_if(wells.begin(), wells.end(), [sim_step] (const Well* well) {
+	return well->isMultiSegment(sim_step); 
+      } );
+      if (numMSW > 0) writeMSWData(rst_file.get(), sim_step, units, schedule, grid, sumState, inteHD);
 
-    writeWell(rst_file.get(), sim_step, ecl_compatible_rst, es.runspec().phases(), units,
+      writeWell(rst_file.get(), sim_step, ecl_compatible_rst, es.runspec().phases(), units,
               grid, schedule, value.wells, sumState, inteHD);
-
+    }
     writeSolution(rst_file.get(), value, ecl_compatible_rst, write_double);
 
     if (!ecl_compatible_rst)
