@@ -24,6 +24,8 @@
 
 #include <opm/output/eclipse/RestartIO.hpp>
 
+#include <opm/common/OpmLog/OpmLog.hpp>
+
 #include <opm/io/eclipse/ERst.hpp>
 #include <opm/io/eclipse/RestartFileView.hpp>
 
