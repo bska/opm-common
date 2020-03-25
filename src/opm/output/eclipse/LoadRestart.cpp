@@ -24,6 +24,8 @@
 
 #include <opm/output/eclipse/RestartIO.hpp>
 
+#include <opm/common/OpmLog/OpmLog.hpp>
+
 #include <opm/io/eclipse/ERst.hpp>
 #include <opm/io/eclipse/EclIOdata.hpp>
 
@@ -856,21 +858,20 @@ namespace {
         }
     }
 
-    void checkWellVectorSizes(const std::vector<int>&                   opm_iwel,
-                              const std::vector<double>&                opm_xwel,
-                              const std::vector<Opm::data::Rates::opt>& phases,
-                              const std::vector<Opm::Well>&            sched_wells)
+    void checkWellVectorSizes(const std::vector<double>&    opm_xwel,
+                              const std::size_t             numPhases,
+                              const std::vector<Opm::Well>& sched_wells)
     {
         const auto expected_xwel_size =
             std::accumulate(sched_wells.begin(), sched_wells.end(),
                             std::size_t(0),
-                [&phases](const std::size_t acc, const Opm::Well& w)
+                [numPhases](const std::size_t acc, const Opm::Well& w)
                 -> std::size_t
             {
                 return acc
-                    + 3 + phases.size()
+                    + 3 + numPhases
                     + (w.getConnections().size()
-                        * (phases.size() + Opm::data::Connection::restart_size));
+                        * (numPhases + Opm::data::Connection::restart_size));
             });
 
         if (opm_xwel.size() != expected_xwel_size) {
@@ -880,89 +881,65 @@ namespace {
                 ", expected " + std::to_string(expected_xwel_size)
             };
         }
-
-        if (opm_iwel.size() != sched_wells.size()) {
-            throw std::runtime_error {
-                "Mismatch between OPM_IWEL and deck; "
-                "OPM_IWEL size was " + std::to_string(opm_iwel.size()) +
-                ", expected " + std::to_string(sched_wells.size())
-            };
-        }
     }
 
-    Opm::data::Wells
-    restore_wells_opm(const ::Opm::EclipseState& es,
-                      const ::Opm::EclipseGrid&  grid,
-                      const ::Opm::Schedule&     schedule,
-                      RestartFileView&           rst_view)
+    void restore_wells_opm(const ::Opm::EclipseState& es,
+                           const ::Opm::EclipseGrid&  grid,
+                           const ::Opm::Schedule&     schedule,
+                           RestartFileView&           rst_view,
+                           Opm::data::Wells&          wells)
     {
-        if (! (rst_view.hasKeyword<int>   ("OPM_IWEL") &&
-               rst_view.hasKeyword<double>("OPM_XWEL")))
-        {
-            return {};
-        }
-
-        const auto& opm_iwel = rst_view.getKeyword<int>   ("OPM_IWEL");
-        const auto& opm_xwel = rst_view.getKeyword<double>("OPM_XWEL");
-
-        using rt = Opm::data::Rates::opt;
-
-        const auto& sched_wells = schedule.getWells(rst_view.simStep());
-        std::vector<rt> phases;
+        auto numPhases = std::size_t{0};
         {
             const auto& phase = es.runspec().phases();
 
-            if (phase.active(Opm::Phase::WATER)) { phases.push_back(rt::wat); }
-            if (phase.active(Opm::Phase::OIL))   { phases.push_back(rt::oil); }
-            if (phase.active(Opm::Phase::GAS))   { phases.push_back(rt::gas); }
+            numPhases += phase.active(Opm::Phase::WATER);
+            numPhases += phase.active(Opm::Phase::OIL);
+            numPhases += phase.active(Opm::Phase::GAS);
         }
 
-        checkWellVectorSizes(opm_iwel, opm_xwel, phases, sched_wells);
+        const auto& opm_xwel    = rst_view.getKeyword<double>("OPM_XWEL");
+        const auto& sched_wells = schedule.getWells(rst_view.simStep());
+        checkWellVectorSizes(opm_xwel, numPhases, sched_wells);
 
-        Opm::data::Wells wells;
         auto opm_xwel_data = opm_xwel.begin();
-        auto opm_iwel_data = opm_iwel.begin();
-
         for (const auto& sched_well : sched_wells) {
             auto& well = wells[ sched_well.name() ];
 
-            well.bhp         = *opm_xwel_data;  ++opm_xwel_data;
-            well.thp         = *opm_xwel_data;  ++opm_xwel_data;
+            ++opm_xwel_data;  // Ignore well BHP
+            ++opm_xwel_data;  // Ignore well THP
             well.temperature = *opm_xwel_data;  ++opm_xwel_data;
-            well.control     = *opm_iwel_data;  ++opm_iwel_data;
 
-            for (const auto& phase : phases) {
-                well.rates.set(phase, *opm_xwel_data);
-                ++opm_xwel_data;
-            }
+            // Ignore phase rates at well level
+            opm_xwel_data += numPhases;
 
+            auto connID = 0*sched_well.getConnections().size();
             for (const auto& sc : sched_well.getConnections()) {
                 const auto i = sc.getI(), j = sc.getJ(), k = sc.getK();
 
-                if (!grid.cellActive(i, j, k) || sc.state() == Opm::Connection::State::SHUT) {
-                    opm_xwel_data += Opm::data::Connection::restart_size + phases.size();
+                ++connID;
+
+                if (! grid.cellActive(i, j, k) ||
+                    (sc.state() == Opm::Connection::State::SHUT))
+                {
+                    opm_xwel_data += Opm::data::Connection::restart_size + numPhases;
                     continue;
                 }
 
-                well.connections.emplace_back();
-                auto& connection = well.connections.back();
+                auto& connection = well.connections[connID - 1];
 
-                connection.index          = grid.getGlobalIndex(i, j, k);
-                connection.pressure       = *opm_xwel_data++;
-                connection.reservoir_rate = *opm_xwel_data++;
-                connection.cell_pressure = *opm_xwel_data++;
+                *opm_xwel_data++;  // Ignore connection pressure
+                *opm_xwel_data++;  // Ignore connection reservoir volume rate
+
+                connection.cell_pressure         = *opm_xwel_data++;
                 connection.cell_saturation_water = *opm_xwel_data++;
-                connection.cell_saturation_gas = *opm_xwel_data++;
-                connection.effective_Kh = *opm_xwel_data++;
+                connection.cell_saturation_gas   = *opm_xwel_data++;
+                connection.effective_Kh          = *opm_xwel_data++;
 
-                for (const auto& phase : phases) {
-                    connection.rates.set(phase, *opm_xwel_data);
-                    ++opm_xwel_data;
-                }
+                // Ignore phase rates at connection level
+                opm_xwel_data += numPhases;
             }
         }
-
-        return wells;
     }
 
     void restoreConnRates(const WellVectors::Window<double>& xcon,
@@ -1559,10 +1536,14 @@ namespace Opm { namespace RestartIO  {
 
         xr.convertToSI(es.getUnits());
 
-        auto xw = rst_view->hasKeyword<double>("OPM_XWEL")
-            ? restore_wells_opm(es, grid, schedule, *rst_view)
-            : restore_wells_ecl(es, grid, schedule,  rst_view);
-        data::GroupAndNetworkValues xg_nwrk;
+        auto xw = restore_wells_ecl(es, grid, schedule, rst_view);
+        if (rst_view->hasKeyword<double>("OPM_XWEL")) {
+            OpmLog::note("Old-Style OPM restart file '" + filename +
+                         "' detected.  Recommend regenerating base run");
+            restore_wells_opm(es, grid, schedule, *rst_view, xw);
+        }
+
+        auto xg = data::GroupAndNetworkValues {};
 
         auto rst_value = RestartValue{ std::move(xr), std::move(xw), std::move(xg_nwrk)};
 

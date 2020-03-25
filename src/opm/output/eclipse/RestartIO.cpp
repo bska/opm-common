@@ -95,100 +95,6 @@ namespace {
             : 0.0;
     }
 
-    std::vector<int>
-    serialize_OPM_IWEL(const data::Wells&              wells,
-                       const std::vector<std::string>& well_names)
-    {
-      const auto getctrl = [&]( const std::string& wname ) {
-            const auto itr = wells.find( wname );
-            return itr == wells.end() ? 0 : itr->second.control;
-        };
-
-        std::vector<int> iwel(well_names.size(), 0.0);
-        std::transform(well_names.begin(), well_names.end(), iwel.begin(), getctrl);
-
-        return iwel;
-    }
-
-    std::vector<double>
-    serialize_OPM_XWEL(const data::Wells&              wells,
-                       const Schedule&                 schedule,
-                       const std::vector<std::string>& well_names,
-                       const int                       sim_step,
-                       const Phases&                   phase_spec,
-                       const EclipseGrid&              grid)
-    {
-        using rt = data::Rates::opt;
-
-        std::vector<rt> phases;
-        if (phase_spec.active(Phase::WATER)) phases.push_back(rt::wat);
-        if (phase_spec.active(Phase::OIL))   phases.push_back(rt::oil);
-        if (phase_spec.active(Phase::GAS))   phases.push_back(rt::gas);
-
-        std::vector< double > xwel;
-        for (const auto& wellname : well_names) {
-            const auto& sched_well = schedule.getWell(wellname, sim_step);
-            if (wells.count(wellname) == 0 ||
-                sched_well.getStatus() == Opm::Well::Status::SHUT)
-            {
-                const auto elems = (sched_well.getConnections().size()
-                                    * (phases.size() + data::Connection::restart_size))
-                    + 3 /* bhp, thp, temperature */
-                    + phases.size();
-
-                // write zeros if no well data is provided
-                xwel.insert( xwel.end(), elems, 0.0 );
-                continue;
-            }
-
-            const auto& well = wells.at( wellname );
-
-            xwel.push_back( well.bhp );
-            xwel.push_back( well.thp );
-            xwel.push_back( well.temperature );
-
-            for (auto phase : phases)
-                xwel.push_back(well.rates.get(phase));
-
-            for (const auto& sc : sched_well.getConnections()) {
-                const auto i = sc.getI(), j = sc.getJ(), k = sc.getK();
-
-                const auto rs_size = phases.size() + data::Connection::restart_size;
-                if (!grid.cellActive(i, j, k) || sc.state() == Connection::State::SHUT) {
-                    xwel.insert(xwel.end(), rs_size, 0.0);
-                    continue;
-                }
-
-                const auto global_index = grid.getGlobalIndex(i, j, k);
-
-                const auto& connection =
-                    std::find_if(well.connections.begin(),
-                                 well.connections.end(),
-                        [global_index](const data::Connection& c)
-                    {
-                        return c.index == global_index;
-                    });
-
-                if (connection == well.connections.end()) {
-                    xwel.insert( xwel.end(), rs_size, 0.0 );
-                    continue;
-                }
-
-                xwel.push_back(connection->pressure);
-                xwel.push_back(connection->reservoir_rate);
-                xwel.push_back(connection->cell_pressure);
-                xwel.push_back(connection->cell_saturation_water);
-                xwel.push_back(connection->cell_saturation_gas);
-                xwel.push_back(connection->effective_Kh);
-
-                for (auto phase : phases)
-                    xwel.push_back(connection->rates.get(phase));
-            }
-        }
-
-        return xwel;
-    }
-
     void checkSaveArguments(const EclipseState& es,
                             const RestartValue& restart_value,
                             const EclipseGrid&  grid)
@@ -375,19 +281,6 @@ namespace {
         rstFile.write("SWEL", wellData.getSWell());
         rstFile.write("XWEL", wellData.getXWell());
         rstFile.write("ZWEL", wellData.getZWell());
-
-        // Extended set of OPM well vectors
-        if (!ecl_compatible_rst)
-        {
-            const auto opm_xwel =
-                serialize_OPM_XWEL(wells, schedule, well_names,
-                                   sim_step, phases, grid);
-
-            const auto opm_iwel = serialize_OPM_IWEL(wells, well_names);
-
-            rstFile.write("OPM_IWEL", opm_iwel);
-            rstFile.write("OPM_XWEL", opm_xwel);
-        }
 
         auto connectionData = Helpers::AggregateConnectionData(ih);
         connectionData.captureDeclaredConnData(schedule, grid, units,
