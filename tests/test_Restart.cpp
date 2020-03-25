@@ -26,6 +26,7 @@
 #include <opm/output/data/Wells.hpp>
 #include <opm/output/eclipse/AggregateAquiferData.hpp>
 #include <opm/output/eclipse/EclipseIO.hpp>
+#include <opm/output/eclipse/Inplace.hpp>
 #include <opm/output/eclipse/RestartIO.hpp>
 #include <opm/output/eclipse/RestartValue.hpp>
 
@@ -126,9 +127,9 @@ data::GroupAndNetworkValues mkGroups()
 data::Wells mkWells()
 {
     data::Rates r1, r2, rc1, rc2, rc3;
-    r1.set( data::Rates::opt::wat, 5.67 );
-    r1.set( data::Rates::opt::oil, 6.78 );
-    r1.set( data::Rates::opt::gas, 7.89 );
+    r1.set( data::Rates::opt::wat, -5.67 );
+    r1.set( data::Rates::opt::oil, -6.78 );
+    r1.set( data::Rates::opt::gas, -7.89 );
 
     r2.set( data::Rates::opt::wat, 8.90 );
     r2.set( data::Rates::opt::oil, 9.01 );
@@ -150,8 +151,8 @@ data::Wells mkWells()
     w1.rates = r1;
     w1.thp = 1.0;
     w1.bhp = 1.23;
-    w1.temperature = 3.45;
-    w1.control = 1;
+    w1.temperature = 0.0;
+    w1.control = 0;
 
     /*
      *  the completion keys (active indices) and well names correspond to the
@@ -395,15 +396,6 @@ Opm::SummaryState sim_state(const Opm::Schedule& sched)
 
 struct Setup
 {
-    EclipseState es;
-    const EclipseGrid& grid;
-    Schedule schedule;
-    SummaryConfig summary_config;
-
-    explicit Setup(const char* path)
-        : Setup { Parser{}.parseFile(path) }
-    {}
-
     explicit Setup(const Deck& deck)
         : es             { deck }
         , grid           { es.getInputGrid() }
@@ -412,6 +404,15 @@ struct Setup
     {
         es.getIOConfig().setEclCompatibleRST(false);
     }
+
+    explicit Setup(const char* path)
+        : Setup { Parser{}.parseFile(path) }
+    {}
+
+    EclipseState       es;
+    const EclipseGrid& grid;
+    Schedule           schedule;
+    SummaryConfig      summary_config;
 };
 
 RestartValue
@@ -464,6 +465,7 @@ second_sim(const Setup&                   setup,
            const std::vector<RestartKey>& solution_keys)
 {
     EclipseIO writer(setup.es, setup.grid, setup.schedule, setup.summary_config);
+
     return writer.loadRestart(action_state, summary_state, solution_keys);
 }
 
@@ -472,23 +474,20 @@ void compare(const RestartValue&            fst,
              const std::vector<RestartKey>& solution_keys)
 {
     for (const auto& value : solution_keys) {
-        auto tol = 0.00001;
         const auto& key = value.key;
+        const auto  tol = (key == "TEMP")
+            ? 1.0e-4 : 1.0e-5;
 
-        if (key == "TEMP") {
-            tol *= 10.0;
-        }
-
-        auto first = fst.solution.data<double>(key).begin();
+        auto first  = fst.solution.data<double>(key).begin();
+        auto last   = fst.solution.data<double>(key).end();
         auto second = snd.solution.data<double>(key).begin();
 
-        for (; first != fst.solution.data<double>(key).end(); ++first, ++second) {
+        for (; first != last; ++first, ++second)
             BOOST_CHECK_CLOSE(*first, *second, tol);
-        }
     }
 }
 
-} // Anonymous namespace
+} // namespace anonymous
 
 BOOST_AUTO_TEST_CASE(EclipseReadWriteWellStateData)
 {
@@ -505,16 +504,53 @@ BOOST_AUTO_TEST_CASE(EclipseReadWriteWellStateData)
 
     Setup base_setup("BASE_SIM.DATA");
     auto st = sim_state(base_setup.schedule);
+
     Action::State action_state;
     UDQState udq_state(19);
-    const auto state1 = first_sim( base_setup , action_state, st, udq_state, false );
+    const auto state1 = first_sim(base_setup, action_state, st, udq_state, false);
 
     Setup restart_setup("RESTART_SIM.DATA");
-    const auto state2 = second_sim( restart_setup , action_state, st , keys );
+    const auto state2 = second_sim(restart_setup, action_state, st, keys);
     compare(state1, state2 , keys);
 
-    BOOST_CHECK_THROW( second_sim( restart_setup, action_state, st, {{"SOIL", UnitSystem::measure::pressure}} ) , std::runtime_error );
-    BOOST_CHECK_THROW( second_sim( restart_setup, action_state, st, {{"SOIL", UnitSystem::measure::pressure, true}}) , std::runtime_error );
+    BOOST_CHECK_THROW(second_sim(restart_setup, action_state, st, {{"SOIL", UnitSystem::measure::pressure}} ) , std::runtime_error);
+    BOOST_CHECK_THROW(second_sim(restart_setup, action_state, st, {{"SOIL", UnitSystem::measure::pressure, true}}) , std::runtime_error);
+
+    using Q = ::Opm::data::Rates::opt;
+
+    BOOST_CHECK_CLOSE(state1.wells.get("OP_1", Q::oil),
+                      state2.wells.get("OP_1", Q::oil), 1.0e-10);
+    BOOST_CHECK_CLOSE(state1.wells.get("OP_1", Q::gas),
+                      state2.wells.get("OP_1", Q::gas), 1.0e-10);
+    BOOST_CHECK_CLOSE(state1.wells.get("OP_1", Q::wat),
+                      state2.wells.get("OP_1", Q::wat), 1.0e-10);
+
+    BOOST_CHECK_CLOSE(state1.wells.at("OP_1").bhp,
+                      state2.wells.at("OP_1").bhp, 1.0e-10);
+
+    // NOTE:
+    //    OP_2 is a gas injector, so we can only expect
+    //    to restore the gas rate when restarting.  The oil
+    //    and water rates are discarded at output time.
+    BOOST_CHECK_CLOSE(state1.wells.get("OP_2", Q::gas),
+                      state2.wells.get("OP_2", Q::gas), 1.0e-10);
+
+    BOOST_CHECK_CLOSE(state1.wells.at("OP_2").bhp,
+                      state2.wells.at("OP_2").bhp, 1.0e-10);
+
+    {
+        const auto& c1 = state1.wells.at("OP_1").connections;
+        const auto& c2 = state2.wells.at("OP_1").connections;
+
+        for (const int i : { 0, 1 }) {
+            for (const auto& q : { Q::oil, Q::wat, Q::gas }) {
+                BOOST_REQUIRE_MESSAGE(c1[i].rates.has(q), "Missing Phase Rate in 'c1'");
+                BOOST_REQUIRE_MESSAGE(c2[i].rates.has(q), "Missing Phase Rate in 'c2'");
+
+                BOOST_CHECK_CLOSE(c1[i].rates.get(q), c2[i].rates.get(q), 1.0e-10);
+            }
+        }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(ECL_FORMATTED)
@@ -626,6 +662,7 @@ void compare_equal(const RestartValue&            fst,
         }
     }
 }
+} // namespace anonymous
 
 } // Anonymous namespace
 
