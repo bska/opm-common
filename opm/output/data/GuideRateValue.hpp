@@ -86,12 +86,25 @@ namespace Opm { namespace data {
 
         GuideRateValue& operator+=(const GuideRateValue& rhs)
         {
-            for (auto i = 0*Size; i < Size; ++i) {
+            this->indexLoop([&rhs, this](const std::size_t i)
+            {
                 if (rhs.mask_[i]) {
                     this->mask_.set(i);
                     this->value_[i] += rhs.value_[i];
                 }
-            }
+            });
+
+            return *this;
+        }
+
+        GuideRateValue& operator*=(const double x)
+        {
+            this->indexLoop([x, this](const std::size_t i)
+            {
+                if (this->mask_[i]) {
+                    this->value_[i] *= x;
+                }
+            });
 
             return *this;
         }
@@ -149,7 +162,25 @@ namespace Opm { namespace data {
 
             return "Unknown (" + std::to_string(this->index(p)) + ')';
         }
+
+        template <class Body>
+        void indexLoop(Body&& body)
+        {
+            for (auto i = 0*Size; i < Size; ++i) {
+                body(i);
+            }
+        }
     };
+
+    inline GuideRateValue operator*(const double x, GuideRateValue gr)
+    {
+        return gr *= x;
+    }
+
+    inline GuideRateValue operator*(GuideRateValue gr, const double x)
+    {
+        return gr *= x;
+    }
 
 }} // namespace Opm::data
 
