@@ -48,6 +48,7 @@
 #include <opm/io/eclipse/EclIOdata.hpp>
 #include <opm/io/eclipse/ERst.hpp>
 
+#include <algorithm>
 #include <tuple>
 
 #include <opm/common/utility/TimeService.hpp>
@@ -381,7 +382,8 @@ void init_st(SummaryState& st) {
 
     st.update_group_var("GRP1", "GOPR", 100);
     st.update_group_var("WGRP1", "GOPR", 100);
-    st.update_group_var("WGRP1", "GOPR", 100);
+    st.update_group_var("WGRP2", "GOPR", 100);
+
     st.update("FLPR", 100);
 }
 
@@ -1017,8 +1019,20 @@ BOOST_AUTO_TEST_CASE(UDQ_RESTART) {
 
     Setup restart_setup("UDQ_RESTART.DATA");
     auto state2 = second_sim( restart_setup , action_state, st2 , keys );
-    BOOST_CHECK(st1.wells() == st2.wells());
-    BOOST_CHECK(st1.groups() == st2.groups());
+
+    {
+        auto w1 = st1.wells();  std::sort(w1.begin(), w1.end());
+        auto w2 = st2.wells();  std::sort(w2.begin(), w2.end());
+
+        BOOST_CHECK_EQUAL_COLLECTIONS(w1.begin(), w1.end(), w2.begin(), w2.end());
+    }
+
+    {
+        auto g1 = st1.groups();  std::sort(g1.begin(), g1.end());
+        auto g2 = st2.groups();  std::sort(g2.begin(), g2.end());
+
+        BOOST_CHECK_EQUAL_COLLECTIONS(g1.begin(), g1.end(), g2.begin(), g2.end());
+    }
 
     const auto& udq = base_setup.schedule.getUDQConfig(1);
     for (const auto& well : st1.wells()) {
