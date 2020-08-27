@@ -69,12 +69,14 @@ class Phases {
         template<class Serializer>
         void serializeOp(Serializer& serializer)
         {
-            if (serializer.isSerializing())
-                serializer(bits.to_ulong());
+            unsigned long Bits = 0ul;
+            if (serializer.isSerializing()) {
+                Bits = bits.to_ulong();
+                serializer(Bits);
+            }
             else {
-              unsigned long Bits = 0;
-              serializer(Bits);
-              bits = std::bitset<NUM_PHASES_IN_ENUM>(Bits);
+                serializer(Bits);
+                bits = std::bitset<NUM_PHASES_IN_ENUM>(Bits);
             }
         }
 
