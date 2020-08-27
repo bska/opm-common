@@ -48,6 +48,7 @@
 #include <opm/parser/eclipse/EclipseState/Schedule/MSW/WellSegments.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/ScheduleTypes.hpp>
 #include <opm/parser/eclipse/EclipseState/Runspec.hpp>
+#include <opm/parser/eclipse/EclipseState/Schedule/Group/Group.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Schedule.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/SummaryState.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Well/Well.hpp>
@@ -108,9 +109,6 @@ namespace {
     Opm::EclIO::eclArrType ArrayType<std::string>::T = ::Opm::EclIO::eclArrType::CHAR;
 }
 
-
-
-
 class RestartFileView
 {
 public:
@@ -141,7 +139,8 @@ public:
         if (this->rst_file_ == nullptr) { return false; }
 
         const auto& coll_iter = this->vectors_.find(ArrayType<ElmType>::T);
-        return (coll_iter != this->vectors_.end() && this->collectionContains(coll_iter->second, vector));
+        return (coll_iter != this->vectors_.end())
+            && this->collectionContains(coll_iter->second, vector);
     }
 
     template <typename ElmType>
@@ -182,7 +181,6 @@ private:
     {
         return coll.find(vector) != coll.end();
     }
-
 };
 
 RestartFileView::RestartFileView(const std::string& filename,
@@ -251,7 +249,9 @@ namespace {
         return { begin, end };
     }
 }
+
 // ---------------------------------------------------------------------
+
 class UDQVectors
 {
 public:
@@ -420,31 +420,51 @@ public:
 
     bool hasDefinedValues() const;
 
+    std::size_t numNonFieldGroups() const;
+    std::size_t maxGroupSize() const;
     std::size_t maxGroups() const;
 
-    Window<int>    igrp(const std::size_t groupID) const;
-    Window<double> xgrp(const std::size_t groupID) const;
+    Window<int>         igrp(const std::size_t groupID) const;
+    Window<double>      xgrp(const std::size_t groupID) const;
+    Window<std::string> zgrp(const std::size_t groupID) const;
 
 private:
+    std::size_t numGroups_;
+    std::size_t maxGroupSize_;
     std::size_t maxNumGroups_;
     std::size_t numIGrpElem_;
     std::size_t numXGrpElem_;
+    std::size_t numZGrpElem_;
 
     std::shared_ptr<RestartFileView> rstView_;
 };
 
 GroupVectors::GroupVectors(const std::vector<int>&          intehead,
                            std::shared_ptr<RestartFileView> rst_view)
-    : maxNumGroups_(intehead[VI::intehead::NGMAXZ] - 1) // -FIELD
+    : numGroups_   (intehead[VI::intehead::NGRP])       // Excluding FIELD
+    , maxGroupSize_(intehead[VI::intehead::NWGMAX])
+    , maxNumGroups_(intehead[VI::intehead::NGMAXZ] - 1) // -FIELD
     , numIGrpElem_ (intehead[VI::intehead::NIGRPZ])
     , numXGrpElem_ (intehead[VI::intehead::NXGRPZ])
+    , numZGrpElem_ (intehead[VI::intehead::NZGRPZ])
     , rstView_     (std::move(rst_view))
 {}
 
 bool GroupVectors::hasDefinedValues() const
 {
-    return this->rstView_->hasKeyword<int>   ("IGRP")
-        && this->rstView_->hasKeyword<double>("XGRP");
+    return this->rstView_->hasKeyword<int>        ("IGRP")
+        && this->rstView_->hasKeyword<double>     ("XGRP")
+        && this->rstView_->hasKeyword<std::string>("ZGRP");
+}
+
+std::size_t GroupVectors::numNonFieldGroups() const
+{
+    return this->numGroups_;
+}
+
+std::size_t GroupVectors::maxGroupSize() const
+{
+    return this->maxGroupSize_;
 }
 
 std::size_t GroupVectors::maxGroups() const
@@ -476,6 +496,19 @@ GroupVectors::xgrp(const std::size_t groupID) const
 
     return getDataWindow(this->rstView_->getKeyword<double>("XGRP"),
                          this->numXGrpElem_, groupID);
+}
+
+GroupVectors::Window<std::string>
+GroupVectors::zgrp(const std::size_t groupID) const
+{
+    if (! this->hasDefinedValues()) {
+        throw std::logic_error {
+            "Cannot Request ZGRP Values Unless Defined"
+        };
+    }
+
+    return getDataWindow(this->rstView_->getKeyword<std::string>("ZGRP"),
+                         this->numZGrpElem_, groupID);
 }
 
 // ---------------------------------------------------------------------
@@ -1277,18 +1310,125 @@ namespace {
         const auto& units  = es.getUnits();
         const auto& phases = es.runspec().phases();
 
-        const auto& wells = schedule.getWells(rst_view->simStep());
+        const auto& wells = schedule.wellNames(rst_view->simStep());
         for (auto nWells = wells.size(), wellID = 0*nWells;
                   wellID < nWells; ++wellID)
         {
             const auto& well = wells[wellID];
 
-            soln[well.name()] =
-                restore_well(well, wellID, grid, units,
-                             phases, wellData, segData);
+            soln[well] =
+                restore_well(schedule.getWell(well, rst_view->simStep()),
+                             wellID, grid, units, phases, wellData, segData);
         }
 
         return soln;
+    }
+
+    template <typename IGrpArray>
+    bool respondsToHigherLevelProdLimit(const std::size_t nwgmax, const IGrpArray& igrp)
+    {
+        return igrp[nwgmax + 5] != 0;
+    }
+
+    template <typename IGrpArray>
+    Opm::Group::ProductionCMode
+    distinguishFldFromNone(const std::size_t nwgmax, const IGrpArray& igrp)
+    {
+        using PMode = Opm::Group::ProductionCMode;
+
+        return (igrp[nwgmax + 6] > 0) ? PMode::FLD : PMode::NONE;
+    }
+
+    template <typename IGrpArray>
+    Opm::Group::ProductionCMode
+    groupProductionControl(const std::size_t nwgmax, const IGrpArray& igrp)
+    {
+        using PMode = ::Opm::Group::ProductionCMode;
+
+        if (respondsToHigherLevelProdLimit(nwgmax, igrp)) {
+            // Group is controlled by higher-level target/limit (or NONE)
+            return distinguishFldFromNone(nwgmax, igrp);
+        }
+
+        // Group is controlled by its OWN target/limit (GCONPROD)
+        switch (igrp[nwgmax + 1]) {
+        case 0: return PMode::NONE;
+        case 1: return PMode::ORAT;
+        case 2: return PMode::WRAT;
+        case 3: return PMode::GRAT;
+        case 4: return PMode::LRAT;
+        case 5: return PMode::RESV;
+
+        default:
+            // No really supported.
+            return PMode::NONE;
+        }
+    }
+
+    Opm::Group::InjectionCMode
+    groupInjectionControl(const int curr)
+    {
+        using IMode = ::Opm::Group::InjectionCMode;
+
+        switch (curr) {
+        case 0: return IMode::NONE;
+        case 1: return IMode::RATE;
+        case 2: return IMode::RESV;
+        case 3: return IMode::REIN;
+        case 4: return IMode::VREP;
+
+        default:
+            // No really supported.
+            return IMode::NONE;
+        }
+    }
+
+    template <typename IGrpArray>
+    Opm::data::GroupConstraints
+    currentGroupConstraints(const std::size_t nwgmax, const IGrpArray& igrp)
+    {
+        return {
+            groupProductionControl(nwgmax, igrp),
+            groupInjectionControl (igrp[nwgmax + 21]), // Gas injection
+            groupInjectionControl (igrp[nwgmax + 16])  // Water injection
+        };
+    }
+
+    void restore_group_value(const std::size_t                 groupID,
+                             const GroupVectors&               groupData,
+                             Opm::data::GroupAndNetworkValues& grp_nwrk_val)
+    {
+        using Ix = ::Opm::RestartIO::Helpers::VectorItems::ZGroup::index;
+
+        const auto igrp = groupData.igrp(groupID);
+        const auto zgrp = groupData.zgrp(groupID);
+
+        auto& gval = grp_nwrk_val.groupData[zgrp[Ix::GroupName]];
+
+        gval.currentControl =
+            currentGroupConstraints(groupData.maxGroupSize(), igrp);
+    }
+
+    Opm::data::GroupAndNetworkValues
+    restore_group_values(std::shared_ptr<RestartFileView> rst_view)
+    {
+        auto grp_nwrk_val = Opm::data::GroupAndNetworkValues{};
+
+        const auto groupData = GroupVectors {
+            rst_view->intehead(), rst_view
+        };
+
+        // Non-FIELD groups
+        for (auto ngrp    = groupData.numNonFieldGroups(),
+                  groupID = 0*ngrp; groupID < ngrp; ++groupID)
+        {
+            restore_group_value(groupID, groupData, grp_nwrk_val);
+        }
+
+        // FIELD group.
+        restore_group_value(groupData.maxGroups(), groupData, grp_nwrk_val);
+
+        return grp_nwrk_val;
     }
 
     Opm::data::AquiferType
@@ -1447,10 +1587,9 @@ namespace {
         smry.update(key("GITH"), xgrp[VI::XGroup::index::HistGasInjTotal]);
     }
 
-
-    void restore_udq(::Opm::SummaryState&             smry,
-                     const ::Opm::Schedule&           schedule,
-                     std::shared_ptr<RestartFileView>& rst_view)
+    void restore_udq(const ::Opm::Schedule&            schedule,
+                     std::shared_ptr<RestartFileView>& rst_view,
+                     ::Opm::SummaryState&              smry)
     {
         if (!rst_view->hasKeyword<std::string>(std::string("ZUDN")))
             return;
@@ -1489,9 +1628,9 @@ namespace {
         }
     }
 
-    void restore_cumulative(::Opm::SummaryState&             smry,
-                            const ::Opm::Schedule&           schedule,
-                            std::shared_ptr<RestartFileView> rst_view)
+    void restore_cumulative(const ::Opm::Schedule&           schedule,
+                            std::shared_ptr<RestartFileView> rst_view,
+                            ::Opm::SummaryState&             smry)
     {
         const auto  sim_step = rst_view->simStep();
         const auto& intehead = rst_view->intehead();
@@ -1562,9 +1701,12 @@ namespace Opm { namespace RestartIO  {
         auto xw = rst_view->hasKeyword<double>("OPM_XWEL")
             ? restore_wells_opm(es, grid, schedule, *rst_view)
             : restore_wells_ecl(es, grid, schedule,  rst_view);
-        data::GroupAndNetworkValues xg_nwrk;
 
-        auto rst_value = RestartValue{ std::move(xr), std::move(xw), std::move(xg_nwrk)};
+        auto xg_nwrk = restore_group_values(rst_view);
+
+        auto rst_value = RestartValue {
+            std::move(xr), std::move(xw), std::move(xg)
+        };
 
         if (! extra_keys.empty()) {
             restoreExtra(extra_keys, es.getUnits(), *rst_view, rst_value);
@@ -1574,8 +1716,9 @@ namespace Opm { namespace RestartIO  {
             restore_aquifers(es, rst_view, rst_value);
         }
 
-        restore_udq(summary_state, schedule, rst_view);
-        restore_cumulative(summary_state, schedule, std::move(rst_view));
+        restore_udq(schedule, rst_view, summary_state);
+        restore_cumulative(schedule, std::move(rst_view), summary_state);
+
         return rst_value;
     }
 

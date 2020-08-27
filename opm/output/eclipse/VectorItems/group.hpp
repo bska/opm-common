@@ -20,12 +20,46 @@
 #ifndef OPM_OUTPUT_ECLIPSE_VECTOR_GROUP_HPP
 #define OPM_OUTPUT_ECLIPSE_VECTOR_GROUP_HPP
 
+#include <string>
 #include <vector>
 
 namespace Opm { namespace RestartIO { namespace Helpers { namespace VectorItems {
 
+    namespace IGroup {
+        // Observe that these value should not be used as ordinary indices into
+        // the the IGRP vector, they should all be used as IGRP[NWGMAX + $index]
+        enum index : std::vector<int>::size_type {
+            ProdActiveCMode =  1,
+            GuideRateDef    =  6,
+            GConProdCMode   = 10,
+            WInjCMode       = 16,
+            GInjCMode       = 21,
+            GroupType       = 26,
+            GroupLevel      = 27,
+            ParentGroup     = 28,
+            FlowingWells    = 33,
+        };
 
-        namespace SGroup {
+        namespace Value {
+            enum GuideRateMode : int {
+                None   = 0,
+                Oil    = 1,
+                Water  = 2,
+                Gas    = 3,
+                Liquid = 4,
+                Potn   = 7,
+                Form   = 8,
+                Comb   = 9,
+            };
+
+            enum GroupType : int {
+                WellGroup = 0,
+                TreeGroup = 1,
+            };
+        }
+    }
+
+    namespace SGroup {
         enum prod_index : std::vector<float>::size_type {
             GuideRate     =  2,
             OilRateLimit  =  6, // Group's oil production target/limit
@@ -47,46 +81,8 @@ namespace Opm { namespace RestartIO { namespace Helpers { namespace VectorItems 
             gasResRateLimit         =  21, // Group's gas reservoir volume injection rate target/limit
             gasReinjectionLimit     =  22, // Group's gas reinjection fraction target/limit
             gasVoidageLimit         =  23, // Group's gas voidage injection fraction target/limit
-
         };
     } // SGroup
-
-
-    namespace IGroup {
-    // Observe that these value should not be used as ordinary indices into
-    // the the IGRP vector, they should all be used as IGRP[NWGMAX + $index]
-    enum index : std::vector<int>::size_type {
-        ProdActiveCMode = 1,
-        GuideRateDef = 6,
-        WInjCMode = 16,
-        GConProdCMode = 10,
-        GInjCMode = 21,
-        GroupType = 26,
-        GroupLevel = 27,
-        ParentGroup = 28,
-        FlowingWells = 33,
-    };
-
-    namespace Value {
-    enum GuideRateMode : int {
-        None = 0,
-        Oil = 1,
-        Water = 2,
-        Gas = 3,
-        Liquid = 4,
-        Potn = 7,
-        Form = 8,
-        Comb = 9,
-    };
-
-    enum GroupType : int {
-        WellGroup = 0,
-        TreeGroup = 1,
-    };
-
-    }
-
-    }
 
 
     namespace XGroup {
@@ -147,6 +143,12 @@ namespace Opm { namespace RestartIO { namespace Helpers { namespace VectorItems 
                                    // (observed/historical rates)
         };
     } // XGroup
+
+    namespace ZGroup {
+        enum index : std::vector<std::string>::size_type {
+            GroupName  =  0, // Group's name
+        };
+    } // ZGroup
 
 }}}} // Opm::RestartIO::Helpers::VectorItems
 
