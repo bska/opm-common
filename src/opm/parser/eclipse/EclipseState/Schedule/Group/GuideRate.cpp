@@ -257,7 +257,13 @@ void GuideRate::assign_grvalue(const std::string&    wgname,
         v = std::make_unique<GRValState>();
     }
 
-    if (value.sim_time > v->curr.sim_time) {
+    if (! (value.sim_time > v->curr.sim_time)) {
+        // We've not advanced in time since we previously calculated/stored
+        // this guiderate value.  Don't perform any updates.
+        return;
+    }
+
+    {
         // We've advanced in time since we previously calculated/stored this
         // guiderate value.  Push current value into the past and prepare to
         // capture new value.
