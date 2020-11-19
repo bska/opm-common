@@ -262,6 +262,7 @@ if(ENABLE_ECL_OUTPUT)
           src/opm/io/eclipse/ERsm.cpp
           src/opm/io/eclipse/ESmry.cpp
           src/opm/io/eclipse/ESmry_write_rsm.cpp
+          src/opm/io/eclipse/FormattedFortran.cpp
           src/opm/io/eclipse/OutputStream.cpp
           src/opm/io/eclipse/SummaryNode.cpp
           src/opm/io/eclipse/rst/connection.cpp
@@ -804,6 +805,7 @@ if(ENABLE_ECL_OUTPUT)
         opm/io/eclipse/ERst.hpp
         opm/io/eclipse/ERsm.hpp
         opm/io/eclipse/ESmry.hpp
+        opm/io/eclipse/FormattedFortran.hpp
         opm/io/eclipse/PaddedOutputString.hpp
         opm/io/eclipse/OutputStream.hpp
         opm/io/eclipse/SummaryNode.hpp

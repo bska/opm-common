@@ -18,6 +18,7 @@
 
 #include <opm/io/eclipse/EclOutput.hpp>
 #include <opm/io/eclipse/EclUtil.hpp>
+#include <opm/io/eclipse/FormattedFortran.hpp>
 
 #include <opm/common/ErrorMacros.hpp>
 
@@ -426,7 +427,7 @@ void EclOutput::writeFormattedHeader(const std::string& arrName, int size, eclAr
     }
 }
 
-
+#if 0
 std::string EclOutput::make_real_string_ecl(float value) const
 {
     char buffer [15];
@@ -552,7 +553,24 @@ std::string EclOutput::make_doub_string_ix(double value) const
         return tmpstr;
     }
 }
-
+#else
+std::string EclOutput::make_real_string_ecl(float value) const
+{
+    return formatE100(value);
+}
+std::string EclOutput::make_real_string_ix(float value) const
+{
+    return formatIX(value);
+}
+std::string EclOutput::make_doub_string_ecl(double value) const
+{
+    return formatE100(value);
+}
+std::string EclOutput::make_doub_string_ix(double value) const
+{
+    return formatIX(value);
+}
+#endif
 
 template <typename T>
 void EclOutput::writeFormattedArray(const std::vector<T>& data)
