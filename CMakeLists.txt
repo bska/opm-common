@@ -104,6 +104,11 @@ macro (config_hook)
       set_target_properties(Boost::unit_test_framework PROPERTIES INTERFACE_COMPILE_DEFINITIONS BOOST_TEST_DYN_LINK=1)
     endif()
   endif()
+
+  if (NOT HAVE_OPM_TESTS)
+    set(OPM_TESTS_ROOT "")
+  endif()
+  list(APPEND TESTING_CONFIG_VARS "OPM_TESTS_ROOT")
 endmacro (config_hook)
 
 macro (prereqs_hook)

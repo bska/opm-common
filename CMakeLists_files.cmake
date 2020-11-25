@@ -40,6 +40,7 @@ list (APPEND MAIN_SOURCE_FILES
       src/opm/common/utility/parameters/ParameterTools.cpp
       src/opm/common/utility/numeric/calculateCellVol.cpp
       src/opm/common/utility/TimeService.cpp
+      test_util/TestRoot.cpp
 )
 if(ENABLE_ECL_INPUT)
   list(APPEND MAIN_SOURCE_FILES
