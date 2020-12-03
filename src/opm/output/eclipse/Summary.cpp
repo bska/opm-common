@@ -971,49 +971,37 @@ inline quantity potential_rate( const fn_args& args ) {
 
 inline quantity preferred_phase_productivty_index(const fn_args& args) {
     if (args.schedule_wells.empty())
-        return {0, rate_unit<rt::productivity_index_oil>()};
+        return {0.0, rate_unit<rt::productivity_index_oil>()};
 
     const auto& well = args.schedule_wells.front();
-    auto preferred_phase = well.getPreferredPhase();
-    if (well.getStatus() == Opm::Well::Status::OPEN) {
+    const auto  preferred_phase = well.getPreferredPhase();
 
-        switch (preferred_phase) {
-        case Opm::Phase::OIL:
+    if (well.getStatus() == Opm::Well::Status::OPEN) {
+        if (preferred_phase == Opm::Phase::OIL)
             return potential_rate<rt::productivity_index_oil>(args);
 
-        case Opm::Phase::GAS:
+        if (preferred_phase == Opm::Phase::GAS)
             return potential_rate<rt::productivity_index_gas>(args);
 
-        case Opm::Phase::WATER:
+        if (preferred_phase == Opm::Phase::WATER)
             return potential_rate<rt::productivity_index_water>(args);
+    }
+    else {
+        if (preferred_phase == Opm::Phase::OIL)
+            return {0.0, rate_unit<rt::productivity_index_oil>()};
 
-        default:
-            break;
-        }
-    } else {
+        if (preferred_phase == Opm::Phase::GAS)
+            return {0.0, rate_unit<rt::productivity_index_gas>()};
 
-        switch (preferred_phase) {
-        case Opm::Phase::OIL:
-            return {0, rate_unit<rt::productivity_index_oil>()};
-
-        case Opm::Phase::GAS:
-            return {0, rate_unit<rt::productivity_index_gas>()};
-
-        case Opm::Phase::WATER:
-            return {0, rate_unit<rt::productivity_index_water>()};
-
-        default:
-            break;
-
-        }
+        if (preferred_phase == Opm::Phase::WATER)
+            return {0.0, rate_unit<rt::productivity_index_water>()};
     }
 
     throw std::invalid_argument {
         "Unsupported \"preferred\" phase: " +
-            std::to_string(static_cast<int>(args.schedule_wells.front().getPreferredPhase()))
-            };
+        std::to_string(static_cast<int>(preferred_phase))
+    };
 }
-
 
 inline quantity connection_productivity_index(const fn_args& args) {
     const quantity zero = { 0.0, rate_unit<rt::productivity_index_oil>() };
@@ -1042,26 +1030,22 @@ inline quantity connection_productivity_index(const fn_args& args) {
     if (completion == xcon.end())
         return zero;
 
-    switch (args.schedule_wells.front().getPreferredPhase()) {
-    case Opm::Phase::OIL:
+    const auto preferred = args.schedule_wells.front().getPreferredPhase();
+    if (preferred == Opm::Phase::OIL)
         return { completion->rates.get(rt::productivity_index_oil, 0.0),
                  rate_unit<rt::productivity_index_oil>() };
 
-    case Opm::Phase::GAS:
+    if (preferred == Opm::Phase::GAS)
         return { completion->rates.get(rt::productivity_index_gas, 0.0),
                  rate_unit<rt::productivity_index_gas>() };
 
-    case Opm::Phase::WATER:
+    if (preferred == Opm::Phase::WATER)
         return { completion->rates.get(rt::productivity_index_water, 0.0),
                  rate_unit<rt::productivity_index_water>() };
 
-    default:
-        break;
-    }
-
     throw std::invalid_argument {
         "Unsupported \"preferred\" phase: " +
-        std::to_string(static_cast<int>(args.schedule_wells.front().getPreferredPhase()))
+        std::to_string(static_cast<int>(preferred))
     };
 }
 
