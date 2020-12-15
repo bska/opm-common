@@ -20,6 +20,7 @@
 #define FIELDPROPS_MANAGER_HPP
 
 #include <opm/input/eclipse/EclipseState/Grid/Carfin.hpp>
+#include <opm/input/eclipse/EclipseState/Grid/TranCalculator.hpp>
 
 #include <map>
 #include <memory>
@@ -38,8 +39,6 @@ class DeckKeyword;
 class DeckView;
 class LgrCollection;
 namespace Fieldprops {
-class TranCalculator;
-enum class ScalarOperation;
 template<typename T> struct FieldData;
 }
 class FieldProps;
