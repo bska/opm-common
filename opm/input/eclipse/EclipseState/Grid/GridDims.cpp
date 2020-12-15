@@ -162,19 +162,20 @@ namespace Opm {
 
     void GridDims::binary_init(const Deck& deck)
     {
-        const DeckKeyword& gdfile_kw = deck["GDFILE"].back();
-        const std::string& gdfile_arg = gdfile_kw.getRecord(0).getItem("filename").getTrimmedString(0);
-        const EclIO::EGrid egrid( deck.makeDeckPath(gdfile_arg) );
+        const auto gdfile = deck.getKeyword<ParserKeywords::GDFILE>().back()
+            .getRecord(0).getItem<ParserKeywords::GDFILE::filename>()
+            .getTrimmedString(0);
 
-        const auto& dimens = egrid.dimension();
-        m_nx = dimens[0];
-        m_ny = dimens[1];
-        m_nz = dimens[2];
+        const auto dimens =
+            EclIO::EGrid { deck.makeDeckPath(gdfile) }.dimension();
+
+        this->m_nx = dimens[0];
+        this->m_ny = dimens[1];
+        this->m_nz = dimens[2];
     }
 
     bool GridDims::operator==(const GridDims& data) const
     {
         return this->getNXYZ() == data.getNXYZ();
     }
-
 }
