@@ -26,11 +26,9 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <numeric>
-#include <string>
 #include <stdexcept>
+#include <string>
 
 #include <fmt/format.h>
 
@@ -293,23 +291,20 @@ void EGrid::load_nnc_data()
 
 int EGrid::global_index(int i, int j, int k) const
 {
-    if (i < 0 || i >= nijk[0] || j < 0 || j >= nijk[1] || k < 0 || k >= nijk[2]) {
+    if ((i < 0) || (i >= this->nijk[0]) ||
+        (j < 0) || (j >= this->nijk[1]) ||
+        (k < 0) || (k >= this->nijk[2]))
+    {
         OPM_THROW(std::invalid_argument, "i, j or/and k out of range");
     }
 
-    return i + j * nijk[0] + k * nijk[0] * nijk[1];
+    return i + this->nijk[0]*(j + this->nijk[1]*k);
 }
 
 
 int EGrid::active_index(int i, int j, int k) const
 {
-    int n = i + j * nijk[0] + k * nijk[0] * nijk[1];
-
-    if (i < 0 || i >= nijk[0] || j < 0 || j >= nijk[1] || k < 0 || k >= nijk[2]) {
-        OPM_THROW(std::invalid_argument, "i, j or/and k out of range");
-    }
-
-    return act_index[n];
+    return this->act_index[ this->global_index(i, j, k) ];
 }
 
 
@@ -319,35 +314,21 @@ std::array<int, 3> EGrid::ijk_from_active_index(int actInd) const
         OPM_THROW(std::invalid_argument, "active index out of range");
     }
 
-    int _glob = glob_index[actInd];
-
-    std::array<int, 3> result;
-    result[2] = _glob / (nijk[0] * nijk[1]);
-
-    int rest = _glob % (nijk[0] * nijk[1]);
-
-    result[1] = rest / nijk[0];
-    result[0] = rest % nijk[0];
-
-    return result;
+    return this->ijk_from_global_index(this->glob_index[actInd]);
 }
 
 
 std::array<int, 3> EGrid::ijk_from_global_index(int globInd) const
 {
-    if (globInd < 0 || globInd >= nijk[0] * nijk[1] * nijk[2]) {
+    if (globInd < 0 || globInd >= this->totalNumberOfCells()) {
         OPM_THROW(std::invalid_argument, "global index out of range");
     }
 
-    std::array<int, 3> result;
-    result[2] = globInd / (nijk[0] * nijk[1]);
+    const auto i = globInd % this->nijk[0];   globInd /= this->nijk[0];
+    const auto j = globInd % this->nijk[1];
+    const auto k = globInd / this->nijk[1];
 
-    int rest = globInd % (nijk[0] * nijk[1]);
-
-    result[1] = rest / nijk[0];
-    result[0] = rest % nijk[0];
-
-    return result;
+    return {{ i, j, k }};
 }
 
 void EGrid::mapaxes_transform(double& x, double& y) const {
