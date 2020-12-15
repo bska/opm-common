@@ -425,7 +425,7 @@ first_sim(const Setup&         setup,
     WellTestState wtest_state;
     EclipseIO eclWriter(setup.es, setup.grid, setup.schedule, setup.summary_config);
 
-    const auto num_cells = setup.grid.getNumActive( );
+    const auto num_cells = setup.grid.getNumActive();
     const int report_step = 1;
     const auto start_time = setup.schedule.getStartTime();
     const auto first_step = setup.schedule.simTime(report_step);

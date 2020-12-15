@@ -32,6 +32,8 @@
 #include <utility>
 #include <vector>
 
+#include <stddef.h>
+
 #include <opm/input/eclipse/Schedule/Action/ActionResult.hpp>
 #include <opm/input/eclipse/Schedule/Action/SimulatorUpdate.hpp>
 #include <opm/input/eclipse/Schedule/Action/WGNames.hpp>

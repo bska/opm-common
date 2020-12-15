@@ -22,8 +22,12 @@
 #define OPM_TABLE_MANAGER_HPP
 
 #include <cassert>
+#include <cstddef>
+#include <map>
 #include <optional>
 #include <set>
+#include <string>
+#include <vector>
 
 #include <opm/input/eclipse/EclipseState/Tables/DenT.hpp>
 #include <opm/input/eclipse/EclipseState/Tables/JouleThomson.hpp>

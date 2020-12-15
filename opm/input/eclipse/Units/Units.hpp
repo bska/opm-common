@@ -307,7 +307,7 @@ namespace Opm {
         constexpr double Permeability         = milli*darcy;
         constexpr double Transmissibility     = centi*Poise*stb/(day*psia);
         constexpr double LiquidSurfaceVolume  = stb;
-        constexpr double GasSurfaceVolume     = 1000*cubic(feet);
+        constexpr double GasSurfaceVolume     = 1000*cubic(feet);  // Mscf
         constexpr double ReservoirVolume      = stb;
         constexpr double Area                 = square(feet);
         constexpr double GeomVolume           = cubic(feet);

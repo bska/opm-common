@@ -29,14 +29,18 @@
 
 namespace Opm
 {
-
+class Deck;
+class EclipseGrid;
 class GridDims;
+}
 
+namespace Opm
+{
 struct NNCdata {
-    NNCdata(size_t c1, size_t c2, double t)
+    NNCdata() = default;
+    NNCdata(const std::size_t c1, const std::size_t c2, const double t)
         : cell1(c1), cell2(c2), trans(t)
     {}
-    NNCdata() = default;
 
     bool operator==(const NNCdata& data) const
     {
@@ -45,7 +49,7 @@ struct NNCdata {
                trans == data.trans;
     }
 
-    template<class Serializer>
+    template <class Serializer>
     void serializeOp(Serializer& serializer)
     {
         serializer(cell1);
@@ -60,15 +64,10 @@ struct NNCdata {
         return std::tie(this->cell1, this->cell2) < std::tie(other.cell1, other.cell2);
     }
 
-    size_t cell1{};
-    size_t cell2{};
+    std::size_t cell1;
+    std::size_t cell2;
     double trans{};
 };
-
-
-
-class Deck;
-class EclipseGrid;
 
 /*
   This class is an internalization of the NNC and EDITNNC keywords. Because the
@@ -98,16 +97,18 @@ class EclipseGrid;
   involved.
 */
 
+/// Represents non-neighboring connections (non-standard adjacencies).
+/// This class is essentially a directed weighted graph.
 class NNC
 {
 public:
     NNC() = default;
     /// Construct from input deck.
-    NNC(const EclipseGrid& grid, const Deck& deck);
+    explicit NNC(const EclipseGrid& grid, const Deck& deck);
 
     static NNC serializationTestObject();
 
-    bool addNNC(const size_t cell1, const size_t cell2, const double trans);
+    bool addNNC(const std::size_t cell1, const std::size_t cell2, const double trans);
 
     /// \brief Merge additional NNCs into sorted NNCs
     void merge(const std::vector<NNCdata>& nncs);
@@ -121,10 +122,9 @@ public:
     KeywordLocation edit_location(const NNCdata& nnc) const;
     KeywordLocation editr_location(const NNCdata& nnc) const;
 
-
     bool operator==(const NNC& data) const;
 
-    template<class Serializer>
+    template <class Serializer>
     void serializeOp(Serializer& serializer)
     {
         serializer(m_input);
@@ -136,7 +136,6 @@ public:
     }
 
 private:
-
     void load_input(const EclipseGrid& grid, const Deck& deck);
     void load_edit(const EclipseGrid& grid, const Deck& deck);
     void load_editr(const EclipseGrid& grid, const Deck& deck);
@@ -152,9 +151,6 @@ private:
     std::optional<KeywordLocation> m_edit_location;
     std::optional<KeywordLocation> m_editr_location;
 };
-
-
 } // namespace Opm
-
 
 #endif // OPM_PARSER_NNC_HPP

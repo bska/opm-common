@@ -87,6 +87,7 @@
 #include <regex>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -524,12 +525,16 @@ namespace {
         return entities;
     }
 
-Opm::TimeStampUTC make_sim_time(const Opm::Schedule& sched, const Opm::SummaryState& st, double sim_step) {
-    auto elapsed = st.get_elapsed() + sim_step;
-    return Opm::TimeStampUTC( sched.getStartTime() )  + std::chrono::duration<double>(elapsed);
-}
+    Opm::TimeStampUTC
+    make_sim_time(const Opm::Schedule&     sched,
+                  const Opm::SummaryState& st,
+                  const double             stepsize)
+    {
+        auto elapsed = st.get_elapsed() + stepsize;
 
-
+        return Opm::TimeStampUTC { sched.getStartTime() }
+            + std::chrono::duration<double>(elapsed);
+    }
 
 /*
  * This class takes simulator state and parser-provided information and
@@ -4902,24 +4907,26 @@ namespace Evaluator {
 
 void reportUnsupportedKeywords(std::vector<Opm::SummaryConfigNode> keywords)
 {
-    // Sort by location first, then keyword.
-    auto loc_kw_ordering = [](const Opm::SummaryConfigNode& n1, const Opm::SummaryConfigNode& n2) {
-        if (n1.location() == n2.location()) {
-            return n1.keyword() < n2.keyword();
-        }
-        if (n1.location().filename == n2.location().filename) {
-            return n1.location().lineno < n2.location().lineno;
-        }
-        return n1.location().filename < n2.location().filename;
-    };
-    std::ranges::sort(keywords, loc_kw_ordering);
+    // Sort by location (file/line) first, then keyword.
+    std::ranges::sort(keywords, [](const Opm::SummaryConfigNode& n1,
+                                   const Opm::SummaryConfigNode& n2)
+    {
+        const auto& l1 = n1.location();
+        const auto& l2 = n2.location();
 
-    // Reorder to remove duplicate { keyword, location } pairs, since
-    // that will give duplicate and therefore useless warnings.
-    auto same_kw_and_loc = [](const Opm::SummaryConfigNode& n1, const Opm::SummaryConfigNode& n2) {
-        return (n1.keyword() == n2.keyword()) && (n1.location() == n2.location());
-    };
-    auto uend = std::unique(keywords.begin(), keywords.end(), same_kw_and_loc);
+        return std::tie(l1.filename, l1.lineno, n1.keyword())
+            <  std::tie(l2.filename, l2.lineno, n2.keyword());
+    });
+
+    // Prune duplicate { keyword, location } pairs, since those will give
+    // duplicate and therefore useless warnings.
+    auto uend = std::unique(keywords.begin(), keywords.end(),
+        [](const Opm::SummaryConfigNode& n1,
+           const Opm::SummaryConfigNode& n2)
+    {
+        return (n1.keyword()  == n2.keyword())
+            && (n1.location() == n2.location());
+    });
 
     for (auto node = keywords.begin(); node != uend; ++node) {
         const auto& location = node->location();
