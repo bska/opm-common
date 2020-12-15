@@ -23,9 +23,14 @@
 #include <array>
 #include <cstddef>
 
+#include <stddef.h>
+
 namespace Opm {
     class Deck;
     class DeckKeyword;
+} // namespace Opm
+
+namespace Opm {
 
     class GridDims
     {
@@ -57,7 +62,7 @@ namespace Opm {
 
         bool operator==(const GridDims& data) const;
 
-        template<class Serializer>
+        template <class Serializer>
         void serializeOp(Serializer& serializer)
         {
             serializer(m_nx);
@@ -74,6 +79,6 @@ namespace Opm {
         void init(const DeckKeyword& keyword);
         void binary_init(const Deck& deck);
     };
-}
+} // namespace Opm
 
 #endif /* OPM_PARSER_GRIDDIMS_HPP */
