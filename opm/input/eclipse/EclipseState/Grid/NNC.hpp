@@ -30,14 +30,18 @@
 
 namespace Opm
 {
-
+class Deck;
+class EclipseGrid;
 class GridDims;
+}
 
+namespace Opm
+{
 struct NNCdata {
-    NNCdata(std::size_t c1, std::size_t c2, double t)
+    NNCdata() = default;
+    NNCdata(const std::size_t c1, const std::size_t c2, const double t)
         : cell1(c1), cell2(c2), trans(t)
     {}
-    NNCdata() = default;
 
     bool operator==(const NNCdata& data) const
     {
@@ -46,7 +50,7 @@ struct NNCdata {
                trans == data.trans;
     }
 
-    template<class Serializer>
+    template <class Serializer>
     void serializeOp(Serializer& serializer)
     {
         serializer(cell1);
@@ -65,9 +69,6 @@ struct NNCdata {
     std::size_t cell2{};
     double trans{};
 };
-
-class Deck;
-class EclipseGrid;
 
 /*
   This class is an internalization of the NNC and EDITNNC keywords. Because the
@@ -97,13 +98,15 @@ class EclipseGrid;
   involved.
 */
 
+/// Represents non-neighboring connections (non-standard adjacencies).
+/// This class is essentially a directed weighted graph.
 class NNC
 {
 public:
     NNC() = default;
     virtual ~NNC() = default;
     /// Construct from input deck.
-    NNC(const EclipseGrid& grid, const Deck& deck);
+    explicit NNC(const EclipseGrid& grid, const Deck& deck);
 
     static NNC serializationTestObject();
 
@@ -123,7 +126,7 @@ public:
 
     bool operator==(const NNC& data) const;
 
-    template<class Serializer>
+    template <class Serializer>
     void serializeOp(Serializer& serializer)
     {
         serializer(m_input);
@@ -135,7 +138,6 @@ public:
     }
 
 private:
-
     void load_input(const EclipseGrid& grid, const Deck& deck);
     void load_edit(const EclipseGrid& grid, const Deck& deck);
     void load_editr(const EclipseGrid& grid, const Deck& deck);
