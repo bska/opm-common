@@ -38,15 +38,21 @@
 namespace Opm {
 
     class Deck;
-    namespace EclIO {
-        class EclFile;
-        class EclOutput;
-    }
     struct NNCdata;
     class UnitSystem;
     class ZcornMapper;
     class EclipseGridLGR;
     class LgrCollection;
+
+} // namespace Opm
+
+namespace Opm { namespace EclIO {
+    class EclFile;
+    class EclOutput;
+}} // namespace Opm::EclIO
+
+namespace Opm {
+
     /**
        About cell information and dimension: The actual grid
        information is held in a pointer to an ERT ecl_grid_type
