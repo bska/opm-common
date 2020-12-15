@@ -24,14 +24,18 @@
 #include <stdexcept>
 #include <vector>
 
+#include <stddef.h>
+
 namespace Opm {
     class Deck;
     class DeckKeyword;
+} // namespace Opm
+
+namespace Opm {
 
     class GridDims
     {
     public:
-
         GridDims();
         explicit GridDims(std::array<int, 3> xyz);
         GridDims(size_t nx, size_t ny, size_t nz);
@@ -41,16 +45,16 @@ namespace Opm {
         explicit GridDims(const Deck& deck);
 
         size_t getNX() const;
-
         size_t getNY() const;
         size_t getNZ() const;
+
         size_t operator[](int dim) const;
 
-        const std::array<int, 3> getNXYZ() const;
+        std::array<int, 3> getNXYZ() const;
 
         size_t getGlobalIndex(size_t i, size_t j, size_t k) const;
 
-        const std::array<int, 3> getIJK(size_t globalIndex) const;
+        std::array<int, 3> getIJK(size_t globalIndex) const;
 
         size_t getCartesianSize() const;
 
@@ -60,7 +64,7 @@ namespace Opm {
 
         bool operator==(const GridDims& data) const;
 
-        template<class Serializer>
+        template <class Serializer>
         void serializeOp(Serializer& serializer)
         {
             serializer(m_nx);
@@ -77,6 +81,6 @@ namespace Opm {
         void init(const DeckKeyword& keyword);
         void binary_init(const Deck& deck);
     };
-}
+} // namespace Opm
 
 #endif /* OPM_PARSER_GRIDDIMS_HPP */

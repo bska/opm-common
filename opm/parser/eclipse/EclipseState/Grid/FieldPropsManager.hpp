@@ -20,6 +20,7 @@
 #define FIELDPROPS_MANAGER_HPP
 
 #include <memory>
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <opm/parser/eclipse/EclipseState/Grid/TranCalculator.hpp>

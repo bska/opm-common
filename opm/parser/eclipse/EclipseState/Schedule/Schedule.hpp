@@ -22,7 +22,12 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_set>
+#include <vector>
+
+#include <stddef.h>
+#include <time.h>
 
 #include <opm/parser/eclipse/Python/Python.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>

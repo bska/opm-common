@@ -36,10 +36,17 @@
 namespace Opm {
 
     class Deck;
-    namespace EclIO { class EclFile; }
     struct NNCdata;
     class UnitSystem;
     class ZcornMapper;
+
+} // namespace Opm
+
+namespace Opm { namespace EclIO {
+    class EclFile;
+}} // namespace Opm::EclIO
+
+namespace Opm {
 
     /**
        About cell information and dimension: The actual grid

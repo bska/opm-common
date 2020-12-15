@@ -23,12 +23,7 @@
 #include <opm/common/utility/FileSystem.hpp>
 
 #include <array>
-#include <iostream>
-#include <string>
-#include <fstream>
 #include <vector>
-#include <ctime>
-#include <map>
 
 namespace Opm { namespace EclIO {
 

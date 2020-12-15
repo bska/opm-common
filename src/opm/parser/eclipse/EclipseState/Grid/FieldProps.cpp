@@ -15,8 +15,11 @@
   You should have received a copy of the GNU General Public License along with
   OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <functional>
+
+#include "FieldProps.hpp"
+
 #include <algorithm>
+#include <functional>
 #include <unordered_map>
 #include <array>
 #include <vector>
@@ -46,7 +49,6 @@
 #include <opm/parser/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquifers.hpp>
 #include <opm/parser/eclipse/EclipseState/Tables/TableManager.hpp>
 
-#include "FieldProps.hpp"
 #include "Operate.hpp"
 
 

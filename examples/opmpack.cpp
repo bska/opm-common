@@ -33,6 +33,8 @@
 
 namespace fs = Opm::filesystem;
 
+namespace {
+
 Opm::Deck pack_deck( const char * deck_file, std::ostream& os) {
     Opm::ParseContext parseContext(Opm::InputError::WARN);
     Opm::ErrorGuard errors;
@@ -97,7 +99,7 @@ void copy_file(const fs::path& source_dir, fs::path fname, const fs::path& targe
     std::cerr << "Copying file " << source_file.string() << " -> " << target_file.string() << std::endl;
 }
 
-
+} // Anonymous namespace
 
 int main(int argc, char** argv) {
     int arg_offset = 1;

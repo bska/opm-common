@@ -1,5 +1,9 @@
-#include <opm/parser/eclipse/Deck/DeckKeyword.hpp>
 #include <opm/parser/eclipse/EclipseState/InitConfig/Equil.hpp>
+
+#include <opm/parser/eclipse/Deck/DeckKeyword.hpp>
+#include <opm/parser/eclipse/Parser/ParserKeywords/E.hpp>
+
+#include <stdexcept>
 
 namespace Opm {
 
@@ -72,20 +76,36 @@ namespace Opm {
 
     /* */
 
-    Equil::Equil( const DeckKeyword& keyword )
+    Equil::Equil(const DeckKeyword& keyword)
     {
-        for (const auto& record : keyword) {
-            auto datum_depth_arg = record.getItem( 0 ).getSIDouble( 0 );
-            auto datum_depth_pc_arg = record.getItem( 1 ).getSIDouble( 0 );
-            auto woc_depth = record.getItem(2).getSIDouble(0);
-            auto woc_pc = record.getItem(3).getSIDouble(0);
-            auto goc_depth = record.getItem(4).getSIDouble(0);
-            auto goc_pc = record.getItem(5).getSIDouble(0);
-            auto live_oil_init = record.getItem(6).get<int>(0) <= 0;
-            auto wet_gas_init = record.getItem(7).get<int>(0) <= 0;
-            auto target_accuracy = record.getItem(8).get<int>(0);
+        using Kw = ::Opm::ParserKeywords::EQUIL;
 
-            this->m_records.push_back( EquilRecord(datum_depth_arg, datum_depth_pc_arg, woc_depth, woc_pc, goc_depth, goc_pc, live_oil_init, wet_gas_init, target_accuracy) );
+        if (keyword.name() != Kw::keywordName) {
+            throw std::invalid_argument {
+                "Logical Error: Expected " + Kw::keywordName +
+                " but got " + keyword.name() + " instead"
+            };
+        }
+
+        for (const auto& record : keyword) {
+            const auto datum_depth_arg    = record.getItem<Kw::DATUM_DEPTH>().getSIDouble(0);
+            const auto datum_depth_pc_arg = record.getItem<Kw::DATUM_PRESSURE>().getSIDouble(0);
+
+            const auto woc_depth = record.getItem<Kw::OWC>().getSIDouble(0);
+            const auto woc_pc    = record.getItem<Kw::PC_OWC>().getSIDouble(0);
+
+            const auto goc_depth = record.getItem<Kw::GOC>().getSIDouble(0);
+            const auto goc_pc    = record.getItem<Kw::PC_GOC>().getSIDouble(0);
+
+            const auto live_oil_init   = record.getItem<Kw::BLACK_OIL_INIT>().get<int>(0) <= 0;
+            const auto wet_gas_init    = record.getItem<Kw::BLACK_OIL_INIT_WG>().get<int>(0) <= 0;
+            const auto target_accuracy = record.getItem<Kw::OIP_INIT>().get<int>(0);
+
+            this->m_records.emplace_back(datum_depth_arg, datum_depth_pc_arg,
+                                         woc_depth, woc_pc,
+                                         goc_depth, goc_pc,
+                                         live_oil_init, wet_gas_init,
+                                         target_accuracy);
         }
     }
 

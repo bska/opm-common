@@ -45,6 +45,7 @@
 #include <opm/common/utility/TimeService.hpp>
 
 #include <algorithm>
+#include <fstream>
 #include <map>
 #include <numeric>
 #include <string>

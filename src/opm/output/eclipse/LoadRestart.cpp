@@ -1428,7 +1428,7 @@ namespace Opm { namespace RestartIO  {
             restore_wells_opm(es, grid, schedule, *rst_view, xw);
         }
 
-        auto xg = data::GroupAndNetworkValues {};
+        auto xg_nwrk = data::GroupAndNetworkValues {};
 
         auto aquifers = hasAnalyticAquifers(*rst_view)
             ? restore_aquifers(es, rst_view) : data::Aquifers{};

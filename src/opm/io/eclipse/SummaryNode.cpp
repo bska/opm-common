@@ -27,7 +27,8 @@
 
 namespace {
 
-constexpr bool use_number(Opm::EclIO::SummaryNode::Category category) {
+constexpr bool use_number(Opm::EclIO::SummaryNode::Category category)
+{
     switch (category) {
     case Opm::EclIO::SummaryNode::Category::Aquifer:       [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Block:         [[fallthrough]];
@@ -35,6 +36,7 @@ constexpr bool use_number(Opm::EclIO::SummaryNode::Category category) {
     case Opm::EclIO::SummaryNode::Category::Region:        [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Segment:
         return true;
+
     case Opm::EclIO::SummaryNode::Category::Field:         [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Group:         [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Node:          [[fallthrough]];
@@ -47,7 +49,8 @@ constexpr bool use_number(Opm::EclIO::SummaryNode::Category category) {
     return false; // Never reached, but quells compiler warning
 }
 
-constexpr bool use_name(Opm::EclIO::SummaryNode::Category category) {
+constexpr bool use_name(Opm::EclIO::SummaryNode::Category category)
+{
     switch (category) {
     case Opm::EclIO::SummaryNode::Category::Connection:    [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Group:         [[fallthrough]];
@@ -55,6 +58,7 @@ constexpr bool use_name(Opm::EclIO::SummaryNode::Category category) {
     case Opm::EclIO::SummaryNode::Category::Node:          [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Well:
         return true;
+
     case Opm::EclIO::SummaryNode::Category::Aquifer:       [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Block:         [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Field:         [[fallthrough]];
@@ -67,7 +71,8 @@ constexpr bool use_name(Opm::EclIO::SummaryNode::Category category) {
     return false; // Never reached, but quells compiler warning
 }
 
-std::string default_number_renderer(const Opm::EclIO::SummaryNode& node) {
+std::string default_number_renderer(const Opm::EclIO::SummaryNode& node)
+{
     return std::to_string(node.number);
 }
 
@@ -89,7 +94,8 @@ distinguish_group_from_node(const std::string& keyword)
 }
 }
 
-std::string Opm::EclIO::SummaryNode::unique_key(number_renderer render_number) const {
+std::string Opm::EclIO::SummaryNode::unique_key(number_renderer render_number) const
+{
     std::vector<std::string> key_parts { keyword } ;
 
     if (auto opt = display_name())
@@ -106,12 +112,14 @@ std::string Opm::EclIO::SummaryNode::unique_key(number_renderer render_number) c
     return std::accumulate(std::begin(key_parts), std::end(key_parts), std::string(), compose_key);
 }
 
-std::string Opm::EclIO::SummaryNode::unique_key() const {
+std::string Opm::EclIO::SummaryNode::unique_key() const
+{
     return unique_key(default_number_renderer);
 }
 
-bool Opm::EclIO::SummaryNode::is_user_defined() const {
-    static const std::unordered_set<std::string> udq_blacklist {
+bool Opm::EclIO::SummaryNode::is_user_defined() const
+{
+    static const auto udq_blacklist = std::unordered_set<std::string> {
         "AUTOCOAR",
         "AUTOREF",
         "FULLIMP",
@@ -136,7 +144,7 @@ bool Opm::EclIO::SummaryNode::is_user_defined() const {
         "SURFSTES",
         "SURFVISC",
         "SURFWNUM",
-    } ;
+    };
 
     static const std::regex user_defined_regex { "[ABCFGRSW]U[A-Z0-9_]+" } ;
 
@@ -146,15 +154,14 @@ bool Opm::EclIO::SummaryNode::is_user_defined() const {
     return matched && !blacklisted;
 }
 
-Opm::EclIO::SummaryNode::Category Opm::EclIO::SummaryNode::category_from_keyword(
-    const std::string& keyword,
-    const std::unordered_set<std::string>& miscellaneous_keywords
-) {
-    if (keyword.length() == 0) {
-        return Category::Miscellaneous;
-    }
-
-    if (miscellaneous_keywords.find(keyword) != miscellaneous_keywords.end()) {
+Opm::EclIO::SummaryNode::Category
+Opm::EclIO::SummaryNode::
+category_from_keyword(const std::string&                     keyword,
+                      const std::unordered_set<std::string>& miscellaneous_keywords)
+{
+    if (keyword.empty() ||
+        (miscellaneous_keywords.find(keyword) != miscellaneous_keywords.end()))
+    {
         return Category::Miscellaneous;
     }
 
@@ -171,7 +178,8 @@ Opm::EclIO::SummaryNode::Category Opm::EclIO::SummaryNode::category_from_keyword
     }
 }
 
-std::optional<std::string> Opm::EclIO::SummaryNode::display_name() const {
+std::optional<std::string> Opm::EclIO::SummaryNode::display_name() const
+{
     if (use_name(category)) {
         return wgname;
     } else {
@@ -179,11 +187,13 @@ std::optional<std::string> Opm::EclIO::SummaryNode::display_name() const {
     }
 }
 
-std::optional<std::string> Opm::EclIO::SummaryNode::display_number() const {
+std::optional<std::string> Opm::EclIO::SummaryNode::display_number() const
+{
     return display_number(default_number_renderer);
 }
 
-std::optional<std::string> Opm::EclIO::SummaryNode::display_number(number_renderer render_number) const {
+std::optional<std::string> Opm::EclIO::SummaryNode::display_number(number_renderer render_number) const
+{
     if (use_number(category)) {
         return render_number(*this);
     } else {

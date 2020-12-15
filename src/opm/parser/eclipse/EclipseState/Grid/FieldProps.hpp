@@ -19,10 +19,13 @@
 #ifndef FIELDPROPS_HPP
 #define FIELDPROPS_HPP
 
+#include <map>
+#include <memory>
 #include <limits>
 #include <optional>
+#include <set>
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 #include <opm/parser/eclipse/Deck/value_status.hpp>
@@ -88,7 +91,6 @@ namespace keywords {
 */
 
 
-
 inline bool isFipxxx(const std::string& keyword) {
     // FIPxxxx can be any keyword, e.g. FIPREG or FIPXYZ that has the pattern "FIP.+"
     // However, it can not be FIPOWG as that is an actual keyword.
@@ -97,7 +99,6 @@ inline bool isFipxxx(const std::string& keyword) {
     }
     return keyword[0] == 'F' && keyword[1] == 'I' && keyword[2] == 'P';
 }
-
 
 /*
   The aliased_keywords map defines aliases for other keywords. The FieldProps
@@ -114,41 +115,47 @@ inline bool isFipxxx(const std::string& keyword) {
   The PERMR and PERMTHT keywords are aliases for PERMX and PERMY, respectively.
 */
 namespace ALIAS {
-    static const std::unordered_map<std::string, std::string> aliased_keywords = {{"PERMR", "PERMX"},
-                                                                                  {"PERMTHT", "PERMY"}};
+    static const auto aliased_keywords = std::unordered_map<std::string, std::string> {
+        {"PERMR", "PERMX"},
+        {"PERMTHT", "PERMY"},
+    };
 }
 
-
 namespace GRID {
-static const std::unordered_map<std::string, keyword_info<double>> double_keywords = {{"MULTPV",  keyword_info<double>{}.init(1.0)},
-                                                                                      {"NTG",     keyword_info<double>{}.init(1.0)},
-                                                                                      {"PORO",    keyword_info<double>{}.distribute_top(true)},
-                                                                                      {"PERMX",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
-                                                                                      {"PERMY",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
-                                                                                      {"PERMZ",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
-                                                                                      {"PERMR",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
-                                                                                      {"PERMTHT",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
-                                                                                      {"TEMPI",   keyword_info<double>{}.unit_string("Temperature")},
-                                                                                      {"THCONR",  keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
-                                                                                      {"THCONSF", keyword_info<double>{}},
-                                                                                      {"THCROCK", keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
-                                                                                      {"THCOIL",  keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
-                                                                                      {"THCGAS",  keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
-                                                                                      {"THCWATER",keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
-                                                                                      {"MULTX",   keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTX-",  keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTY",   keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTY-",  keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTZ",   keyword_info<double>{}.init(1.0).mult(true).global_kw(true)},
-                                                                                      {"MULTZ-",  keyword_info<double>{}.init(1.0).mult(true)}};
 
-static const std::unordered_map<std::string, keyword_info<int>> int_keywords = {{"ACTNUM",  keyword_info<int>{}.init(1)},
-                                                                                {"FLUXNUM", keyword_info<int>{}},
-                                                                                {"ISOLNUM", keyword_info<int>{}.init(1)},
-                                                                                {"MULTNUM", keyword_info<int>{}.init(1)},
-                                                                                {"OPERNUM", keyword_info<int>{}},
-                                                                                {"ROCKNUM", keyword_info<int>{}}};
+static const auto double_keywords = std::unordered_map<std::string, keyword_info<double>> {
+    {"MULTPV",  keyword_info<double>{}.init(1.0)},
+    {"NTG",     keyword_info<double>{}.init(1.0)},
+    {"PORO",    keyword_info<double>{}.distribute_top(true)},
+    {"PERMX",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
+    {"PERMY",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
+    {"PERMZ",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
+    {"PERMR",   keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
+    {"PERMTHT", keyword_info<double>{}.unit_string("Permeability").distribute_top(true)},
+    {"TEMPI",   keyword_info<double>{}.unit_string("Temperature")},
+    {"THCONR",  keyword_info<double>{}},
+    {"THCONSF", keyword_info<double>{}},
+    {"THCONR",  keyword_info<double>{}},
+    {"THCROCK", keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
+    {"THCOIL",  keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
+    {"THCGAS",  keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
+    {"THCWATER",keyword_info<double>{}.unit_string("Energy/AbsoluteTemperature*Length*Time")},
+    {"MULTX",   keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTX-",  keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTY",   keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTY-",  keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTZ",   keyword_info<double>{}.init(1.0).mult(true).global_kw(true)},
+    {"MULTZ-",  keyword_info<double>{}.init(1.0).mult(true)},
+};
 
+static const auto int_keywords = std::unordered_map<std::string, keyword_info<int>> {
+    {"ACTNUM",  keyword_info<int>{}.init(1)},
+    {"FLUXNUM", keyword_info<int>{}},
+    {"ISOLNUM", keyword_info<int>{}.init(1)},
+    {"MULTNUM", keyword_info<int>{}.init(1)},
+    {"OPERNUM", keyword_info<int>{}},
+    {"ROCKNUM", keyword_info<int>{}},
+};
 }
 
 namespace EDIT {
@@ -160,111 +167,121 @@ namespace EDIT {
   due to the special treatment of the TRAN fields.
 */
 
-static const std::unordered_map<std::string, keyword_info<double>> double_keywords = {{"MULTPV",  keyword_info<double>{}.init(1.0)},
-                                                                                      {"PORV",    keyword_info<double>{}.unit_string("ReservoirVolume")},
-                                                                                      {"MULTX",   keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTX-",  keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTY",   keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTY-",  keyword_info<double>{}.init(1.0).mult(true)},
-                                                                                      {"MULTZ",   keyword_info<double>{}.init(1.0).mult(true).global_kw(true)},
-                                                                                      {"MULTZ-",  keyword_info<double>{}.init(1.0).mult(true)}};
+static const auto double_keywords = std::unordered_map<std::string, keyword_info<double>> {
+    {"MULTPV",  keyword_info<double>{}.init(1.0)},
+    {"PORV",    keyword_info<double>{}.unit_string("ReservoirVolume")},
+    {"MULTX",   keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTX-",  keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTY",   keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTY-",  keyword_info<double>{}.init(1.0).mult(true)},
+    {"MULTZ",   keyword_info<double>{}.init(1.0).mult(true).global_kw(true)},
+    {"MULTZ-",  keyword_info<double>{}.init(1.0).mult(true)},
+};
 
-static const std::unordered_map<std::string, keyword_info<int>> int_keywords = {};
+static const auto int_keywords = std::unordered_map<std::string, keyword_info<int>> {};
 }
 
 namespace PROPS {
-static const std::unordered_map<std::string, keyword_info<double>> double_keywords = {{"SWATINIT", keyword_info<double>{}}};
-static const std::unordered_map<std::string, keyword_info<int>> int_keywords = {};
+static const auto double_keywords = std::unordered_map<std::string, keyword_info<double>> {
+    {"SWATINIT", keyword_info<double>{}},
+};
+static const auto int_keywords = std::unordered_map<std::string, keyword_info<int>> {};
 
 #define dirfunc(base) base, base "X", base "X-", base "Y", base "Y-", base "Z", base "Z-"
 
-static const std::set<std::string> satfunc = {"SWLPC", "ISWLPC", "SGLPC", "ISGLPC",
-                                              dirfunc("SGL"),
-                                              dirfunc("ISGL"),
-                                              dirfunc("SGU"),
-                                              dirfunc("ISGU"),
-                                              dirfunc("SWL"),
-                                              dirfunc("ISWL"),
-                                              dirfunc("SWU"),
-                                              dirfunc("ISWU"),
-                                              dirfunc("SGCR"),
-                                              dirfunc("ISGCR"),
-                                              dirfunc("SOWCR"),
-                                              dirfunc("ISOWCR"),
-                                              dirfunc("SOGCR"),
-                                              dirfunc("ISOGCR"),
-                                              dirfunc("SWCR"),
-                                              dirfunc("ISWCR"),
-                                              dirfunc("PCW"),
-                                              dirfunc("IPCW"),
-                                              dirfunc("PCG"),
-                                              dirfunc("IPCG"),
-                                              dirfunc("KRW"),
-                                              dirfunc("IKRW"),
-                                              dirfunc("KRWR"),
-                                              dirfunc("IKRWR"),
-                                              dirfunc("KRO"),
-                                              dirfunc("IKRO"),
-                                              dirfunc("KRORW"),
-                                              dirfunc("IKRORW"),
-                                              dirfunc("KRORG"),
-                                              dirfunc("IKRORG"),
-                                              dirfunc("KRG"),
-                                              dirfunc("IKRG"),
-                                              dirfunc("KRGR"),
-                                              dirfunc("IKRGR")};
+static const auto satfunc = std::set<std::string> {
+    "SWLPC", "ISWLPC", "SGLPC", "ISGLPC",
+    dirfunc("SGL"),
+    dirfunc("ISGL"),
+    dirfunc("SGU"),
+    dirfunc("ISGU"),
+    dirfunc("SWL"),
+    dirfunc("ISWL"),
+    dirfunc("SWU"),
+    dirfunc("ISWU"),
+    dirfunc("SGCR"),
+    dirfunc("ISGCR"),
+    dirfunc("SOWCR"),
+    dirfunc("ISOWCR"),
+    dirfunc("ISOGCR"),
+    dirfunc("SOGCR"),
+    dirfunc("SWCR"),
+    dirfunc("ISWCR"),
+    dirfunc("PCW"),
+    dirfunc("IPCW"),
+    dirfunc("PCG"),
+    dirfunc("IPCG"),
+    dirfunc("KRW"),
+    dirfunc("IKRW"),
+    dirfunc("KRWR"),
+    dirfunc("IKRWR"),
+    dirfunc("IKRO"),
+    dirfunc("KRO"),
+    dirfunc("KRORW"),
+    dirfunc("IKRORW"),
+    dirfunc("KRORG"),
+    dirfunc("IKRORG"),
+    dirfunc("KRG"),
+    dirfunc("IKRG"),
+    dirfunc("KRGR"),
+    dirfunc("IKRGR"),
+};
 
-static const std::map<std::string,std::string> sogcr_shift = {{"SOGCR",    "SWL"},
-                                                              {"SOGCRX",   "SWLX"},
-                                                              {"SOGCRX-",  "SWLX-"},
-                                                              {"SOGCRY",   "SWLY"},
-                                                              {"SOGCRY-",  "SWLY-"},
-                                                              {"SOGCRZ",   "SWLZ"},
-                                                              {"SOGCRZ-",  "SWLZ-"},
-                                                              {"ISOGCR",   "ISWL"},
-                                                              {"ISOGCRX",  "ISWLX"},
-                                                              {"ISOGCRX-", "ISWLX-"},
-                                                              {"ISOGCRY",  "ISWLY"},
-                                                              {"ISOGCRY-", "ISWLY-"},
-                                                              {"ISOGCRZ",  "ISWLZ"},
-                                                              {"ISOGCRZ-", "ISWLZ-"}};
+static const auto sogcr_shift = std::map<std::string,std::string> {
+    {"SOGCR",    "SWL"},
+    {"SOGCRX",   "SWLX"},
+    {"SOGCRX-",  "SWLX-"},
+    {"SOGCRY",   "SWLY"},
+    {"SOGCRY-",  "SWLY-"},
+    {"SOGCRZ",   "SWLZ"},
+    {"SOGCRZ-",  "SWLZ-"},
+    {"ISOGCR",   "ISWL"},
+    {"ISOGCRX",  "ISWLX"},
+    {"ISOGCRX-", "ISWLX-"},
+    {"ISOGCRY",  "ISWLY"},
+    {"ISOGCRY-", "ISWLY-"},
+    {"ISOGCRZ",  "ISWLZ"},
+    {"ISOGCRZ-", "ISWLZ-"},
+};
 
+#undef dirfunc
 }
 
 namespace REGIONS {
-
-static const std::unordered_map<std::string, keyword_info<int>> int_keywords = {{"ENDNUM",   keyword_info<int>{}.init(1)},
-                                                                                {"EQLNUM",   keyword_info<int>{}.init(1)},
-                                                                                {"FIPNUM",   keyword_info<int>{}.init(1)},
-                                                                                {"IMBNUM",   keyword_info<int>{}.init(1)},
-                                                                                {"OPERNUM",  keyword_info<int>{}},
-                                                                                {"MISCNUM",  keyword_info<int>{}},
-                                                                                {"MISCNUM",  keyword_info<int>{}},
-                                                                                {"PVTNUM",   keyword_info<int>{}.init(1)},
-                                                                                {"SATNUM",   keyword_info<int>{}.init(1)},
-                                                                                {"LWSLTNUM", keyword_info<int>{}},
-                                                                                {"ROCKNUM",  keyword_info<int>{}}};
+static const auto int_keywords = std::unordered_map<std::string, keyword_info<int>> {
+    {"ENDNUM",   keyword_info<int>{}.init(1)},
+    {"EQLNUM",   keyword_info<int>{}.init(1)},
+    {"FIPNUM",   keyword_info<int>{}.init(1)},
+    {"IMBNUM",   keyword_info<int>{}.init(1)},
+    {"OPERNUM",  keyword_info<int>{}},
+    {"MISCNUM",  keyword_info<int>{}},
+    {"MISCNUM",  keyword_info<int>{}},
+    {"PVTNUM",   keyword_info<int>{}.init(1)},
+    {"SATNUM",   keyword_info<int>{}.init(1)},
+    {"LWSLTNUM", keyword_info<int>{}},
+    {"ROCKNUM",  keyword_info<int>{}},
+};
 }
 
 namespace SOLUTION {
-
-static const std::unordered_map<std::string, keyword_info<double>> double_keywords = {{"PRESSURE", keyword_info<double>{}.unit_string("Pressure")},
-                                                                                      {"SPOLY",    keyword_info<double>{}.unit_string("Density")},
-                                                                                      {"SPOLYMW",  keyword_info<double>{}},
-                                                                                      {"SSOL",     keyword_info<double>{}},
-                                                                                      {"SWAT",     keyword_info<double>{}},
-                                                                                      {"SGAS",     keyword_info<double>{}},
-                                                                                      {"TEMPI",    keyword_info<double>{}.unit_string("Temperature")},
-                                                                                      {"RS",       keyword_info<double>{}.unit_string("GasDissolutionFactor")},
-                                                                                      {"RV",       keyword_info<double>{}.unit_string("OilDissolutionFactor")}};
-
+static const auto double_keywords = std::unordered_map<std::string, keyword_info<double>> {
+    {"PRESSURE", keyword_info<double>{}.unit_string("Pressure")},
+    {"SPOLY",    keyword_info<double>{}.unit_string("Density")},
+    {"SPOLYMW",  keyword_info<double>{}},
+    {"SSOL",     keyword_info<double>{}},
+    {"SWAT",     keyword_info<double>{}},
+    {"SGAS",     keyword_info<double>{}},
+    {"TEMPI",    keyword_info<double>{}.unit_string("Temperature")},
+    {"RS",       keyword_info<double>{}.unit_string("GasDissolutionFactor")},
+    {"RV",       keyword_info<double>{}.unit_string("OilDissolutionFactor")},
+};
 }
 
 namespace SCHEDULE {
-
-static const std::unordered_map<std::string, keyword_info<double>> double_keywords = {};
-static const std::unordered_map<std::string, keyword_info<int>> int_keywords = {{"ROCKNUM",   keyword_info<int>{}}};
-
+static const auto double_keywords = std::unordered_map<std::string, keyword_info<double>> {};
+static const auto int_keywords = std::unordered_map<std::string, keyword_info<int>> {
+    {"ROCKNUM",   keyword_info<int>{}},
+};
 }
 
 template <typename T>
@@ -307,7 +324,6 @@ public:
          MISSING_KEYWORD = 3,            // std::out_of_range
          NOT_SUPPPORTED_KEYWORD = 4      // std::logic_error
     };
-
 
 
     template<typename T>
@@ -360,9 +376,6 @@ public:
 
     };
 
-
-
-
     FieldProps(const Deck& deck, const Phases& phases, const EclipseGrid& grid, const TableManager& table_arg);
     void reset_actnum(const std::vector<int>& actnum);
 
@@ -380,7 +393,6 @@ public:
 
     template <typename T>
     std::vector<std::string> keys() const;
-
 
     template <typename T>
     FieldDataManager<T> try_get(const std::string& keyword,
@@ -404,7 +416,6 @@ public:
         return FieldDataManager<T>(keyword, GetStatus::INVALID_DATA, nullptr);
     }
 
-
     template <typename T>
     const std::vector<T>& get(const std::string& keyword) {
         const auto& data = this->try_get<T>(keyword);
@@ -421,7 +432,6 @@ public:
         else
             return this->global_copy(field_data.data, kw_info.scalar_init);
     }
-
 
     template <typename T>
     std::vector<T> get_copy(const std::string& keyword, bool global) {
@@ -442,7 +452,6 @@ public:
         }
     }
 
-
     template <typename T>
     std::vector<bool> defaulted(const std::string& keyword) {
         const auto& field = this->init_get<T>(keyword);
@@ -453,7 +462,6 @@ public:
 
         return def;
     }
-
 
     template <typename T>
     std::vector<T> global_copy(const std::vector<T>& data, const std::optional<T>& default_value) const {
@@ -502,10 +510,17 @@ private:
     std::vector<T> extract(const std::string& keyword);
 
     template <typename T>
-    void operate(const DeckRecord& record, Fieldprops::FieldData<T>& target_data, const Fieldprops::FieldData<T>& src_data, const std::vector<Box::cell_index>& index_list);
+    void operate(const DeckRecord& record,
+                 Fieldprops::FieldData<T>& target_data,
+                 const Fieldprops::FieldData<T>& src_data,
+                 const std::vector<Box::cell_index>& index_list);
 
     template <typename T>
-    static void apply(ScalarOperation op, std::vector<T>& data, std::vector<value::status>& value_status, T scalar_value, const std::vector<Box::cell_index>& index_list);
+    static void apply(ScalarOperation op,
+                      std::vector<T>& data,
+                      std::vector<value::status>& value_status,
+                      T scalar_value,
+                      const std::vector<Box::cell_index>& index_list);
 
     template <typename T>
     Fieldprops::FieldData<T>& init_get(const std::string& keyword, bool allow_unsupported = false);
