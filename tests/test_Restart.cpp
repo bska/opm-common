@@ -413,9 +413,9 @@ first_sim(const Setup&   setup,
           bool           write_double)
 {
     WellTestState wtest_state;
-    EclipseIO eclWriter( setup.es, setup.grid, setup.schedule, setup.summary_config);
+    EclipseIO eclWriter(setup.es, setup.grid, setup.schedule, setup.summary_config);
 
-    const auto num_cells = setup.grid.getNumActive( );
+    const auto num_cells = setup.grid.getNumActive();
     const int report_step = 1;
     const auto start_time = setup.schedule.getStartTime();
     const auto first_step = setup.schedule.simTime(report_step);
@@ -435,15 +435,15 @@ first_sim(const Setup&   setup,
              st, udq_state);
 
     RestartValue restart_value(sol, wells, groups, {});
-    eclWriter.writeTimeStep( action_state,
-                             wtest_state,
-                             st,
-                             udq_state,
-                             report_step,
-                             false,
-                             std::difftime(first_step, start_time),
-                             restart_value,
-                             write_double);
+    eclWriter.writeTimeStep(action_state,
+                            wtest_state,
+                            st,
+                            udq_state,
+                            report_step,
+                            false,
+                            std::difftime(first_step, start_time),
+                            restart_value,
+                            write_double);
 
     return restart_value;
 }
@@ -488,7 +488,6 @@ BOOST_AUTO_TEST_CASE(EclipseReadWriteWellStateData)
         {"TEMP"     , UnitSystem::measure::temperature},
     };
 
->>>>>>> 5284f40ed (x)
     WorkArea test_area("test_restart");
     test_area.copyIn("BASE_SIM.DATA");
     test_area.copyIn("RESTART_SIM.DATA");
