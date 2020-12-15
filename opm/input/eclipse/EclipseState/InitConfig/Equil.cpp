@@ -4,6 +4,7 @@
 #include <opm/input/eclipse/Parser/ParserKeywords/E.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/S.hpp>
 
+#include <stdexcept>
 #include <vector>
 
 #include <stddef.h>
