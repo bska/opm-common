@@ -23,9 +23,7 @@
 
 #include <array>
 #include <filesystem>
-#include <string>
 #include <vector>
-#include <map>
 
 namespace Opm { namespace EclIO {
 

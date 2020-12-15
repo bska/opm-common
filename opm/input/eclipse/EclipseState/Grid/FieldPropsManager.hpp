@@ -19,6 +19,8 @@
 #ifndef FIELDPROPS_MANAGER_HPP
 #define FIELDPROPS_MANAGER_HPP
 
+#include <opm/input/eclipse/EclipseState/Grid/TranCalculator.hpp>
+
 #include <memory>
 #include <string>
 #include <string_view>
