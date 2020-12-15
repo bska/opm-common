@@ -27,7 +27,7 @@
 
 namespace {
 
-constexpr bool use_number(Opm::EclIO::SummaryNode::Category category) {
+constexpr bool use_number(const Opm::EclIO::SummaryNode::Category category) {
     switch (category) {
     case Opm::EclIO::SummaryNode::Category::Aquifer:       [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Block:         [[fallthrough]];
@@ -47,7 +47,7 @@ constexpr bool use_number(Opm::EclIO::SummaryNode::Category category) {
     return false; // Never reached, but quells compiler warning
 }
 
-constexpr bool use_name(Opm::EclIO::SummaryNode::Category category) {
+constexpr bool use_name(const Opm::EclIO::SummaryNode::Category category) {
     switch (category) {
     case Opm::EclIO::SummaryNode::Category::Connection:    [[fallthrough]];
     case Opm::EclIO::SummaryNode::Category::Group:         [[fallthrough]];
@@ -89,28 +89,38 @@ distinguish_group_from_node(const std::string& keyword)
 }
 }
 
-std::string Opm::EclIO::SummaryNode::unique_key(number_renderer render_number) const {
+std::string
+Opm::EclIO::SummaryNode::unique_key(number_renderer render_number) const
+{
     std::vector<std::string> key_parts { keyword } ;
 
-    if (auto opt = display_name())
+    if (auto opt = display_name()) {
         key_parts.emplace_back(opt.value());
+    }
 
-    if (auto opt = display_number(render_number))
+    if (auto opt = display_number(render_number)) {
         key_parts.emplace_back(opt.value());
+    }
 
-    auto compose_key = [](std::string& key, const std::string& key_part) -> std::string {
-        constexpr auto delimiter { ':' } ;
+    auto compose_key = [](const std::string& key, const std::string& key_part)
+        -> std::string
+    {
+        constexpr auto delimiter { ':' };
+
         return key.empty() ? key_part : key + delimiter + key_part;
     };
 
-    return std::accumulate(std::begin(key_parts), std::end(key_parts), std::string(), compose_key);
+    return std::accumulate(std::begin(key_parts), std::end(key_parts),
+                           std::string{}, compose_key);
 }
 
-std::string Opm::EclIO::SummaryNode::unique_key() const {
-    return unique_key(default_number_renderer);
+std::string Opm::EclIO::SummaryNode::unique_key() const
+{
+    return this->unique_key(default_number_renderer);
 }
 
-bool Opm::EclIO::SummaryNode::is_user_defined() const {
+bool Opm::EclIO::SummaryNode::is_user_defined() const
+{
     static const std::unordered_set<std::string> udq_blacklist {
         "AUTOCOAR",
         "AUTOREF",
@@ -140,17 +150,17 @@ bool Opm::EclIO::SummaryNode::is_user_defined() const {
 
     static const std::regex user_defined_regex { "[ABCFGRSW]U[A-Z0-9_]+" } ;
 
-    const bool matched     { std::regex_match(keyword, user_defined_regex) } ;
-    const bool blacklisted { udq_blacklist.find(keyword) != udq_blacklist.end() } ;
+    const bool blacklisted { udq_blacklist.find(keyword) != udq_blacklist.end() };
 
-    return matched && !blacklisted;
+    return !blacklisted && std::regex_match(keyword, user_defined_regex);
 }
 
-Opm::EclIO::SummaryNode::Category Opm::EclIO::SummaryNode::category_from_keyword(
-    const std::string& keyword,
-    const std::unordered_set<std::string>& miscellaneous_keywords
-) {
-    if (keyword.length() == 0) {
+Opm::EclIO::SummaryNode::Category
+Opm::EclIO::SummaryNode::
+category_from_keyword(const std::string&                     keyword,
+                      const std::unordered_set<std::string>& miscellaneous_keywords)
+{
+    if (keyword.empty()) {
         return Category::Miscellaneous;
     }
 

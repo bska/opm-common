@@ -625,5 +625,8 @@ std::size_t EclFile::size() const {
     return this->array_name.size();
 }
 
+bool EclFile::empty() const {
+    return this->size() == std::size_t{0};
+}
 
 }} // namespace Opm::ecl

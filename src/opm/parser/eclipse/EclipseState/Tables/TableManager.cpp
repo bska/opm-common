@@ -16,13 +16,16 @@
 
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
- */
+*/
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <ios>
 #include <memory>
 #include <sstream>
+
+#include <stddef.h>
 
 #include <fmt/format.h>
 
@@ -110,16 +113,16 @@
 namespace Opm {
 
     TableManager::TableManager( const Deck& deck )
-        :
-        m_tabdims( Tabdims(deck)),
-        m_aqudims( Aqudims(deck)),
-        m_tlmixpar( deck ),
-        hasImptvd (deck.hasKeyword("IMPTVD")),
-        hasEnptvd (deck.hasKeyword("ENPTVD")),
-        hasEqlnum (deck.hasKeyword("EQLNUM"))
+        : m_tabdims (Tabdims(deck))
+        , m_aqudims (Aqudims(deck))
+        , m_tlmixpar(deck)
+        , hasImptvd (deck.hasKeyword("IMPTVD"))
+        , hasEnptvd (deck.hasKeyword("ENPTVD"))
+        , hasEqlnum (deck.hasKeyword("EQLNUM"))
     {
-        if (deck.hasKeyword("JFUNC"))
-            jfunc.reset( new JFunc(deck) );
+        if (deck.hasKeyword("JFUNC")) {
+            jfunc.reset(new JFunc(deck));
+        }
 
         // determine the default resevoir temperature in Kelvin
         m_rtemp = ParserKeywords::RTEMP::TEMP::defaultValue;
@@ -138,61 +141,80 @@ namespace Opm {
             this->checkPVTOMonotonicity(deck);
         }
 
-        if( deck.hasKeyword( "PVTSOL" ) )
+        if (deck.hasKeyword("PVTSOL")) {
            initFullTables(deck, "PVTSOL", m_pvtsolTables);
+        }
 
-        if( deck.hasKeyword( "PVTW" ) )
-            this->m_pvtwTable = PvtwTable( deck.getKeyword( "PVTW" ) );
+        if (deck.hasKeyword("PVTW")) {
+            this->m_pvtwTable = PvtwTable(deck.getKeyword("PVTW"));
+        }
 
-        if( deck.hasKeyword( "PVCDO" ) )
-            this->m_pvcdoTable = PvcdoTable( deck.getKeyword( "PVCDO" ) );
+        if (deck.hasKeyword("PVCDO")) {
+            this->m_pvcdoTable = PvcdoTable(deck.getKeyword("PVCDO"));
+        }
 
-        if( deck.hasKeyword( "DENSITY" ) )
-            this->m_densityTable = DensityTable( deck.getKeyword( "DENSITY" ) );
+        if (deck.hasKeyword("DENSITY")) {
+            this->m_densityTable = DensityTable(deck.getKeyword("DENSITY"));
+        }
 
-        if( deck.hasKeyword( "ROCK" ) )
-            this->m_rockTable = RockTable( deck.getKeyword( "ROCK" ) );
+        if (deck.hasKeyword("ROCK")) {
+            this->m_rockTable = RockTable(deck.getKeyword("ROCK"));
+        }
 
-        if( deck.hasKeyword( "VISCREF" ) )
-            this->m_viscrefTable = ViscrefTable( deck.getKeyword( "VISCREF" ) );
+        if (deck.hasKeyword("VISCREF")) {
+            this->m_viscrefTable = ViscrefTable(deck.getKeyword("VISCREF"));
+        }
 
-        if( deck.hasKeyword( "WATDENT" ) )
-            this->m_watdentTable = WatdentTable( deck.getKeyword( "WATDENT" ) );
+        if (deck.hasKeyword("WATDENT")) {
+            this->m_watdentTable = WatdentTable(deck.getKeyword("WATDENT"));
+        }
 
-        if( deck.hasKeyword( "RTEMP" ) )
-            m_rtemp = deck.getKeyword("RTEMP").getRecord(0).getItem("TEMP").getSIDouble( 0 );
-        else if (deck.hasKeyword( "RTEMPA" ) )
-            m_rtemp = deck.getKeyword("RTEMPA").getRecord(0).getItem("TEMP").getSIDouble( 0 );
+        if (deck.hasKeyword("RTEMP")) {
+            m_rtemp = deck.getKeyword("RTEMP").getRecord(0).getItem("TEMP").getSIDouble(0);
+        }
+        else if (deck.hasKeyword("RTEMPA")) {
+            m_rtemp = deck.getKeyword("RTEMPA").getRecord(0).getItem("TEMP").getSIDouble(0);
+        }
 
-        if( deck.hasKeyword( "SALINITY" ) )
+        if (deck.hasKeyword( "SALINITY" )) {
             m_salinity = deck.getKeyword("SALINITY").getRecord(0).getItem("MOLALITY").get<double>( 0 ); //unit independent of unit systems
+	}
 
-        if ( deck.hasKeyword( "ROCK2D") )
-            initRockTables(deck, "ROCK2D", m_rock2dTables );
+        if (deck.hasKeyword("ROCK2D")) {
+            initRockTables(deck, "ROCK2D", m_rock2dTables);
+        }
 
-        if ( deck.hasKeyword( "ROCK2DTR") )
-            initRockTables(deck, "ROCK2DTR", m_rock2dtrTables );
+        if (deck.hasKeyword("ROCK2DTR")) {
+            initRockTables(deck, "ROCK2DTR", m_rock2dtrTables);
+        }
 
-        if ( deck.hasKeyword( "PVTWSALT") )
-            initPvtwsaltTables(deck, m_pvtwsaltTables );
+        if (deck.hasKeyword("PVTWSALT")) {
+            initPvtwsaltTables(deck, m_pvtwsaltTables);
+        }
 
-        if ( deck.hasKeyword( "RWGSALT") )
-            initRwgsaltTables(deck, m_rwgsaltTables );
+        if (deck.hasKeyword("RWGSALT")) {
+            initRwgsaltTables(deck, m_rwgsaltTables);
+        }
 
-        if ( deck.hasKeyword( "BDENSITY") )
-            initBrineTables(deck, m_bdensityTables );
+        if (deck.hasKeyword( "BDENSITY")) {
+            initBrineTables(deck, m_bdensityTables);
+        }
 
-        if ( deck.hasKeyword( "SDENSITY") )
-            initSolventTables(deck, m_sdensityTables );
+        if (deck.hasKeyword("SDENSITY")) {
+            initSolventTables(deck, m_sdensityTables);
+        }
 
-        if (deck.hasKeyword<ParserKeywords::GASDENT>())
+        if (deck.hasKeyword<ParserKeywords::GASDENT>()) {
             this->gasDenT = DenT( deck.getKeyword<ParserKeywords::GASDENT>());
+        }
 
-        if (deck.hasKeyword<ParserKeywords::OILDENT>())
+        if (deck.hasKeyword<ParserKeywords::OILDENT>()) {
             this->oilDenT = DenT( deck.getKeyword<ParserKeywords::OILDENT>());
+        }
 
-        if (deck.hasKeyword<ParserKeywords::WATDENT>())
+        if (deck.hasKeyword<ParserKeywords::WATDENT>()) {
             this->watDenT = DenT( deck.getKeyword<ParserKeywords::WATDENT>());
+        }
 
         if (deck.hasKeyword<ParserKeywords::STCOND>()) {
             auto stcondKeyword = deck.getKeyword("STCOND");
@@ -219,11 +241,14 @@ namespace Opm {
         }
 
         using GC = ParserKeywords::GCOMPIDX;
-        if (deck.hasKeyword<GC>())
-            this->m_gas_comp_index = deck.getKeyword<GC>().getRecord(0).getItem<GC::GAS_COMPONENT_INDEX>().get<int>(0);
+        if (deck.hasKeyword<GC>()) {
+            this->m_gas_comp_index = deck.getKeyword<GC>()
+                .getRecord(0).getItem<GC::GAS_COMPONENT_INDEX>().get<int>(0);
+        }
     }
 
-    TableManager& TableManager::operator=(const TableManager& data) {
+    TableManager& TableManager::operator=(const TableManager& data)
+    {
         m_simpleTables = data.m_simpleTables;
         m_pvtgTables = data.m_pvtgTables;
         m_pvtgwTables = data.m_pvtgwTables;
@@ -255,8 +280,11 @@ namespace Opm {
         hasEnptvd = data.hasEnptvd;
         hasEqlnum = data.hasEqlnum;
         hasShrate = data.hasShrate;
-        if (data.jfunc)
-          jfunc = std::make_shared<JFunc>(*data.jfunc);
+
+        if (data.jfunc) {
+            jfunc = std::make_shared<JFunc>(*data.jfunc);
+        }
+
         m_rtemp = data.m_rtemp;
         m_salinity = data.m_salinity;
         gasDenT = data.gasDenT;
@@ -315,7 +343,8 @@ namespace Opm {
         return result;
     }
 
-    void TableManager::initDims(const Deck& deck) {
+    void TableManager::initDims(const Deck& deck)
+    {
         using namespace Opm::ParserKeywords;
 
         if (deck.hasKeyword<EQLDIMS>()) {
@@ -327,7 +356,7 @@ namespace Opm {
             int nttrvd    = record.getItem<EQLDIMS::NTTRVD>().get< int >(0);
             int ntsrvd    = record.getItem<EQLDIMS::NSTRVD>().get< int >(0);
 
-            m_eqldims = Eqldims(ntsequl , nodes_p , nodes_tab , nttrvd , ntsrvd );
+            m_eqldims = Eqldims(ntsequl, nodes_p, nodes_tab, nttrvd, ntsrvd);
         }
 
         if (deck.hasKeyword<REGDIMS>()) {
@@ -343,36 +372,41 @@ namespace Opm {
     }
 
 
-    void TableManager::addTables( const std::string& tableName , size_t numTables) {
-        m_simpleTables.emplace(std::make_pair(tableName , TableContainer( numTables )));
+    void TableManager::addTables(const std::string& tableName, size_t numTables)
+    {
+        m_simpleTables.emplace(std::make_pair(tableName, TableContainer(numTables)));
     }
 
 
-    bool TableManager::hasTables( const std::string& tableName ) const {
+    bool TableManager::hasTables(const std::string& tableName) const
+    {
         auto pair = m_simpleTables.find( tableName );
-        if (pair == m_simpleTables.end())
+        if (pair == m_simpleTables.end()) {
             return false;
-        else {
-            const auto& tables = pair->second;
-            return !tables.empty();
         }
+
+        return ! pair->second.empty();
     }
 
-
-    const TableContainer& TableManager::getTables( const std::string& tableName ) const {
-        auto pair = m_simpleTables.find( tableName );
+    const TableContainer&
+    TableManager::getTables(const std::string& tableName) const
+    {
+        auto pair = m_simpleTables.find(tableName);
         if (pair == m_simpleTables.end())
             throw std::invalid_argument("No such table collection: " + tableName);
         else
             return pair->second;
     }
 
-    TableContainer& TableManager::forceGetTables( const std::string& tableName , size_t numTables )  {
+    TableContainer&
+    TableManager::forceGetTables( const std::string& tableName , size_t numTables )
+    {
         auto pair = m_simpleTables.find( tableName );
         if (pair == m_simpleTables.end()) {
             addTables( tableName , numTables );
             pair = m_simpleTables.find( tableName );
         }
+
         return pair->second;
     }
 
@@ -785,21 +819,24 @@ namespace Opm {
 
 
 
-    void TableManager::initRocktabTables(const Deck& deck) {
-        if (!deck.hasKeyword("ROCKTAB"))
+    void TableManager::initRocktabTables(const Deck& deck)
+    {
+        if (!deck.hasKeyword("ROCKTAB")) {
             return; // ROCKTAB is not featured by the deck...
+        }
 
         if (deck.count("ROCKTAB") > 1) {
             complainAboutAmbiguousKeyword(deck, "ROCKTAB");
             return;
         }
+
         const auto& rockcompKeyword = deck.getKeyword<ParserKeywords::ROCKCOMP>();
         const auto& record = rockcompKeyword.getRecord( 0 );
-        size_t numTables = record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0);
+        const size_t numTables = record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0);
         auto& container = forceGetTables("ROCKTAB" , numTables);
         const auto rocktabKeyword = deck.getKeyword("ROCKTAB");
 
-        bool isDirectional = deck.hasKeyword<ParserKeywords::RKTRMDIR>();
+        const bool isDirectional = deck.hasKeyword<ParserKeywords::RKTRMDIR>();
         if (isDirectional) {
             const auto& keyword = deck.getKeyword<ParserKeywords::RKTRMDIR>();
             const std::string reason {
@@ -815,31 +852,34 @@ namespace Opm {
             const auto rockoptsKeyword = deck.getKeyword<ParserKeywords::ROCKOPTS>();
             const auto& rockoptsRecord = rockoptsKeyword.getRecord(0);
             const auto& item = rockoptsRecord.getItem<ParserKeywords::ROCKOPTS::METHOD>();
-            useStressOption = (item.getTrimmedString(0) == "STRESS");
 
-            if (useStressOption) {
-                const std::string reason { "STRESS option is set in ROCKOPTS. Flow does not support stress option in rock compaction mulipliers" } ;
+            useStressOption = item.getTrimmedString(0) == "STRESS";
+        }
 
-                throw OpmInputError(reason, rockoptsKeyword.location());
-            }
+        if (useStressOption) {
+            const std::string reason {
+                "STRESS option is set in ROCKOPTS. Flow does "
+                "not support stress option in rock compaction mulipliers"
+            };
+
+            throw OpmInputError(reason, rockoptsKeyword.location());
         }
 
         for (size_t tableIdx = 0; tableIdx < rocktabKeyword.size(); ++tableIdx) {
-            const auto& tableRecord = rocktabKeyword.getRecord( tableIdx );
-            const auto& dataItem = tableRecord.getItem( 0 );
+            const auto& tableRecord = rocktabKeyword.getRecord(tableIdx);
+            const auto& dataItem = tableRecord.getItem(0);
+
             if (dataItem.data_size() > 0) {
-                std::shared_ptr<RocktabTable> table = std::make_shared<RocktabTable>( dataItem , isDirectional, useStressOption );
-                container.addTable( tableIdx , table );
+                container.addTable(tableIdx, std::make_shared<RocktabTable>(dataItem, isDirectional, useStressOption));
             }
         }
     }
 
-        size_t TableManager::numFIPRegions() const {
-        size_t ntfip = m_tabdims.getNumFIPRegions();
-        if (m_regdims.getNTFIP( ) > ntfip)
-            return m_regdims.getNTFIP( );
-        else
-            return ntfip;
+    size_t TableManager::numFIPRegions() const
+    {
+        const size_t ntfip = m_tabdims.getNumFIPRegions();
+
+        return std::max(ntfip, m_regdims.getNTFIP());
     }
 
     const Tabdims& TableManager::getTabdims() const {

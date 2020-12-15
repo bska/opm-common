@@ -21,6 +21,7 @@
 #define OPM_IO_SUMMARYNODE_HPP
 
 #include <functional>
+#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_set>

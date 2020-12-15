@@ -69,6 +69,7 @@ public:
     const std::vector<std::string>& arrayNames() const { return array_name; }
     std::size_t size() const;
     bool is_ix() const;
+    bool empty() const;
 
 protected:
     bool formatted;
