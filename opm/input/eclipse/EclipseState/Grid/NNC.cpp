@@ -17,29 +17,31 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <array>
-#include <deque>
-#include <cstddef>
-#include <algorithm>
+
+#include <opm/parser/eclipse/EclipseState/Grid/NNC.hpp>
 
 #include <opm/input/eclipse/Deck/Deck.hpp>
 #include <opm/input/eclipse/Deck/DeckItem.hpp>
 #include <opm/input/eclipse/Deck/DeckKeyword.hpp>
 #include <opm/input/eclipse/Deck/DeckRecord.hpp>
+
 #include <opm/input/eclipse/EclipseState/Grid/EclipseGrid.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/NNC.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/E.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/N.hpp>
 
-namespace Opm
-{
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <deque>
 
 namespace {
 
-std::optional<std::size_t> global_index(const EclipseGrid& grid, const DeckRecord& record, std::size_t item_offset) {
-    std::size_t i = static_cast<size_t>(record.getItem(0 + item_offset).get< int >(0)-1);
-    std::size_t j = static_cast<size_t>(record.getItem(1 + item_offset).get< int >(0)-1);
-    std::size_t k = static_cast<size_t>(record.getItem(2 + item_offset).get< int >(0)-1);
+std::optional<std::size_t>
+global_index(const Opm::EclipseGrid& grid, const Opm::DeckRecord& record, std::size_t item_offset) {
+    std::size_t i = static_cast<std::size_t>(record.getItem(0 + item_offset).get< int >(0)-1);
+    std::size_t j = static_cast<std::size_t>(record.getItem(1 + item_offset).get< int >(0)-1);
+    std::size_t k = static_cast<std::size_t>(record.getItem(2 + item_offset).get< int >(0)-1);
 
     if (i >= grid.getNX())
         return {};
@@ -56,8 +58,8 @@ std::optional<std::size_t> global_index(const EclipseGrid& grid, const DeckRecor
     return grid.getGlobalIndex(i,j,k);
 }
 
-
-std::optional<std::pair<std::size_t, std::size_t>> make_index_pair(const EclipseGrid& grid, const DeckRecord& record) {
+std::optional<std::pair<std::size_t, std::size_t>>
+make_index_pair(const Opm::EclipseGrid& grid, const Opm::DeckRecord& record) {
     auto g1 = global_index(grid, record, 0);
     auto g2 = global_index(grid, record, 3);
     if (!g1)
@@ -72,7 +74,7 @@ std::optional<std::pair<std::size_t, std::size_t>> make_index_pair(const Eclipse
         return std::make_pair(*g2, *g1);
 }
 
-bool is_neighbor(const EclipseGrid& grid, std::size_t g1, std::size_t g2) {
+bool is_neighbor(const Opm::EclipseGrid& grid, std::size_t g1, std::size_t g2) {
     auto diff = g2 - g1;
     if (diff == 0)
         return true;
@@ -90,6 +92,9 @@ bool is_neighbor(const EclipseGrid& grid, std::size_t g1, std::size_t g2) {
 }
 
 }
+
+namespace Opm
+{
 
     NNC::NNC(const EclipseGrid& grid, const Deck& deck) {
         this->load_input(grid, deck);
