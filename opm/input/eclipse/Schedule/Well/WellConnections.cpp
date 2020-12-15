@@ -987,6 +987,7 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
             const auto& prev = m_connections[pos - 1];
             const double prevz = prev.depth();
             size_t next_index = findClosestConnection(prev.getI(), prev.getJ(), prevz, pos);
+
             std::swap(m_connections[next_index], m_connections[pos]);
         }
     }
