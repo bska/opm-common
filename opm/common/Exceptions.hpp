@@ -81,6 +81,13 @@ public:
         : NumericalProblem(message)
     {}
 };
+class LowConvergenceRate : public NumericalProblem
+{
+public:
+    explicit LowConvergenceRate(const std::string &message)
+        : NumericalProblem(message)
+    {}
+};
 }
 
 #endif // OPM_EXCEPTIONS_HPP
