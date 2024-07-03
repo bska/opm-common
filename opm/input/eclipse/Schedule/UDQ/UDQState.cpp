@@ -19,13 +19,16 @@
 
 #include <opm/input/eclipse/Schedule/UDQ/UDQState.hpp>
 
+#include <opm/output/eclipse/WindowedArray.hpp>
+
 #include <opm/io/eclipse/rst/state.hpp>
 
 #include <cstddef>
+#include <functional>
 #include <stdexcept>
 #include <string>
-#include <utility>
 #include <unordered_map>
+#include <utility>
 
 #include <fmt/format.h>
 
@@ -354,6 +357,37 @@ double UDQState::get_segment_var(const std::string& well,
     }
 
     return valPos->second;
+}
+
+void UDQState::exportSegmentUDQ(const std::string& var,
+                                const std::string& well,
+                                ExportRange&       output) const
+{
+    if (! is_udq(var)) {
+        throw std::logic_error {
+            fmt::format("Cannot evaluate non-UDQ variable '{}'", var)
+        };
+    }
+
+    auto varPos = this->segment_values.find(var);
+    if (varPos == this->segment_values.end()) { return; }
+
+    auto wellPos = varPos->second.find(well);
+    if (wellPos == varPos->second.end()) { return; }
+
+    for (const auto& [segment, value] : wellPos->second) {
+        if ((segment < 1) || (segment > output.size())) {
+            throw std::invalid_argument {
+                fmt::format("Segment number {} for well {} in "
+                            "UDQ {} is outside valid range "
+                            "1..{} for DUDS restart array",
+                            segment, well, var, output.size())
+            };
+        }
+
+        // Subtract 1 to convert 1-based segment number to an index.
+        output[segment - 1] = value;
+    }
 }
 
 bool UDQState::operator==(const UDQState& other) const

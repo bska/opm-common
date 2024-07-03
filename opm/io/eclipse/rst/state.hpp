@@ -33,6 +33,7 @@
 
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
+#include <ctime>
 #include <memory>
 #include <string>
 #include <unordered_map>

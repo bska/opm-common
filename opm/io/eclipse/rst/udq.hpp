@@ -3,7 +3,8 @@
 
   This file is part of the Open Porous Media project (OPM).
 
-  OPM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+  OPM is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
@@ -19,6 +20,10 @@
 #ifndef RST_UDQ
 #define RST_UDQ
 
+#include <opm/input/eclipse/EclipseState/Phase.hpp>
+
+#include <opm/input/eclipse/Schedule/UDQ/UDQEnums.hpp>
+
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -26,40 +31,22 @@
 #include <utility>
 #include <variant>
 #include <vector>
-#include <algorithm>
 
-#include <opm/input/eclipse/Schedule/UDQ/UDQEnums.hpp>
-#include <opm/input/eclipse/EclipseState/Phase.hpp>
-
-namespace Opm {
-
-namespace RestartIO {
+namespace Opm::RestartIO {
 
 struct RstHeader;
 
-class RstUDQ {
+} // namespace Opm::RestartIO
+
+namespace Opm::RestartIO {
+
+class RstUDQ
+{
 public:
-    struct RstDefine {
-        RstDefine(const std::string& expression_arg, UDQUpdate status_arg);
-
-        std::string expression;
-        UDQUpdate status;
-        std::vector<std::pair<std::string, double>> values;
-        std::optional<double> field_value;
-    };
-
-    struct RstAssign {
-        void update_value(const std::string& name_arg, double new_value);
-
-        std::optional<double> value;
-        std::unordered_set<std::string> selector;
-    };
-
-
     RstUDQ(const std::string& name_arg,
            const std::string& unit_arg,
            const std::string& define_arg,
-           UDQUpdate status_arg);
+           UDQUpdate          status_arg);
 
     RstUDQ(const std::string& name_arg,
            const std::string& unit_arg);
@@ -70,9 +57,11 @@ public:
     bool is_define() const;
     UDQUpdate updateStatus() const;
     double assign_value() const;
+
     const std::unordered_set<std::string>& assign_selector() const;
     const std::string& expression() const;
     const std::vector<std::pair<std::string, double>>& values() const;
+
     std::optional<double> field_value() const;
 
     std::string name;
@@ -80,35 +69,49 @@ public:
     UDQVarType var_type;
 
 private:
+    struct RstDefine
+    {
+        RstDefine(const std::string& expression_arg, UDQUpdate status_arg);
+
+        std::string expression;
+        UDQUpdate status;
+        std::vector<std::pair<std::string, double>> values;
+        std::optional<double> field_value;
+    };
+
+    struct RstAssign
+    {
+        void update_value(const std::string& name_arg, double new_value);
+
+        std::optional<double> value;
+        std::unordered_set<std::string> selector;
+    };
+
     std::variant<std::monostate, RstDefine, RstAssign> data;
 };
 
-
-
-class RstUDQActive {
-
-    struct RstRecord {
+struct RstUDQActive
+{
+    struct RstRecord
+    {
         RstRecord(UDAControl c, std::size_t i, std::size_t u1, std::size_t u2);
 
-
-        UDAControl control;
+        UDAControl  control;
         std::size_t input_index;
         std::size_t use_count;
         std::size_t wg_offset;
     };
 
-
-public:
     RstUDQActive() = default;
-    RstUDQActive(const std::vector<int>& iuad, const std::vector<int>& iuap, const std::vector<int>& igph);
+    RstUDQActive(const std::vector<int>& iuad,
+                 const std::vector<int>& iuap,
+                 const std::vector<int>& igph);
 
-    std::vector<RstRecord> iuad;
-    std::vector<int> wg_index;
-    std::vector<Phase> ig_phase;
+    std::vector<RstRecord> iuad{};
+    std::vector<int> wg_index{};
+    std::vector<Phase> ig_phase{};
 };
-}
-}
 
+} // namespace Opm::RestartIO
 
-
-#endif
+#endif // RST_UDQ
