@@ -703,6 +703,8 @@ namespace Opm {
         void handleProcessingInstruction(const std::string& keyword);
     };
 
+    bool wantNormalisedConcentrationVariation(const SummaryConfig& smryCfg);
+
 } // namespace Opm
 
 #endif // OPM_SUMMARY_CONFIG_HPP
