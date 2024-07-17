@@ -3489,6 +3489,7 @@ static const auto region_units = UnitTable {
     {"RMBIP" , Opm::UnitSystem::measure::mass },
     {"RMCIP" , Opm::UnitSystem::measure::mass },
     {"RAMIP" , Opm::UnitSystem::measure::mass },
+    {"RCVAR" , Opm::UnitSystem::measure::area },
 };
 
 static const auto interregion_units = UnitTable {
@@ -4732,12 +4733,11 @@ namespace Evaluator {
 
     bool Factory::isRegionValue()
     {
-        auto keyword = this->node_->keyword;
-        auto dash_pos = keyword.find("_");
-        if (dash_pos != std::string::npos)
-            keyword = keyword.substr(0, dash_pos);
+        const auto normKw = (this->node_->category == Opm::EclIO::SummaryNode::Category::Region)
+            ? Opm::EclIO::SummaryNode::normalise_region_keyword(this->node_->keyword)
+            : Opm::EclIO::SummaryNode::normalise_keyword(this->node_->category, this->node_->keyword);
 
-        auto pos = region_units.find(keyword);
+        auto pos = region_units.find(normKw);
         if (pos == region_units.end())
             return false;
 
