@@ -2830,4 +2830,9 @@ void SummaryConfig::handleProcessingInstruction(const std::string& keyword)
     }
 }
 
+bool wantNormalisedConcentrationVariation(const SummaryConfig& smryCfg)
+{
+    return smryCfg.match("RCVAR*");
+}
+
 } // namespace Opm
