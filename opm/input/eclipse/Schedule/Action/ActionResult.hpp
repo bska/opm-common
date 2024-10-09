@@ -13,122 +13,162 @@
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
-  but eliminates the memory saving DynamicState is intended to enable. You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifndef ACTION_RESULT_HPP
 #define ACTION_RESULT_HPP
 
-#include <optional>
+#include <algorithm>
+#include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
-namespace Opm {
-namespace Action {
+namespace Opm::Action {
 
-/*
-  The Action::Result class is used to hold the boolean result of a ACTIONX
-  condition like:
+// The Action::Result class is used to hold the boolean result of a ACTIONX
+// condition like:
+//
+//       WWCT > 0.75
+//
+//  and also the final evaluation of an ACTIONX condition comes as a
+//  Action::Result instance.
+//
+//  In addition to the overall truthness of the expression an Action::Result
+//  instance can optionally have a set of matching wells. For instance the
+//  the result of:
+//
+//       FWCT > 0.75
+//
+//  Will not contain any wells, whereas the result of:
+//
+//       WWCT > 0.75
+//
+//  will contain a set of all the wells matching the condition. The set of
+//  matching wells can be queries with the wells() method. When a result
+//  with wells and a result without wells are combined as:
+//
+//       WWCT > 0.50 AND FPR > 1000
+//
+//  The result will have all the wells corresponding to the first condition,
+//  when several results with wells are combined with logical operators AND
+//  and OR the set of matching wells are combined correspondingly. It is
+//  actually possible to have a result which evaluates to true and still
+//  have and zero matching wells - e.g.
+//
+//      WWCT > 1.25 OR FOPT > 1
+//
+//  If the condition evaluates to true the set of matching wells will be
+//  passed to the Schedule::applyAction() method, and will be used in place
+//  of '?' in keywords like WELOPEN.
 
-        WWCT > 0.75
-
-   and also the final evaluation of an ACTIONX condition comes as a
-   Action::Result instance.
-
-
-   In addition to the overall truthness of the expression an Action::Result
-   instance can optionally have a set of matching wells. For instance the
-   the result of:
-
-        FWCT > 0.75
-
-   Will not contain any wells, whereas the result of:
-
-        WWCT > 0.75
-
-   will contain a set of all the wells matching the condition. The set of
-   matching wells can be queries with the wells() method. When a result with
-   wells and a result without wells are combined as:
-
-        WWCT > 0.50 AND FPR > 1000
-
-   The result will have all the wells corresponding to the first condition, when
-   several results with wells are combined with logical operators AND and OR the
-   set of matching wells are combined correspondingly. It is actually possible
-   to have a result which evaluates to true and still have and zero matching
-   wells - e.g.
-
-       WWCT > 1.25 OR FOPT > 1
-
-   If the condition evaluates to true the set of matching wells will be passed
-   to the Schedule::applyAction() method, and will be used in place of '?' in
-   keywords like WELOPEN.
-*/
-
-
-class WellSet {
+class Result
+{
 public:
-    WellSet() = default;
-    explicit WellSet(const std::vector<std::string>& wells);
-    void add(const std::string& well);
-
-    std::size_t size() const;
-    std::vector<std::string> wells() const;
-    bool contains(const std::string& well) const;
-
-    WellSet& intersect(const WellSet& other);
-    WellSet& add(const WellSet& other);
-    bool operator==(const WellSet& other) const;
-
-    template<class Serializer>
-    void serializeOp(Serializer& serializer)
+    template <typename T>
+    class ValueRange
     {
-        serializer(this->well_set);
-    }
+    public:
+        using RandIt = typename std::vector<T>::const_iterator;
 
-    static WellSet serializationTestObject();
+        explicit ValueRange(RandIt first, RandIt last, bool isSorted = false)
+            : first_    { first }
+            , last_     { last }
+            , isSorted_ { isSorted }
+        {}
 
-private:
-    std::unordered_set<std::string> well_set;
-};
+        auto begin() const { return this->first_; }
+        auto end() const { return this->last_; }
 
+        auto empty() const { return this->begin() == this->end(); }
+        auto size() const { return std::distance(this->begin(), this->end()); }
 
+        std::vector<T> asVector() const
+        {
+            return { this->begin(), this->end() };
+        }
 
-class Result {
-public:
-    Result() = default;
+        bool hasElement(const T& elem) const
+        {
+            return this->isSorted_
+                ? this->hasElementSorted(elem)
+                : this->hasElementUnsorted(elem);
+        }
+
+    private:
+        RandIt first_{};
+        RandIt last_{};
+        bool isSorted_{false};
+
+        bool hasElementSorted(const T& elem) const
+        {
+            return std::binary_search(this->begin(), this->end(), elem);
+        }
+
+        bool hasElementUnsorted(const T& elem) const
+        {
+            return std::find(this->begin(), this->end(), elem)
+                != this->end();
+        }
+    };
+
+    class MatchingEntities
+    {
+    public:
+        MatchingEntities();
+        MatchingEntities(const MatchingEntities& rhs);
+        MatchingEntities(MatchingEntities&& rhs);
+
+        ~MatchingEntities();
+
+        MatchingEntities& operator=(const MatchingEntities& rhs);
+        MatchingEntities& operator=(MatchingEntities&& rhs);
+
+        ValueRange<std::string> wells() const;
+
+        bool hasWell(const std::string& well) const;
+        bool operator==(const MatchingEntities& that) const;
+
+        friend class Result;
+
+    private:
+        class Impl;
+        std::unique_ptr<Impl> pImpl_;
+
+        void addWell(const std::string& well);
+        void addWells(const std::vector<std::string>& wells);
+
+        void makeIntersection(const MatchingEntities& rhs);
+        void makeUnion(const MatchingEntities& rhs);
+    };
+
     explicit Result(bool result_arg);
-    Result(bool result_arg, const std::vector<std::string>& wells);
-    Result(bool result_arg, const WellSet& wells);
 
-    explicit operator bool() const;
-    std::vector<std::string> wells() const;
+    Result(const Result& rhs);
+    Result(Result&& rhs);
 
-    bool has_well(const std::string& well) const;
+    ~Result();
 
-    void add_well(const std::string& well);
+    Result& operator=(const Result& rhs);
+    Result& operator=(Result&& rhs);
 
-    Result& operator|=(const Result& other);
-    Result& operator&=(const Result& other);
-    bool operator==(const Result& other) const;
+    Result& wells(const std::vector<std::string>& w);
 
-    template<class Serializer>
-    void serializeOp(Serializer& serializer)
-    {
-        serializer(this->result);
-        serializer(this->matching_wells);
-    }
+    bool conditionSatisfied() const;
 
-    static Result serializationTestObject();
+    Result& makeSetUnion(const Result& rhs);
+    Result& makeSetIntersection(const Result& rhs);
+
+    const MatchingEntities& matches() const;
+
+    bool operator==(const Result& that) const;
 
 private:
-    void assign(bool value);
-    bool result{false};
-    std::optional<WellSet> matching_wells{};
+    class Impl;
+    std::unique_ptr<Impl> pImpl_{};
 };
 
-}
-}
-#endif
+} // Namespace Opm::Action
+
+#endif // ACTION_RESULT_HPP

@@ -19,19 +19,20 @@
 #ifndef WLISTMANAGER_HPP
 #define WLISTMANAGER_HPP
 
-#include <cstddef>
-#include <map>
-#include <vector>
-#include <string>
 #include <opm/input/eclipse/Schedule/Well/WList.hpp>
 
+#include <cstddef>
+#include <map>
+#include <string>
+#include <vector>
+
+namespace Opm::RestartIO {
+    struct RstState;
+} // namespace Opm::RestartIO
+
 namespace Opm {
-
-namespace RestartIO {
-struct RstState;
-}
-
-class WListManager {
+class WListManager
+{
 public:
     WListManager() = default;
     explicit WListManager(const RestartIO::RstState& rst_state);
@@ -52,6 +53,7 @@ public:
 
     bool operator==(const WListManager& data) const;
     std::vector<std::string> wells(const std::string& wlist_pattern) const;
+
     template<class Serializer>
     void serializeOp(Serializer& serializer)
     {
@@ -66,5 +68,6 @@ private:
     std::map<std::string, std::size_t> no_wlists_well;
 };
 
-}
-#endif
+} // namespace Opm
+
+#endif // WLISTMANAGER_HPP

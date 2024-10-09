@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-namespace Opm { namespace Action {
+namespace Opm::Action {
 
 enum class TokenType
 {
@@ -48,18 +48,18 @@ enum class TokenType
 
 enum class FuncType
 {
-    none,
-    time,
-    time_month,
-    region,
-    field,
-    group,
-    well,
-    well_segment,
-    well_connection,
-    Well_lgr,
-    aquifer,
-    block,
+    none,            //  0
+    time,            //  1
+    time_month,      //  2
+    region,          //  3
+    field,           //  4
+    group,           //  5
+    well,            //  6
+    well_segment,    //  7
+    well_connection, //  8
+    Well_lgr,        //  9
+    aquifer,         // 10
+    block,           // 11
 };
 
 class Value
@@ -81,6 +81,6 @@ private:
     Result eval_cmp_wells(TokenType op, double rhs) const;
 };
 
-}} // namespace Opm::Action
+} // namespace Opm::Action
 
 #endif // ACTION_VALUE_HPP

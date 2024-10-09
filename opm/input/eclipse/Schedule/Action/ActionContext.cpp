@@ -23,46 +23,52 @@
 
 #include <opm/input/eclipse/Schedule/SummaryState.hpp>
 
-namespace Opm {
-namespace Action {
+void Opm::Action::Context::add(const std::string& func,
+                               const std::string& arg,
+                               const double       value)
+{
+    this->values[func + ":" + arg] = value;
+}
 
-    void Context::add(const std::string& func, const std::string& arg, double value) {
-        this->values[func + ":" + arg] = value;
-    }
-
-    Context::Context(const SummaryState& summary_state_arg, const WListManager& wlm_) :
-        summary_state(summary_state_arg),
-        wlm(wlm_)
-    {
-        for (const auto& pair : TimeService::eclipseMonthIndices())
-            this->add(pair.first, pair.second);
-    }
-
-    void Context::add(const std::string& func, double value) {
-        this->values[func] = value;
-    }
-
-
-    double Context::get(const std::string& func, const std::string& arg) const {
-        return this->get(func + ":" + arg);
-    }
-
-    double Context::get(const std::string& key) const {
-        const auto& iter = this->values.find(key);
-        if (iter != this->values.end())
-            return iter->second;
-
-        return this->summary_state.get(key);
-    }
-
-
-    std::vector<std::string> Context::wells(const std::string& key) const {
-        return this->summary_state.wells(key);
-    }
-
-
-    const WListManager& Context::wlist_manager() const {
-        return this->wlm;
+Opm::Action::Context::Context(const SummaryState& summary_state_arg,
+                              const WListManager& wlm_)
+    : summary_state { summary_state_arg }
+    , wlm           { wlm_ }
+{
+    for (const auto& [month, idx] : TimeService::eclipseMonthIndices()) {
+        this->add(month, idx);
     }
 }
+
+void Opm::Action::Context::add(const std::string& func,
+                               const double       value)
+{
+    this->values.insert_or_assign(func, value);
+}
+
+double Opm::Action::Context::get(const std::string& func,
+                                 const std::string& arg) const
+{
+    return this->get(func + ":" + arg);
+}
+
+double Opm::Action::Context::get(const std::string& key) const
+{
+    auto iter = this->values.find(key);
+    if (iter != this->values.end())
+        return iter->second;
+
+    return this->summary_state.get(key);
+}
+
+std::vector<std::string>
+Opm::Action::Context::wells(const std::string& key) const
+{
+    return this->summary_state.wells(key);
+}
+
+const Opm::WListManager&
+Opm::Action::Context::wlist_manager() const
+{
+    return this->wlm;
 }

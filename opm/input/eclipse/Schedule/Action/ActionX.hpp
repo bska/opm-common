@@ -17,61 +17,60 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #ifndef ActionX_HPP_
 #define ActionX_HPP_
 
-#include <ctime>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-
-#include <opm/input/eclipse/Deck/DeckKeyword.hpp>
 #include <opm/input/eclipse/Schedule/Action/ActionAST.hpp>
 #include <opm/input/eclipse/Schedule/Action/ActionResult.hpp>
 #include <opm/input/eclipse/Schedule/Action/Condition.hpp>
 
+#include <opm/input/eclipse/Deck/DeckKeyword.hpp>
 
+#include <cstddef>
+#include <ctime>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace Opm {
-class DeckKeyword;
 class WellMatcher;
 class Actdims;
+} // namespace Opm
 
-namespace RestartIO {
+namespace Opm::RestartIO {
 struct RstAction;
-}
+} // namespace Opm::RestartIO
 
-
-namespace Action {
+namespace Opm::Action {
 class State;
+} // namespace Opm::Action
 
-/*
-  The ActionX class internalizes the ACTIONX keyword. This keyword represents a
-  small in-deck programming language for the SCHEDULE section. In the deck the
-  ACTIONX keyword comes together with a 'ENDACTIO' kewyord and then a list of
-  regular keywords in the between. The principle is then that ACTIONX represents
-  a condition, and when that condition is satisfied the keywords are applied. In
-  the example below the ACTIONX keyword defines a condition whether well OPX has
-  watercut above 0.75, when the condition is met the WELOPEN keyword is applied
-  - and the well is shut.
+namespace Opm::Action {
 
-  ACTIONX
-     'NAME'  /
-     WWCT OPX > 0.50 /
-  /
+// The ActionX class internalizes the ACTIONX keyword. This keyword represents a
+// small in-deck programming language for the SCHEDULE section. In the deck the
+// ACTIONX keyword comes together with a 'ENDACTIO' kewyord and then a list of
+// regular keywords in the between. The principle is then that ACTIONX represents
+// a condition, and when that condition is satisfied the keywords are applied. In
+// the example below the ACTIONX keyword defines a condition whether well OPX has
+// watercut above 0.75, when the condition is met the WELOPEN keyword is applied
+// - and the well is shut.
+//
+//   ACTIONX
+//      'NAME'  /
+//      WWCT OPX > 0.50 /
+//   /
+//
+//   WELOPEN
+//      'OPX'  OPEN /
+//   /
+//
+//   ENDACTIO
 
-  WELOPEN
-     'OPX'  OPEN /
-  /
-
-  ENDACTION
-
-
-*/
-
-class ActionX {
+class ActionX
+{
 public:
     ActionX();
     ActionX(const std::string& name, size_t max_run, double max_wait, std::time_t start_time);
@@ -80,15 +79,19 @@ public:
             const std::vector<Condition>&& conditions,
             const std::vector<std::string>&& tokens);
     ActionX(const DeckRecord& record, std::time_t start_time);
+
     explicit ActionX(const RestartIO::RstAction& rst_action);
 
     static ActionX serializationTestObject();
 
     void addKeyword(const DeckKeyword& kw);
     bool ready(const State& state, std::time_t sim_time) const;
-    Action::Result eval(const Action::Context& context) const;
+    Result eval(const Context& context) const;
 
-    std::vector<std::string> wellpi_wells(const WellMatcher& well_matcher, const std::vector<std::string>& matching_wells) const;
+    std::vector<std::string>
+    wellpi_wells(const WellMatcher&              well_matcher,
+                 const Result::MatchingEntities& matches) const;
+
     void required_summary(std::unordered_set<std::string>& required_summary) const;
     std::string name() const { return this->m_name; }
     size_t max_run() const { return this->m_max_run; }
@@ -100,10 +103,9 @@ public:
     std::vector<DeckKeyword>::const_iterator end() const;
     static bool valid_keyword(const std::string& keyword);
 
-    /*
-      The conditions() and keyword_strings() methods, and their underlying data
-      members are only present to support writing formatted restart files.
-    */
+    // The conditions() and keyword_strings() methods, and their underlying
+    // data members are only present to support writing formatted restart
+    // files.
     const std::vector<Condition>& conditions() const;
     std::vector<std::string> keyword_strings() const;
 
@@ -130,7 +132,7 @@ private:
     std::size_t m_id = 0;
 
     std::vector<DeckKeyword> keywords;
-    Action::AST condition;
+    AST condition;
     std::vector<Condition> m_conditions;
 };
 
@@ -143,6 +145,6 @@ private:
 std::tuple<ActionX, std::vector<std::pair<std::string, std::string>>>
 parseActionX(const DeckKeyword& kw, const Actdims& actimds, std::time_t start_time);
 
-}
-}
-#endif /* WELL_HPP_ */
+} // namespace Opm::Action
+
+#endif // ActionX_HPP_

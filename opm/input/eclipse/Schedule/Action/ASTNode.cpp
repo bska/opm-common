@@ -29,7 +29,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <iterator>
 #include <stdexcept>
+#include <utility>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -50,7 +52,8 @@ namespace {
     std::vector<std::string>
     strip_quotes(const std::vector<std::string>& quoted_strings)
     {
-        std::vector<std::string> strings;
+        std::vector<std::string> strings{};
+        strings.reserve(quoted_strings.size());
 
         std::transform(quoted_strings.begin(), quoted_strings.end(),
                        std::back_inserter(strings),
@@ -103,19 +106,22 @@ Opm::Action::ASTNode::serializationTestObject()
     return result;
 }
 
-std::size_t Opm::Action::ASTNode::size() const
+Opm::Action::Result
+Opm::Action::ASTNode::eval(const Action::Context& context) const
 {
-    return this->children.size();
-}
+    if (this->empty()) {
+        throw std::invalid_argument {
+            "ASTNode::eval() should not reach leafnodes"
+        };
+    }
 
-bool Opm::Action::ASTNode::empty() const
-{
-    return this->size() == 0;
-}
+    if ((this->type == TokenType::op_or) ||
+        (this->type == TokenType::op_and))
+    {
+        return this->evalLogicalOperation(context);
+    }
 
-void Opm::Action::ASTNode::add_child(const ASTNode& child)
-{
-    this->children.push_back(child);
+    return this->evalComparison(context);
 }
 
 Opm::Action::Value
@@ -135,88 +141,129 @@ Opm::Action::ASTNode::value(const Action::Context& context) const
         return Value { context.get(this->func) };
     }
 
-    // The matching code is special case to handle one-argument cases with
-    // well patterns like 'P*'.
-    if ((this->arg_list.size() == 1) &&
-        (this->arg_list.front().find("*") != std::string::npos))
-    {
-        if (this->func_type != FuncType::well) {
-            throw std::logic_error {
-                ": attempted to action-evaluate list not of type well."
-            };
-        }
-
-        const auto& well_arg = this->arg_list[0];
-
-        auto well_values = Value{};
-        auto wnames = std::vector<std::string>{};
-
-        if ((well_arg.front() == '*') && (well_arg.size() > 1)) {
-            const auto& wlm = context.wlist_manager();
-            wnames = wlm.wells(well_arg);
-        }
-        else {
-            const auto& wells = context.wells(this->func);
-            std::copy_if(wells.begin(), wells.end(), std::back_inserter(wnames),
-                        [&well_arg](const auto& well)
-                        {
-                            return shmatch(well_arg, well);
-                        });
-        }
-
-        for (const auto& wname : wnames) {
-            well_values.add_well(wname, context.get(this->func, wname));
-        }
-
-        return well_values;
+    if (this->argListIsPattern()) {
+        return this->evalListExpression(context);
     }
     else {
-        const auto arg_key = fmt::format("{}", fmt::join(this->arg_list, ":"));
-        const auto scalar_value = context.get(this->func, arg_key);
-
-        if (this->func_type == FuncType::well) {
-            return Value { this->arg_list.front(), scalar_value };
-        }
-
-        return Value { scalar_value };
+        return this->evalScalarExpression(context);
     }
 }
 
-Opm::Action::Result
-Opm::Action::ASTNode::eval(const Action::Context& context) const
+bool Opm::Action::ASTNode::operator==(const ASTNode& data) const
 {
-    if (this->empty()) {
-        throw std::invalid_argument {
-            "ASTNode::eval() should not reach leafnodes"
+    return (type == data.type)
+        && (func_type == data.func_type)
+        && (func == data.func)
+        && (arg_list == data.arg_list)
+        && (number == data.number)
+        && (children == data.children)
+        ;
+}
+
+void Opm::Action::ASTNode::
+required_summary(std::unordered_set<std::string>& required_summary) const
+{
+    if (this->type == TokenType::ecl_expr) {
+        required_summary.insert(this->func);
+    }
+
+    for (const auto& node : this->children) {
+        node.required_summary(required_summary);
+    }
+}
+
+#if 0
+void Opm::Action::ASTNode::add_child(const ASTNode& child)
+{
+    this->children.push_back(child);
+}
+#endif
+
+void Opm::Action::ASTNode::add_child(ASTNode&& child)
+{
+    this->children.push_back(std::move(child));
+}
+
+std::size_t Opm::Action::ASTNode::size() const
+{
+    return this->children.size();
+}
+
+bool Opm::Action::ASTNode::empty() const
+{
+    return this->children.empty();
+}
+
+// ===========================================================================
+// Private member functions
+// ===========================================================================
+
+Opm::Action::Value
+Opm::Action::ASTNode::evalListExpression(const Context& context) const
+{
+    if (this->func_type != FuncType::well) {
+        throw std::logic_error {
+            ": attempted to action-evaluate list not of type well."
         };
     }
 
-    if ((this->type == TokenType::op_or) ||
-        (this->type == TokenType::op_and))
-    {
-        auto result = Result { this->type == TokenType::op_and };
+    return this->evalWellExpression(context);
+}
 
-        for (const auto& child : this->children) {
-            if (this->type == TokenType::op_or) {
-                result |= child.eval(context);
-            }
-            else {
-                result &= child.eval(context);
-            }
-        }
+Opm::Action::Value
+Opm::Action::ASTNode::evalWellExpression(const Context& context) const
+{
+    auto well_values = Value{};
 
-        return result;
+    for (const auto& wname : this->getWellList(context)) {
+        well_values.add_well(wname, context.get(this->func, wname));
     }
 
+    return well_values;
+}
+
+Opm::Action::Value
+Opm::Action::ASTNode::evalScalarExpression(const Context& context) const
+{
+    const auto arg_key = fmt::format("{}", fmt::join(this->arg_list, ":"));
+    const auto scalar_value = context.get(this->func, arg_key);
+
+    if (this->func_type == FuncType::well) {
+        return Value { this->arg_list.front(), scalar_value };
+    }
+
+    return Value { scalar_value };
+}
+
+Opm::Action::Result
+Opm::Action::ASTNode::evalLogicalOperation(const Context& context) const
+{
+    auto result = Result { this->type == TokenType::op_and };
+
+    auto setOp = (this->type == TokenType::op_or)
+        ? &Result::makeSetUnion          // or  => union
+        : &Result::makeSetIntersection;  // and => intersection
+
+    for (const auto& child : this->children) {
+        (result.*setOp)(child.eval(context));
+    }
+
+    return result;
+}
+
+Opm::Action::Result
+Opm::Action::ASTNode::evalComparison(const Context& context) const
+{
     auto v2 = Value {};
 
-    // Special casing of MONTH comparisons where in addition symbolic month
-    // names we can compare with numeric months, in the case of numeric
-    // months the numerical value should be rounded before comparison - i.e.
+    // Special casing of MONTH comparisons where in addition to symbolic
+    // month names we can compare with numeric month indices.  When
+    // conducting such comparisons, the numeric value should be rounded
+    // before the comparison.  This means that for example
     //
     //   MNTH = 4.3
     //
-    // should evaluate to true for the month of April (4).
+    // should evaluate to true for the month of April (month index = 4).
     if (this->children.front().func_type == FuncType::time_month) {
         const auto& rhs = this->children[1];
 
@@ -231,24 +278,54 @@ Opm::Action::ASTNode::eval(const Action::Context& context) const
     return this->children.front().value(context).eval_cmp(this->type, v2);
 }
 
-bool Opm::Action::ASTNode::operator==(const ASTNode& data) const
+namespace {
+    std::string normalisePattern(const std::string& patt)
+    {
+        if (patt.front() == '\\') {
+            // Trim leading '\' character since the 'patt' might be
+            // something like
+            //
+            //    '\*P*'
+            //
+            // which denotes all wells (typically) whose names contain at
+            // least one 'P' anywhere in the name.  Without the leading
+            // backslash, the pattern would match all well lists whose names
+            // begin with 'P'.
+            return patt.substr(1);
+        }
+
+        return patt;
+    }
+} // Anonymous namespace
+
+std::vector<std::string>
+Opm::Action::ASTNode::getWellList(const Context& context) const
 {
-    return (type == data.type)
-        && (func_type == data.func_type)
-        && (func == data.func)
-        && (arg_list == data.arg_list)
-        && (number == data.number)
-        && (children == data.children)
-        ;
+    if (this->argListIsWellList()) {
+        return context.wlist_manager().wells(this->arg_list.front());
+    }
+
+    const auto& wells = context.wells(this->func);
+
+    auto wnames = std::vector<std::string>{};
+    wnames.reserve(wells.size());
+
+    std::copy_if(wells.begin(), wells.end(), std::back_inserter(wnames),
+                 [wpatt = normalisePattern(this->arg_list.front())]
+                 (const auto& well) { return shmatch(wpatt, well); });
+
+    return wnames;
 }
 
-void Opm::Action::ASTNode::required_summary(std::unordered_set<std::string>& required_summary) const
+bool Opm::Action::ASTNode::argListIsPattern() const
 {
-    if (this->type == TokenType::ecl_expr) {
-        required_summary.insert(this->func);
-    }
+    return (this->arg_list.size() == 1)
+        && (this->arg_list.front().find("*") != std::string::npos);
+}
 
-    for (const auto& node : this->children) {
-        node.required_summary(required_summary);
-    }
+bool Opm::Action::ASTNode::argListIsWellList() const
+{
+    const auto& well_arg = this->arg_list.front();
+
+    return (well_arg.front() == '*') && (well_arg.size() > 1);
 }

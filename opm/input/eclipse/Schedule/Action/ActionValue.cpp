@@ -145,7 +145,7 @@ Opm::Action::Value::eval_cmp_wells(const TokenType op, const double rhs) const
         }
     }
 
-    return Result(result, wells);
+    return Result {result}.wells(wells);
 }
 
 Opm::Action::Result

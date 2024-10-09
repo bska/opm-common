@@ -34,8 +34,10 @@
 #include <opm/input/eclipse/Deck/DeckOutput.hpp>
 
 #include <opm/input/eclipse/Parser/ParseContext.hpp>
+
 #include <opm/input/eclipse/Parser/ParserKeywords/W.hpp>
 
+#include <algorithm>
 #include <ctime>
 #include <optional>
 #include <sstream>
@@ -50,27 +52,30 @@
 
 #include "ActionParser.hpp"
 
-namespace Opm {
-namespace Action {
 namespace {
 
-std::string dequote(const std::string& token, const std::optional<KeywordLocation>& location) {
-    if (token[0] == '\'') {
-        if (token.back() == '\'')
-            return token.substr(1, token.size() - 2);
-        else {
-            auto msg = fmt::format("Unbalanced quote for token: {}", token);
-            if (location.has_value())
-                throw OpmInputError(msg, location.value());
-            else
-                throw std::logic_error(msg);
-        }
-    } else
+std::string dequote(const std::string&                         token,
+                    const std::optional<Opm::KeywordLocation>& location)
+{
+    if (token.front() != '\'') {
         return token;
+    }
+
+    if (token.back() == '\'') {
+        return token.substr(1, token.size() - 2);
+    }
+
+    const auto msg = fmt::format("Unbalanced quote for token: {}", token);
+    if (location.has_value()) {
+        throw Opm::OpmInputError(msg, location.value());
+    }
+
+    throw std::logic_error(msg);
 }
 
-}
+} // Anonymous namespace
 
+namespace Opm::Action {
 
 bool ActionX::valid_keyword(const std::string& keyword)
 {
@@ -331,26 +336,37 @@ void ActionX::required_summary(std::unordered_set<std::string>& required_summary
     this->condition.required_summary(required_summary);
 }
 
-std::vector<std::string> ActionX::wellpi_wells(const WellMatcher& well_matcher, const std::vector<std::string>& matching_wells) const {
-    std::unordered_set<std::string> wells;
+std::vector<std::string>
+ActionX::wellpi_wells(const WellMatcher&              well_matcher,
+                      const Result::MatchingEntities& matches) const
+{
+    auto wells = std::vector<std::string>{};
+
     for (const auto& kw : this->keywords) {
-        if (kw.name() == "WELPI") {
-            for (const auto& record : kw) {
-                std::vector<std::string> record_wells;
-                const auto& wname_arg = record.getItem<ParserKeywords::WELPI::WELL_NAME>().get<std::string>(0);
+        if (kw.name() != ParserKeywords::WELPI::keywordName) {
+            continue;
+        }
 
-                if (wname_arg == "?")
-                    record_wells = matching_wells;
-                else
-                    record_wells = well_matcher.wells( wname_arg );
+        for (const auto& record : kw) {
+            const auto& wname_arg = record
+                .getItem<ParserKeywords::WELPI::WELL_NAME>()
+                .getTrimmedString(0);
 
-                for (const auto& well : record_wells)
-                    wells.insert( well );
+            if (wname_arg == "?") {
+                const auto& wr = matches.wells();
+                wells.insert(wells.end(), wr.begin(), wr.end());
+            }
+            else {
+                const auto& wr = well_matcher.wells(wname_arg);
+                wells.insert(wells.end(), wr.begin(), wr.end());
             }
         }
     }
-    return std::vector<std::string>{ std::move_iterator(wells.begin()), std::move_iterator(wells.end()) };
+
+    wells = well_matcher.sort(wells);
+    wells.erase(std::unique(wells.begin(), wells.end()), wells.end());
+
+    return wells;
 }
 
-}
-}
+} // namespace Opm::Action
