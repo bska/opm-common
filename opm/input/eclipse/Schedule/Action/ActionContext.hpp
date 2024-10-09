@@ -17,7 +17,6 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #ifndef ActionContext_HPP
 #define ActionContext_HPP
 
@@ -30,22 +29,21 @@ namespace Opm {
 class SummaryState;
 class WListManager;
 
-namespace Action {
+} // namespace Opm
 
-/*
-  The Action::Context class is used as context when the ACTIONX condition is
-  evaluated. The Action::Context class is mainly just a thin wrapper around the
-  SummaryState class.
-*/
+namespace Opm::Action {
 
-class Context {
+// The Action::Context class is used as context when the ACTIONX condition is
+// evaluated. The Action::Context class is mainly just a thin wrapper around the
+// SummaryState class.
+
+class Context
+{
 public:
     explicit Context(const SummaryState& summary_state, const WListManager& wlm);
 
-    /*
-      The get methods will first check the internal storage in the 'values' map
-      and then subsequently query the SummaryState member.
-    */
+    // The get methods will first check the internal storage in the 'values'
+    // map and then subsequently query the SummaryState member.
     double get(const std::string& func, const std::string& arg) const;
     void   add(const std::string& func, const std::string& arg, double value);
 
@@ -60,6 +58,7 @@ private:
     const WListManager& wlm;
     std::map<std::string, double> values;
 };
-}
-}
-#endif
+
+} // namespace Opm::Action
+
+#endif // ActionContext_HPP

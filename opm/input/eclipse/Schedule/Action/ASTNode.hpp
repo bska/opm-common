@@ -20,19 +20,18 @@
 #ifndef ASTNODE_HPP
 #define ASTNODE_HPP
 
-#include <opm/input/eclipse/Schedule/Action/ActionContext.hpp>
-
-#include "ActionValue.hpp"
+#include <opm/input/eclipse/Schedule/Action/ActionValue.hpp>
 
 #include <cstddef>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
-namespace Opm { namespace Action {
+namespace Opm::Action {
+    class Context;
+} // namespace Opm::Action
 
-class ActionContext;
-class WellSet;
+namespace Opm::Action {
 
 class ASTNode
 {
@@ -58,7 +57,8 @@ public:
     FuncType func_type;
     std::string func;
 
-    void add_child(const ASTNode& child);
+    //void add_child(const ASTNode& child);
+    void add_child(ASTNode&& child);
     std::size_t size() const;
     bool empty() const;
 
@@ -81,8 +81,20 @@ private:
     // supposedly borderline undefined behaviour; it compiles without
     // warnings and works.  Good for enough for me.
     std::vector<ASTNode> children{};
+
+    Result evalLogicalOperation(const Context& context) const;
+    Result evalComparison(const Context& context) const;
+
+    Value evalListExpression(const Context& context) const;
+    Value evalWellExpression(const Context& context) const;
+    Value evalScalarExpression(const Context& context) const;
+
+    std::vector<std::string> getWellList(Context& context) const;
+
+    bool argListIsPattern() const;
+    bool argListIsWellList() const;
 };
 
-}} // namespace Opm::Action
+} // namespace Opm::Action
 
 #endif // ASTNODE_HPP

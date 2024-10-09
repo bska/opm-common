@@ -17,157 +17,199 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <vector>
-#include <algorithm>
-#include <stdexcept>
-
 #include <opm/input/eclipse/Schedule/Action/ActionResult.hpp>
 
-namespace Opm {
-namespace Action {
+#include <algorithm>
+#include <cstddef>
+#include <stdexcept>
+#include <string>
+#include <unordered_set>
+#include <vector>
 
-Result::Result(bool result_arg) :
-    result(result_arg)
-{}
-
-Result::Result(bool result_arg, const std::vector<std::string>& wells)
-    : result(result_arg)
-    , matching_wells(wells)
-{
-}
-
-Result::Result(bool result_arg, const WellSet& wells)
-    : result(result_arg)
-    , matching_wells(wells)
-{
-}
-
-
-Result::operator bool() const {
-    return this->result;
-}
-
-std::vector<std::string> Result::wells() const {
-    if (!this->result)
-        throw std::logic_error("Programming error: trying to check wells in ActionResult which is false");
-
-    if (this->matching_wells.has_value())
-        return this->matching_wells->wells();
-    else
-        return {};
-}
-
-Result& Result::operator|=(const Result& other) {
-    this->result = this->result || other.result;
-
-    if (other.matching_wells.has_value()) {
-        if (this->matching_wells.has_value())
-            this->matching_wells->add( other.matching_wells.value() );
-        else
-            this->matching_wells = other.matching_wells.value();
-    }
-    return *this;
-}
-
-Result& Result::operator&=(const Result& other) {
-    this->result = this->result && other.result;
-
-    if (other.matching_wells.has_value()) {
-        if (this->matching_wells.has_value())
-            this->matching_wells->intersect( other.matching_wells.value() );
-        else
-            this->matching_wells = other.matching_wells.value();
-    }
-    return *this;
-}
-
-bool Result::operator==(const Result& other) const {
-    return this->result == other.result &&
-           this->matching_wells == other.matching_wells;
-}
-
-void Result::assign(bool value) {
-    this->result = value;
-}
-
-void Result::add_well(const std::string& well) {
-    if (!this->matching_wells.has_value())
-        this->matching_wells = WellSet{};
-    this->matching_wells->add(well);
-}
-
-bool Result::has_well(const std::string& well) const {
-    if (!this->result)
-        throw std::logic_error("Programming error: trying to check wells in ActionResult which is false");
-
-    if (!this->matching_wells.has_value())
-        return false;
-
-    return this->matching_wells->contains(well);
-}
-
-/******************************************************************/
-
-WellSet::WellSet(const std::vector<std::string>& wells)
+Opm::Action::WellSet::WellSet(const std::vector<std::string>& wells)
 {
     this->well_set.insert(wells.begin(), wells.end());
 }
 
-
-void WellSet::add(const std::string& well) {
+void Opm::Action::WellSet::add(const std::string& well)
+{
     this->well_set.insert(well);
 }
 
-
-std::size_t WellSet::size() const {
+std::size_t Opm::Action::WellSet::size() const
+{
     return this->well_set.size();
 }
 
-std::vector<std::string> WellSet::wells() const {
-    return std::vector<std::string>( this->well_set.begin(), this->well_set.end() );
+std::vector<std::string>
+Opm::Action::WellSet::wells() const
+{
+    return { this->well_set.begin(), this->well_set.end() };
 }
 
-
-WellSet& WellSet::intersect(const WellSet& other) {
+Opm::Action::WellSet&
+Opm::Action::WellSet::intersect(const WellSet& other)
+{
     auto well_iter = this->well_set.begin();
     while (well_iter != this->well_set.end()) {
-        if (other.contains(*well_iter))
-            well_iter++;
-        else
+        if (other.contains(*well_iter)) {
+            ++well_iter;
+        }
+        else {
             well_iter = this->well_set.erase(well_iter);
+        }
     }
 
     return *this;
 }
 
-WellSet& WellSet::add(const WellSet& other) {
+Opm::Action::WellSet&
+Opm::Action::WellSet::add(const WellSet& other)
+{
     this->well_set.insert(other.well_set.begin(), other.well_set.end());
+
     return *this;
 }
 
-
-bool WellSet::contains(const std::string& well) const {
-    return (this->well_set.find(well) != this->well_set.end());
+bool Opm::Action::WellSet::contains(const std::string& well) const
+{
+    return this->well_set.find(well) != this->well_set.end();
 }
 
-
-bool WellSet::operator==(const WellSet& other) const {
+bool Opm::Action::WellSet::operator==(const WellSet& other) const
+{
     return this->well_set == other.well_set;
 }
 
-WellSet WellSet::serializationTestObject() {
+Opm::Action::WellSet
+Opm::Action::WellSet::serializationTestObject()
+{
     WellSet ws;
+
     ws.well_set = {"W1", "W2", "W3"};
+
     return ws;
 }
 
+// ---------------------------------------------------------------------------
 
-Result Result::serializationTestObject() {
+class Opm::Action::Result::Impl
+{
+};
+
+// ---------------------------------------------------------------------------
+
+Opm::Action::Result::Result(bool result_arg)
+    : result(result_arg)
+{}
+
+Opm::Action::Result::Result(bool result_arg, const std::vector<std::string>& wells)
+    : result(result_arg)
+    , matching_wells(wells)
+{}
+
+Opm::Action::Result::Result(bool result_arg, const WellSet& wells)
+    : result(result_arg)
+    , matching_wells(wells)
+{}
+
+Opm::Action::Result::operator bool() const
+{
+    return this->result;
+}
+
+std::vector<std::string>
+Opm::Action::Result::wells() const
+{
+    if (!this->result) {
+        throw std::logic_error {
+            "Programming error: trying to check wells "
+            "in ActionResult which is false"
+        };
+    }
+
+    if (this->matching_wells.has_value()) {
+        return this->matching_wells->wells();
+    }
+
+    return {};
+}
+
+Opm::Action::Result&
+Opm::Action::Result::operator|=(const Result& other)
+{
+    this->result = this->result || other.result;
+
+    if (other.matching_wells.has_value()) {
+        if (this->matching_wells.has_value()) {
+            this->matching_wells->add( other.matching_wells.value() );
+        }
+        else {
+            this->matching_wells = other.matching_wells.value();
+        }
+    }
+
+    return *this;
+}
+
+Opm::Action::Result&
+Opm::Action::Result::operator&=(const Result& other)
+{
+    this->result = this->result && other.result;
+
+    if (other.matching_wells.has_value()) {
+        if (this->matching_wells.has_value()) {
+            this->matching_wells->intersect( other.matching_wells.value() );
+        }
+        else {
+            this->matching_wells = other.matching_wells.value();
+        }
+    }
+
+    return *this;
+}
+
+bool Opm::Action::Result::operator==(const Result& other) const
+{
+    return (this->result == other.result)
+        && (this->matching_wells == other.matching_wells)
+        ;
+}
+
+void Opm::Action::Result::assign(bool value)
+{
+    this->result = value;
+}
+
+void Opm::Action::Result::add_well(const std::string& well)
+{
+    if (!this->matching_wells.has_value()) {
+        this->matching_wells = WellSet{};
+    }
+
+    this->matching_wells->add(well);
+}
+
+bool Opm::Action::Result::has_well(const std::string& well) const
+{
+    if (! this->result) {
+        throw std::logic_error {
+            "Programming error: trying to check "
+            "wells in ActionResult which is false"
+        };
+    }
+
+    return this->matching_wells.has_value()
+        && this->matching_wells->contains(well);
+}
+
+Opm::Action::Result
+Opm::Action::Result::serializationTestObject()
+{
     Result rs;
+
     rs.result = false;
     rs.matching_wells = WellSet::serializationTestObject();
-    return rs;
-}
 
-}
+    return rs;
 }

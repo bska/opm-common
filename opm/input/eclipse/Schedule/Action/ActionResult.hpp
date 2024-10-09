@@ -13,92 +13,63 @@
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
 
-  but eliminates the memory saving DynamicState is intended to enable. You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifndef ACTION_RESULT_HPP
 #define ACTION_RESULT_HPP
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <memory>
 #include <vector>
 
-namespace Opm {
-namespace Action {
+namespace Opm::Action {
 
-/*
-  The Action::Result class is used to hold the boolean result of a ACTIONX
-  condition like:
+// The Action::Result class is used to hold the boolean result of a ACTIONX
+// condition like:
+//
+//       WWCT > 0.75
+//
+//  and also the final evaluation of an ACTIONX condition comes as a
+//  Action::Result instance.
+//
+//  In addition to the overall truthness of the expression an Action::Result
+//  instance can optionally have a set of matching wells. For instance the
+//  the result of:
+//
+//       FWCT > 0.75
+//
+//  Will not contain any wells, whereas the result of:
+//
+//       WWCT > 0.75
+//
+//  will contain a set of all the wells matching the condition. The set of
+//  matching wells can be queries with the wells() method. When a result
+//  with wells and a result without wells are combined as:
+//
+//       WWCT > 0.50 AND FPR > 1000
+//
+//  The result will have all the wells corresponding to the first condition,
+//  when several results with wells are combined with logical operators AND
+//  and OR the set of matching wells are combined correspondingly. It is
+//  actually possible to have a result which evaluates to true and still
+//  have and zero matching wells - e.g.
+//
+//      WWCT > 1.25 OR FOPT > 1
+//
+//  If the condition evaluates to true the set of matching wells will be
+//  passed to the Schedule::applyAction() method, and will be used in place
+//  of '?' in keywords like WELOPEN.
 
-        WWCT > 0.75
-
-   and also the final evaluation of an ACTIONX condition comes as a
-   Action::Result instance.
-
-
-   In addition to the overall truthness of the expression an Action::Result
-   instance can optionally have a set of matching wells. For instance the
-   the result of:
-
-        FWCT > 0.75
-
-   Will not contain any wells, whereas the result of:
-
-        WWCT > 0.75
-
-   will contain a set of all the wells matching the condition. The set of
-   matching wells can be queries with the wells() method. When a result with
-   wells and a result without wells are combined as:
-
-        WWCT > 0.50 AND FPR > 1000
-
-   The result will have all the wells corresponding to the first condition, when
-   several results with wells are combined with logical operators AND and OR the
-   set of matching wells are combined correspondingly. It is actually possible
-   to have a result which evaluates to true and still have and zero matching
-   wells - e.g.
-
-       WWCT > 1.25 OR FOPT > 1
-
-   If the condition evaluates to true the set of matching wells will be passed
-   to the Schedule::applyAction() method, and will be used in place of '?' in
-   keywords like WELOPEN.
-*/
-
-
-class WellSet {
-public:
-    WellSet() = default;
-    explicit WellSet(const std::vector<std::string>& wells);
-    void add(const std::string& well);
-
-    std::size_t size() const;
-    std::vector<std::string> wells() const;
-    bool contains(const std::string& well) const;
-
-    WellSet& intersect(const WellSet& other);
-    WellSet& add(const WellSet& other);
-    bool operator==(const WellSet& other) const;
-
-    template<class Serializer>
-    void serializeOp(Serializer& serializer)
-    {
-        serializer(this->well_set);
-    }
-
-    static WellSet serializationTestObject();
-
-private:
-    std::unordered_set<std::string> well_set;
-};
-
-
-
-class Result {
+class Result
+{
 public:
     Result() = default;
+
     explicit Result(bool result_arg);
     Result(bool result_arg, const std::vector<std::string>& wells);
     Result(bool result_arg, const WellSet& wells);
@@ -124,11 +95,10 @@ public:
     static Result serializationTestObject();
 
 private:
-    void assign(bool value);
-    bool result{false};
-    std::optional<WellSet> matching_wells{};
+    class Impl;
+    std::unique_ptr<Impl> pImpl_{};
 };
 
-}
-}
+} // Namespace Opm::Action
+
 #endif
