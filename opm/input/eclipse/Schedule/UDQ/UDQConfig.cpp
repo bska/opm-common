@@ -84,14 +84,18 @@ namespace {
             }};
         }
 
-        static EvalAssign well(const std::size_t    report_step,
-                               const Opm::Schedule& sched)
+        static EvalAssign well(const std::size_t      report_step,
+                               const Opm::Schedule&   sched,
+                               const Opm::UDQContext& context)
         {
-            return { [report_step, &sched]() {
-                return [wells = sched.wellNames(report_step)]
+            return { [report_step, &sched, &context]() {
+                return [wells = sched.wellNames(report_step), &context]
                     (const auto& assign)
                 {
-                    return assign.eval(wells);
+                    return assign.eval(wells, [&context](const std::vector<std::string>& pattern)
+                    {
+                        return context.wells(pattern.front());
+                    });
                 };
             }};
         }
@@ -618,10 +622,10 @@ namespace Opm {
         }
 
         const auto handlers = std::map<UDQVarType, EvalAssign> {
-            { UDQVarType::FIELD_VAR  , EvalAssign::field()                   },
+            { UDQVarType::FIELD_VAR  , EvalAssign::field() },
             { UDQVarType::GROUP_VAR  , EvalAssign::group(report_step, sched) },
-            { UDQVarType::WELL_VAR   , EvalAssign::well(report_step, sched)  },
-            { UDQVarType::SEGMENT_VAR, EvalAssign::segment(context)          },
+            { UDQVarType::WELL_VAR   , EvalAssign::well(report_step, sched, context) },
+            { UDQVarType::SEGMENT_VAR, EvalAssign::segment(context) },
         };
 
         // Recall: pending_assignments_ is mutable.
