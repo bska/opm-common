@@ -50,12 +50,35 @@ void UDQAssign::AssignRecord::eval(UDQSet& values) const
         }
     }
     else {
-        for (const auto& item : this->numbered_selector) {
-            for (const auto& number : item.numbers) {
-                values.assign(item.name, number, this->value);
-            }
-        }
+        this->assignEnumeration(this->numbered_selector, values);
     }
+}
+
+void UDQAssign::AssignRecord::eval(WGNameMatcher matcher, UDQSet& values) const
+{
+    if (!this->rst_selector.empty() || !this->numbered_selector.empty()) {
+        throw std::logic_error {
+            "UDQ assignment with well/group pattern "
+            "matching is not supported for restarted "
+            "runs or enumerated UDQ sets"
+        };
+    }
+
+    for (const auto& wgname : matcher(this->input_selector)) {
+        values.assign(wgname, this->value);
+    }
+}
+
+void UDQAssign::AssignRecord::eval(ItemMatcher matcher, UDQSet& values) const
+{
+    if (!this->rst_selector.empty() || !this->numbered_selector.empty()) {
+        throw std::logic_error {
+            "UDQ assignment with enumerated item matching is not supported "
+            "for restarted runs or explicitly enumerated UDQ sets"
+        };
+    }
+
+    this->assignEnumeration(matcher(this->input_selector), values);
 }
 
 bool UDQAssign::AssignRecord::operator==(const AssignRecord& data) const
@@ -67,10 +90,22 @@ bool UDQAssign::AssignRecord::operator==(const AssignRecord& data) const
         && (this->value == data.value);
 }
 
-UDQAssign::UDQAssign(const std::string&              keyword,
-                     const std::vector<std::string>& input_selector,
-                     const double                    value,
-                     const std::size_t               report_step)
+void UDQAssign::AssignRecord::
+assignEnumeration(const VEnumItems& items, UDQSet& values) const
+{
+    for (const auto& item : items) {
+        for (const auto& number : item.numbers) {
+            values.assign(item.name, number, this->value);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+UDQAssign::UDQAssign(const std::string& keyword,
+                     const VString&     input_selector,
+                     const double       value,
+                     const std::size_t  report_step)
     : m_keyword (keyword)
     , m_var_type(UDQ::varType(keyword))
 {
@@ -87,20 +122,20 @@ UDQAssign::UDQAssign(const std::string&                     keyword,
     this->add_record(rst_selector, value, report_step);
 }
 
-UDQAssign::UDQAssign(const std::string&                          keyword,
-                     const std::vector<UDQSet::EnumeratedItems>& selector,
-                     double                                      value,
-                     std::size_t                                 report_step)
+UDQAssign::UDQAssign(const std::string& keyword,
+                     const VEnumItems&  selector,
+                     double             value,
+                     std::size_t        report_step)
     : m_keyword(keyword)
     , m_var_type(UDQ::varType(keyword))
 {
     this->add_record(selector, value, report_step);
 }
 
-UDQAssign::UDQAssign(const std::string&                     keyword,
-                     std::vector<UDQSet::EnumeratedItems>&& selector,
-                     double                                 value,
-                     std::size_t                            report_step)
+UDQAssign::UDQAssign(const std::string& keyword,
+                     VEnumItems&&       selector,
+                     double             value,
+                     std::size_t        report_step)
     : m_keyword(keyword)
     , m_var_type(UDQ::varType(keyword))
 {
@@ -122,9 +157,9 @@ UDQAssign UDQAssign::serializationTestObject()
     return result;
 }
 
-void UDQAssign::add_record(const std::vector<std::string>& input_selector,
-                           const double                    value,
-                           const std::size_t               report_step)
+void UDQAssign::add_record(const VString&    input_selector,
+                           const double      value,
+                           const std::size_t report_step)
 {
     this->records.emplace_back(input_selector, value, report_step);
 }
@@ -136,16 +171,16 @@ void UDQAssign::add_record(const std::unordered_set<std::string>& rst_selector,
     this->records.emplace_back(rst_selector, value, report_step);
 }
 
-void UDQAssign::add_record(const std::vector<UDQSet::EnumeratedItems>& selector,
-                           const double                                value,
-                           const std::size_t                           report_step)
+void UDQAssign::add_record(const VEnumItems& selector,
+                           const double      value,
+                           const std::size_t report_step)
 {
     this->records.emplace_back(selector, value, report_step);
 }
 
-void UDQAssign::add_record(std::vector<UDQSet::EnumeratedItems>&& selector,
-                           const double                           value,
-                           const std::size_t                      report_step)
+void UDQAssign::add_record(VEnumItems&&      selector,
+                           const double      value,
+                           const std::size_t report_step)
 {
     this->records.emplace_back(std::move(selector), value, report_step);
 }
@@ -165,7 +200,7 @@ std::size_t UDQAssign::report_step() const
     return this->records.back().report_step;
 }
 
-UDQSet UDQAssign::eval(const std::vector<std::string>& wgnames) const
+UDQSet UDQAssign::eval(const VString& wgnames) const
 {
     if (this->m_var_type == UDQVarType::WELL_VAR) {
         auto ws = UDQSet::wells(this->m_keyword, wgnames);
@@ -184,7 +219,7 @@ UDQSet UDQAssign::eval(const std::vector<std::string>& wgnames) const
     };
 }
 
-UDQSet UDQAssign::eval(const std::vector<UDQSet::EnumeratedItems>& items) const
+UDQSet UDQAssign::eval(const VEnumItems& items) const
 {
     if (this->m_var_type == UDQVarType::SEGMENT_VAR) {
         auto us = UDQSet { this->m_keyword, this->m_var_type, items };
@@ -216,6 +251,46 @@ UDQSet UDQAssign::eval() const
                     "implemented for variables of type {}",
                     this->m_keyword, UDQ::typeName(this->m_var_type))
     };
+}
+
+UDQSet UDQAssign::eval(const VString& wgNames, WGNameMatcher matcher) const
+{
+    if ((this->m_var_type != UDQVarType::WELL_VAR) &&
+        (this->m_var_type != UDQVarType::GROUP_VAR))
+    {
+        throw std::invalid_argument {
+            fmt::format("ASSIGN UDQ '{}': eval(vector<string>) not "
+                        "yet implemented for variables of type {}",
+                        this->m_keyword, UDQ::typeName(this->m_var_type))
+        };
+    }
+
+    auto us = UDQSet { this->m_keyword, this->m_var_type, wgNames };
+
+    for (const auto& record : this->records) {
+        record.eval(matcher, us);
+    }
+
+    return us;
+}
+
+UDQSet UDQAssign::eval(const VEnumItems& items, ItemMatcher matcher) const
+{
+    if (this->m_var_type != UDQVarType::SEGMENT_VAR) {
+        throw std::invalid_argument {
+            fmt::format("ASSIGN UDQ '{}': eval(vector<items>) not "
+                        "yet implemented for variables of type {}",
+                        this->m_keyword, UDQ::typeName(this->m_var_type))
+        };
+    }
+
+    auto us = UDQSet { this->m_keyword, this->m_var_type, items };
+
+    for (const auto& record : this->records) {
+        record.eval(matcher, us);
+    }
+
+    return us;
 }
 
 bool UDQAssign::operator==(const UDQAssign& data) const
