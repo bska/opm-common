@@ -322,7 +322,8 @@ BOOST_AUTO_TEST_CASE( StrEquilOperations ) {
     BOOST_CHECK_CLOSE(9.0 * unit::barsa, record.stressZZ_grad(), 1e-12 );
 }
 
-BOOST_AUTO_TEST_CASE(RestartCWD) {
+BOOST_AUTO_TEST_CASE(RestartCWD)
+{
     WorkArea output_area;
 
     output_area.makeSubDir("simulation");
@@ -345,26 +346,39 @@ BOOST_AUTO_TEST_CASE(RestartCWD) {
         fs << deckStr4;
         fs.close();
     }
-    Opm::Parser parser;
+
     {
-        Opm::Deck deck = parser.parseFile("simulation/CASE.DATA");
-        Opm::InitConfig init_config(deck);
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "simulation/BASE");
+        const auto init_config = Opm::InitConfig {
+            Opm::Parser{}.parseFile("simulation/CASE.DATA")
+        };
+
+        BOOST_CHECK_EQUAL(init_config.getRestartRootName(),
+                          output_area.currentWorkingDirectory() / "simulation/BASE");
     }
+
     {
-      Opm::Deck deck = parser.parseFile("simulation/CASE5.DATA");
-      Opm::InitConfig init_config(deck);
-      BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
+        const auto init_config = Opm::InitConfig {
+            Opm::Parser{}.parseFile("simulation/CASE5.DATA")
+        };
+
+        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
     }
+
     {
-        Opm::Deck deck = parser.parseFile("CWD_CASE.DATA");
-        Opm::InitConfig init_config(deck);
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "BASE");
+        const auto init_config = Opm::InitConfig {
+            Opm::Parser{}.parseFile("CWD_CASE.DATA")
+        };
+
+        BOOST_CHECK_EQUAL(init_config.getRestartRootName(),
+                          output_area.currentWorkingDirectory() / "BASE");
     }
+
     {
-      Opm::Deck deck = parser.parseFile("CASE5.DATA");
-      Opm::InitConfig init_config(deck);
-      BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
+        const auto init_config = Opm::InitConfig {
+            Opm::Parser{}.parseFile("CASE5.DATA")
+        };
+
+        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
     }
 }
 
