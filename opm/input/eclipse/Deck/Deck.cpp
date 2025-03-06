@@ -23,6 +23,7 @@
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
 #include <algorithm>
+#include <filesystem>
 #include <iterator>
 #include <stdexcept>
 #include <utility>
@@ -182,11 +183,7 @@ const DeckView& Deck::global_view() const {
 
         this->m_dataFile = dataFile;
 
-        auto slash_pos = dataFile.find_last_of("/\\");
-        if (slash_pos == std::string::npos)
-            this->input_path = "";
-        else
-            this->input_path = dataFile.substr(0, slash_pos);
+        this->input_path = std::filesystem::path { dataFile }.parent_path();
 
         this->file_tree.add_root(dataFile);
     }
