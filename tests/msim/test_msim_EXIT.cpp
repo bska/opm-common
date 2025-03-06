@@ -119,7 +119,10 @@ namespace {
 
 BOOST_AUTO_TEST_CASE(MSIM_EXIT_TEST)
 {
-    std::string deck_file = "EXIT_TEST.DATA";
+    const auto deck_file = std::string { "EXIT_TEST.DATA" };
+
+    WorkArea work_area("test_msim_exit");
+    work_area.copyIn(deck_file);
 
     const Opm::Deck deck = Opm::Parser{}.parseFile(deck_file);
     const Opm::EclipseState state(deck);
@@ -127,7 +130,6 @@ BOOST_AUTO_TEST_CASE(MSIM_EXIT_TEST)
     Opm::SummaryConfig summary_config(deck, schedule, state.fieldProps(), state.aquifer());
 
     {
-        WorkArea work_area("test_msim");
         Opm::msim msim(state, schedule);
         Opm::EclipseIO io(state, state.getInputGrid(), schedule, summary_config);
         msim.well_rate("P1", Opm::data::Rates::opt::oil, &prod_opr);
