@@ -158,6 +158,13 @@ namespace {
             ? targetSizeRockFromTabdims(deck)
             : defaultTargetSizeRock();
     }
+
+    std::filesystem::path caseDirectory(const std::filesystem::path& caseName)
+    {
+        const auto parent = caseName.parent_path();
+
+        return !parent.empty() ? parent : std::filesystem::current_path();
+    }
 }
 
 namespace Opm {
@@ -551,29 +558,29 @@ void ParserState::closeFile() {
 }
 
 ParserState::ParserState(const std::vector<std::pair<std::string, std::string>>& code_keywords_arg,
-                         const ParseContext& __parseContext,
+                         const ParseContext& parseContext_arg,
                          ErrorGuard& errors_arg,
                          const std::set<Opm::Ecl::SectionType>& ignore) :
     code_keywords(code_keywords_arg),
     ignore_sections(ignore),
     python( std::make_unique<Python>() ),
-    parseContext( __parseContext ),
+    parseContext( parseContext_arg ),
     errors( errors_arg )
 {}
 
 ParserState::ParserState( const std::vector<std::pair<std::string, std::string>>& code_keywords_arg,
-                          const ParseContext& context,
+                          const ParseContext& parseContext_arg,
                           ErrorGuard& errors_arg,
-                          std::filesystem::path p,
+                          std::filesystem::path caseName,
                           const std::set<Opm::Ecl::SectionType>& ignore ) :
     code_keywords(code_keywords_arg),
     ignore_sections(ignore),
-    rootPath( std::filesystem::canonical( p ).parent_path() ),
+    rootPath( std::filesystem::canonical( ::caseDirectory(caseName) ) ),
     python( std::make_unique<Python>() ),
-    parseContext( context ),
+    parseContext( parseContext_arg ),
     errors( errors_arg )
 {
-    openRootFile( p );
+    openRootFile( this->rootPath / caseName.filename() );
 }
 
 bool ParserState::check_section_keywords(bool& has_edit, bool& has_regions, bool& has_summary) {
@@ -690,12 +697,10 @@ void ParserState::handleRandomText(const std::string_view& keywordString) const
 }
 
 
-void ParserState::openRootFile( const std::filesystem::path& inputFile) {
-
+void ParserState::openRootFile(const std::filesystem::path& inputFile)
+{
     this->loadFile( inputFile );
-    this->deck.setDataFile( inputFile.string() );
-    const std::filesystem::path& inputFileCanonical = std::filesystem::canonical(inputFile);
-    this->rootPath = inputFileCanonical.parent_path();
+    this->deck.setDataFile( inputFile.generic_string() );
 }
 
 std::optional<std::filesystem::path> ParserState::getIncludeFilePath( std::string path ) const {
