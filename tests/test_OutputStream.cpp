@@ -23,17 +23,19 @@
 
 #include <opm/io/eclipse/OutputStream.hpp>
 
-#include <opm/io/eclipse/EclFile.hpp>
-#include <opm/io/eclipse/EclOutput.hpp>
 #include <opm/io/eclipse/ERst.hpp>
-#include <opm/io/eclipse/PaddedOutputString.hpp>
-#include <opm/common/utility/TimeService.hpp>
-
+#include <opm/io/eclipse/EclFile.hpp>
 #include <opm/io/eclipse/EclIOdata.hpp>
+#include <opm/io/eclipse/EclOutput.hpp>
+#include <opm/io/eclipse/PaddedOutputString.hpp>
+
+#include <opm/common/utility/FileSystem.hpp>
+#include <opm/common/utility/TimeService.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <iterator>
 #include <ostream>
 #include <string>
@@ -41,8 +43,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#include <opm/common/utility/FileSystem.hpp>
 
 namespace Opm::EclIO {
 
