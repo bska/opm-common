@@ -22,14 +22,6 @@
 
 #include <opm/msim/msim.hpp>
 
-#include <algorithm>
-#include <filesystem>
-#include <memory>
-#include <iostream>
-#include <stdexcept>
-#include <utility>
-
-#include <opm/input/eclipse/Python/Python.hpp>
 #include <opm/io/eclipse/ERst.hpp>
 #include <opm/io/eclipse/ESmry.hpp>
 #include <opm/io/eclipse/ERsm.hpp>
@@ -38,13 +30,25 @@
 
 #include <opm/output/data/Wells.hpp>
 #include <opm/output/eclipse/EclipseIO.hpp>
-#include <opm/input/eclipse/Deck/Deck.hpp>
-#include <opm/input/eclipse/Units/Units.hpp>
-#include <opm/input/eclipse/Parser/Parser.hpp>
+
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
+#include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
+#include <opm/input/eclipse/Python/Python.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/input/eclipse/Schedule/Well/Well.hpp>
-#include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
+
+#include <opm/input/eclipse/Units/Units.hpp>
+
+#include <opm/input/eclipse/Deck/Deck.hpp>
+
+#include <opm/input/eclipse/Parser/Parser.hpp>
+
+#include <algorithm>
+#include <filesystem>
+#include <memory>
+#include <iostream>
+#include <stdexcept>
+#include <utility>
 
 #include <tests/WorkArea.hpp>
 
@@ -52,31 +56,62 @@ using namespace Opm;
 
 namespace {
 
-double prod_opr(const EclipseState&  es, const Schedule& /* sched */, const SummaryState&, const data::Solution& /* sol */, size_t /* report_step */, double seconds_elapsed) {
+double prod_opr(const EclipseState&  es,
+                const Schedule& /* sched */,
+                const SummaryState&,
+                const data::Solution& /* sol */,
+                const std::size_t /* report_step */,
+                const double seconds_elapsed)
+{
     const auto& units = es.getUnits();
     return -units.to_si(UnitSystem::measure::rate, seconds_elapsed);
 }
 
-double prod_rft(const EclipseState&  es, const Schedule& /* sched */, const SummaryState&, const data::Solution& /* sol */, size_t /* report_step */, double /* seconds_elapsed */) {
+double prod_rft(const EclipseState&  es,
+                const Schedule& /* sched */,
+                const SummaryState&,
+                const data::Solution& /* sol */,
+                const std::size_t /* report_step */,
+                const double /* seconds_elapsed */)
+{
     const auto& units = es.getUnits();
     return -units.to_si(UnitSystem::measure::rate, 0.0);
 }
 
-double inj_rfti(const EclipseState&  es, const Schedule& /* sched */, const SummaryState&, const data::Solution& /* sol */, size_t /* report_step */, double /* seconds_elapsed */) {
+double inj_rfti(const EclipseState&  es,
+                const Schedule& /* sched */,
+                const SummaryState&,
+                const data::Solution& /* sol */,
+                const std::size_t /* report_step */,
+                const double /* seconds_elapsed */)
+{
     const auto& units = es.getUnits();
     return units.to_si(UnitSystem::measure::rate, 0.0);
 }
 
-double inj_inj(const EclipseState&  es, const Schedule& /* sched */, const SummaryState&, const data::Solution& /* sol */, size_t /* report_step */, double /* seconds_elapsed */) {
+double inj_inj(const EclipseState&  es,
+               const Schedule& /* sched */,
+               const SummaryState&,
+               const data::Solution& /* sol */,
+               const std::size_t /* report_step */,
+               const double /* seconds_elapsed */)
+{
     const auto& units = es.getUnits();
     return units.to_si(UnitSystem::measure::rate, 100);
 }
 
-void pressure(const EclipseState& es, const Schedule& /* sched */, data::Solution& sol, size_t /* report_step */, double seconds_elapsed) {
+void pressure(const EclipseState& es,
+              const Schedule& /* sched */,
+              data::Solution& sol,
+              const std::size_t /* report_step */,
+              const double seconds_elapsed)
+{
     const auto& units = es.getUnits();
     if (!sol.has("PRESSURE")) {
         const auto& grid = es.getInputGrid();
-        sol.insert("PRESSURE", UnitSystem::measure::pressure, std::vector<double>(grid.getNumActive()), data::TargetType::RESTART_SOLUTION);
+        sol.insert("PRESSURE", UnitSystem::measure::pressure,
+                   std::vector<double>(grid.getNumActive()),
+                   data::TargetType::RESTART_SOLUTION);
     }
 
     auto& data = sol.data<double>("PRESSURE");
@@ -89,9 +124,13 @@ bool is_file(const std::filesystem::path& name)
         && std::filesystem::is_regular_file(name);
 }
 
-}
+} // Anonymous namespace
 
-BOOST_AUTO_TEST_CASE(RUN) {
+BOOST_AUTO_TEST_CASE(RUN)
+{
+    WorkArea work{"msim_run"};
+    work.copyIn("SPE1CASE1.DATA");
+
     Parser parser;
     auto python = std::make_shared<Python>();
     Deck deck = parser.parseFile("SPE1CASE1.DATA");
@@ -106,13 +145,13 @@ BOOST_AUTO_TEST_CASE(RUN) {
     msim.well_rate("INJ",  data::Rates::opt::gas, inj_inj);
     msim.solution("PRESSURE", pressure);
     {
-        const WorkArea work_area("test_msim");
         EclipseIO io(state, state.getInputGrid(), schedule, summary_config);
 
         msim.run(io, false);
 
-        for (const auto& fname : {"SPE1CASE1.INIT", "SPE1CASE1.UNRST", "SPE1CASE1.EGRID", "SPE1CASE1.SMSPEC", "SPE1CASE1.UNSMRY", "SPE1CASE1.RSM"})
+        for (const auto& fname : {"SPE1CASE1.INIT", "SPE1CASE1.UNRST", "SPE1CASE1.EGRID", "SPE1CASE1.SMSPEC", "SPE1CASE1.UNSMRY", "SPE1CASE1.RSM"}) {
             BOOST_CHECK( is_file( fname ));
+        }
 
         {
             const auto  smry  = EclIO::ESmry("SPE1CASE1");
@@ -166,18 +205,25 @@ BOOST_AUTO_TEST_CASE(RUN) {
                 const KeywordLocation location {"SKIPREST", "SPE1CASE1.DATA", 388};
                 deck.addKeyword({location, "SKIPREST"});
             }
+
             auto rst_view = std::make_shared<EclIO::RestartFileView>(std::move(rst), report_step);
             const auto rst_state = Opm::RestartIO::RstState::load(std::move(rst_view), state.runspec(), parser);
             Schedule sched_rst(deck, state, python, false,  /*slave_mode=*/false, true, {}, &rst_state);
+
             const auto& rfti_well = sched_rst.getWell("RFTI", report_step);
             const auto& rftp_well = sched_rst.getWell("RFTP", report_step);
+
             BOOST_CHECK(rftp_well.getStatus() == Well::Status::SHUT);
             BOOST_CHECK(rfti_well.getStatus() == Well::Status::SHUT);
         }
     }
 }
 
-BOOST_AUTO_TEST_CASE(RUN_SUMTHIN) {
+BOOST_AUTO_TEST_CASE(RUN_SUMTHIN)
+{
+    WorkArea work_area("test_msim");
+    work_area.copyIn("SPE1CASE1_SUMTHIN.DATA");
+
     Parser parser;
     auto python = std::make_shared<Python>();
     Deck deck = parser.parseFile("SPE1CASE1_SUMTHIN.DATA");
@@ -192,7 +238,6 @@ BOOST_AUTO_TEST_CASE(RUN_SUMTHIN) {
     msim.well_rate("INJ",  data::Rates::opt::gas, inj_inj);
     msim.solution("PRESSURE", pressure);
     {
-        const WorkArea work_area("test_msim");
         EclipseIO io(state, state.getInputGrid(), schedule, summary_config);
 
         // TSTEP = N*7
@@ -246,7 +291,11 @@ BOOST_AUTO_TEST_CASE(RUN_SUMTHIN) {
     }
 }
 
-BOOST_AUTO_TEST_CASE(RUN_RPTONLY) {
+BOOST_AUTO_TEST_CASE(RUN_RPTONLY)
+{
+    WorkArea work_area("test_msim_rptonly");
+    work_area.copyIn("SPE1CASE1_RPTONLY.DATA");
+
     const Deck deck = Parser{}.parseFile("SPE1CASE1_RPTONLY.DATA");
     const EclipseState state(deck);
     Schedule schedule(deck, state, std::make_shared<Python>());
@@ -260,7 +309,6 @@ BOOST_AUTO_TEST_CASE(RUN_RPTONLY) {
     msim.well_rate("INJ",  data::Rates::opt::gas, inj_inj);
     msim.solution("PRESSURE", pressure);
     {
-        const WorkArea work_area("test_msim");
         EclipseIO io(state, state.getInputGrid(), schedule, summary_config);
 
         // TSTEP = N*7
