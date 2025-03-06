@@ -178,6 +178,13 @@ namespace {
             ? targetSizeRockFromTabdims(deck)
             : defaultTargetSizeRock();
     }
+
+    std::filesystem::path caseDirectory(const std::filesystem::path& caseName)
+    {
+        const auto parent = caseName.parent_path();
+
+        return !parent.empty() ? parent : std::filesystem::current_path();
+    }
 }
 
 namespace Opm {
@@ -592,31 +599,31 @@ void ParserState::closeFile() {
 }
 
 ParserState::ParserState(const std::vector<std::pair<std::string, std::string>>& code_keywords_arg,
-                         const ParseContext& __parseContext,
+                         const ParseContext& parseContext_arg,
                          ErrorGuard& errors_arg,
                          std::shared_ptr<Python> interpreter,
                          const std::set<Opm::Ecl::SectionType>& ignore) :
     code_keywords(code_keywords_arg),
     ignore_sections(ignore),
     python( std::move(interpreter) ),
-    parseContext( __parseContext ),
+    parseContext( parseContext_arg ),
     errors( errors_arg )
 {}
 
 ParserState::ParserState( const std::vector<std::pair<std::string, std::string>>& code_keywords_arg,
-                          const ParseContext& context,
+                          const ParseContext& parseContext_arg,
                           ErrorGuard& errors_arg,
-                          const std::filesystem::path& p,
+                          const std::filesystem::path& caseName,
                           std::shared_ptr<Python> interpreter,
                           const std::set<Opm::Ecl::SectionType>& ignore ) :
     code_keywords(code_keywords_arg),
     ignore_sections(ignore),
-    rootPath( std::filesystem::canonical( p ).parent_path() ),
+    rootPath( std::filesystem::canonical( ::caseDirectory(caseName) ) ),
     python( std::move(interpreter) ),
-    parseContext( context ),
+    parseContext( parseContext_arg ),
     errors( errors_arg )
 {
-    openRootFile( p );
+    this->openRootFile(this->rootPath / caseName.filename());
 }
 
 bool ParserState::check_section_keywords(bool& has_edit, bool& has_regions, bool& has_summary) {
@@ -733,12 +740,10 @@ void ParserState::handleRandomText(const std::string_view& keywordString) const
 }
 
 
-void ParserState::openRootFile( const std::filesystem::path& inputFile) {
-
+void ParserState::openRootFile(const std::filesystem::path& inputFile)
+{
     this->loadFile( inputFile );
-    this->deck.setDataFile( inputFile.string() );
-    const std::filesystem::path& inputFileCanonical = std::filesystem::canonical(inputFile);
-    this->rootPath = inputFileCanonical.parent_path();
+    this->deck.setDataFile( inputFile.generic_string() );
 }
 
 std::optional<std::filesystem::path> ParserState::getIncludeFilePath( std::string path ) const {
@@ -1689,27 +1694,11 @@ bool parseState( ParserState& parserState, const Parser& parser, ErrorGuard& err
                                         std::inserter(ignore_sections, ignore_sections.end()));
         }
 
-        /*
-          The following rules apply to the .DATA file argument which is
-          internalized in the deck:
-
-           1. It is normalized by removing uneccessary '.' characters and
-              resolving symlinks.
-
-           2. The relative/abolute status of the path is retained.
-        */
-
-        std::string data_file;
-        if (dataFileName[0] == '/')
-            data_file = std::filesystem::canonical(dataFileName).generic_string();
-        else
-            data_file = std::filesystem::proximate(std::filesystem::canonical(dataFileName)).generic_string();
-
-        ParserState parserState {
+        auto parserState = ParserState {
             this->codeKeywords(),
             parseContext,
             errors,
-            data_file,
+            dataFileName,
             this->m_python,
             ignore_sections
         };
