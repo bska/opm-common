@@ -39,16 +39,6 @@
 
 using Opm::EclIO::EGrid;
 
-namespace {
-
-template <typename T>
-bool operator==(const std::vector<T> & t1, const std::vector<T> & t2)
-{
-    return std::ranges::equal(t1, t2);
-}
-
-} // Anonymous namespace
-
 // test is using SPE1CASE1, with minor modifications in order to test API for EGrid class
 //  -> 6 cells made inactive, box: 5 7  5 6  1 1
 
