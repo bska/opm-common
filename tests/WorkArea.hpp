@@ -17,12 +17,13 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// NOTE: This file is inteded to be copy-pasted into user code
-// through an #include statement.
-
-#include <string>
+// NOTE: This file is inteded to be copy-pasted into user code through an
+// #include statement.
 
 #include <opm/common/utility/FileSystem.hpp>
+
+#include <filesystem>
+#include <string>
 
 namespace {
 
@@ -30,13 +31,14 @@ namespace {
     {
     public:
         explicit WorkArea(const std::string& subdir = "")
-            : root_(std::filesystem::temp_directory_path() /
-                    Opm::unique_path("wrk-%%%%"))
-            , area_(root_)
-            , orig_(std::filesystem::current_path())
+            : root_ { std::filesystem::temp_directory_path() /
+                      Opm::unique_path("wrk-%%%%") }
+            , area_ { root_ }
+            , orig_ { std::filesystem::current_path() }
         {
-            if (! subdir.empty())
+            if (! subdir.empty()) {
                 this->area_ /= subdir;
+            }
 
             std::filesystem::create_directories(this->area_);
             std::filesystem::current_path(this->area_);
@@ -48,9 +50,9 @@ namespace {
                                        this->area_ / filename);
         }
 
-        std::string currentWorkingDirectory() const
+        const std::filesystem::path& currentWorkingDirectory() const
         {
-            return this->area_.generic_string();
+            return this->area_;
         }
 
         void makeSubDir(const std::string& dirname)
@@ -64,14 +66,10 @@ namespace {
             std::filesystem::remove_all(this->root_);
         }
 
-        std::string org_path(const std::string& fname) {
-            return std::filesystem::canonical( this->orig_ / fname );
-        }
-
-
     private:
         std::filesystem::path root_;
         std::filesystem::path area_;
         std::filesystem::path orig_;
     };
+
 } // Anonymous

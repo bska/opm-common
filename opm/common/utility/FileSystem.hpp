@@ -16,19 +16,16 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 #ifndef OPM_FILESYSTEM_HPP
 #define OPM_FILESYSTEM_HPP
 
-#include <filesystem>
-
 #include <string>
-
 
 namespace Opm
 {
     // A poor man's filesystem::unique_path
     std::string unique_path(const std::string& input);
 } // end namespace Opm
-
 
 #endif //  OPM_FILESYSTEM_HPP

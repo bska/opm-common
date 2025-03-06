@@ -417,29 +417,21 @@ BOOST_AUTO_TEST_CASE(RestartCWD)
         fs.close();
     }
 
+    auto rootName = [](const std::string& cse)
     {
-        const Deck deck = Parser{}.parseFile("simulation/CASE.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "simulation/BASE");
-    }
+        const auto deck = Parser{}.parseFile(cse);
+        return InitConfig { deck, Runspec {deck}.phases() }.getRestartRootName();
+    };
 
-    {
-        const Deck deck = Parser{}.parseFile("simulation/CASE5.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
-    }
+    BOOST_CHECK_EQUAL(rootName("simulation/CASE.DATA"),
+                      output_area.currentWorkingDirectory() / "simulation/BASE");
 
-    {
-        const Deck deck = Parser{}.parseFile("CWD_CASE.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "BASE");
-    }
+    BOOST_CHECK_EQUAL(rootName("simulation/CASE5.DATA"), "/abs/path/BASE");
 
-    {
-        const Deck deck = Parser{}.parseFile("CASE5.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
-    }
+    BOOST_CHECK_EQUAL(rootName("CWD_CASE.DATA"),
+                      output_area.currentWorkingDirectory() / "BASE");
+
+    BOOST_CHECK_EQUAL(rootName("CASE5.DATA"), "/abs/path/BASE");
 }
 
 // --------------------------------------------------------------------
