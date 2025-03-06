@@ -40,7 +40,7 @@
 #include <utility>
 #include <vector>
 
-using namespace Opm;
+#include <tests/WorkArea.hpp>
 
 namespace {
   template <typename T>
@@ -51,11 +51,10 @@ namespace {
           BOOST_CHECK_CLOSE(actual[i], expected[i], tol);
   }
 
-
   auto init_deck(const std::string& deck_string) {
     Opm::Parser parser;
     return parser.parseString(deck_string);
-  };
+  }
 
   std::tuple<std::vector<double>, std::vector<double>> final_deformed_data_geometric()
   {
@@ -78,9 +77,9 @@ namespace {
       0.86111110E-02,   0.58333334E-02,   0.74999998E-02,   0.91666663E-02,
       0.86111110E-02,   0.91666663E-02,   0.97222226E-02
     };
-      return std::make_tuple(depth, porv);
-    }
 
+    return std::make_tuple(depth, porv);
+  }
 
 std::tuple<std::vector<double>, std::vector<double>> final_test_data()
 {
@@ -172,16 +171,16 @@ std::tuple<double,double, double, double> solution_nestedLGR(){
 }
 
 
-LgrCollection read_lgr(const std::string& deck_string,
-                       const std::size_t nx,
-                       const std::size_t ny,
-                       const std::size_t nz)
+Opm::LgrCollection read_lgr(const std::string& deck_string,
+                            const std::size_t  nx,
+                            const std::size_t  ny,
+                            const std::size_t  nz)
 {
     Opm::Parser parser;
-    Opm::EclipseGrid eclipse_grid(GridDims(nx,ny,nz));
+    Opm::EclipseGrid eclipse_grid(nx,ny,nz);
     Opm::Deck deck = parser.parseString(deck_string);
     const Opm::GRIDSection gridSection ( deck );
-    return LgrCollection(gridSection, eclipse_grid);
+    return { gridSection, eclipse_grid };
 }
 
 std::pair<std::vector<double>, std::vector<double>>
@@ -220,12 +219,12 @@ ENDFIN
 DX
   9*1000 /
 DY
-	9*1000 /
+        9*1000 /
 DZ
-	9*20 /
+        9*20 /
 
 TOPS
-	9*8325 /
+        9*8325 /
 
 PORO
   9*0.15 /
@@ -258,16 +257,22 @@ SOLUTION
 SCHEDULE
 )";
 
+    const auto sourceFile = std::string { "CARFIN5.EGRID" };
+    const auto saveFile = std::string { "OPMCARFIN5.EGRID" };
+
+    WorkArea work;
+    work.copyIn(sourceFile);
+
     Opm::UnitSystem units(1);
     std::vector<Opm::NNCdata> vecNNC;
     std::array<int,3> global_grid_dim = {3,3,1};
     std::vector<double> coord_g, zcorn_g, coord_l, zcorn_l, coord_g_opm, zcorn_g_opm, coord_l_opm, zcorn_l_opm;
     // Intialize LgrCollection from string.
-    LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
+    Opm::LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
     //  Read global COORD and ZCORN from reference simulator output.
-    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid("CARFIN5.EGRID", "global");
+    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid(sourceFile, "global");
     //  Read LGR CELL COORD and ZCORN from reference simulator output.
-    std::tie(coord_l, zcorn_l) = read_cpg_from_egrid("CARFIN5.EGRID", "LGR1");
+    std::tie(coord_l, zcorn_l) = read_cpg_from_egrid(sourceFile, "LGR1");
     //  Eclipse Grid is intialzied with COORD and ZCORN.
     Opm::EclipseGrid eclipse_grid_file(global_grid_dim, coord_g, zcorn_g);
     //  LgrCollection is used to initalize LGR Cells in the Eclipse Grid.
@@ -276,11 +281,11 @@ SCHEDULE
     // Intialize host_cell numbering.
     eclipse_grid_file.init_children_host_cells();
     // Save EclipseGrid.
-    eclipse_grid_file.save("OPMCARFIN5.EGRID",false,vecNNC,units);
+    eclipse_grid_file.save(saveFile,false,vecNNC,units);
     // Once the new EGRID is saved, another EclipseGrid Object is created for the sake of comparison.
-    std::tie(coord_g_opm, zcorn_g_opm)  = read_cpg_from_egrid("OPMCARFIN5.EGRID", "global");
+    std::tie(coord_g_opm, zcorn_g_opm)  = read_cpg_from_egrid(saveFile, "global");
     //  Read LGR CELL COORD and ZCORN from reference simulator output.
-    std::tie(coord_l_opm, zcorn_l_opm) = read_cpg_from_egrid("OPMCARFIN5.EGRID", "LGR1");
+    std::tie(coord_l_opm, zcorn_l_opm) = read_cpg_from_egrid(saveFile, "LGR1");
     //  Eclipse Grid is intialzied with COORD and ZCORN.
     Opm::EclipseGrid eclipse_grid_OPM(global_grid_dim, coord_g_opm, zcorn_g_opm);
 //  LgrCollection is used to initalize LGR Cells in the Eclipse Grid.
@@ -300,7 +305,7 @@ SCHEDULE
     for (index = 0; index < zcorn_g.size(); index++) {
       BOOST_CHECK_EQUAL( zcorn_g_opm[index] , zcorn_g[index]);
     }
-  }
+}
 
 BOOST_AUTO_TEST_CASE(TestLgrOutputColumnLGR) {
     const std::string deck_string = R"(
@@ -319,12 +324,12 @@ ENDFIN
 DX
   9*1000 /
 DY
-	9*1000 /
+        9*1000 /
 DZ
-	9*20 /
+        9*20 /
 
 TOPS
-	9*8325 /
+        9*8325 /
 
 PORO
   9*0.15 /
@@ -357,40 +362,46 @@ SOLUTION
 SCHEDULE
 )";
 
+    const auto sourceFile = std::string { "CARFIN-COLUMN.EGRID" };
+    const auto saveFile = std::string { "OPMCARFIN-COLUMN.EGRID" };
+
+    WorkArea work;
+    work.copyIn(sourceFile);
+
     Opm::UnitSystem units(1);
     std::vector<Opm::NNCdata> vecNNC;
     std::array<int,3> global_grid_dim = {3,3,1};
     std::vector<double> coord_g, zcorn_g, coord_l, zcorn_l, coord_g_opm, zcorn_g_opm, coord_l_opm, zcorn_l_opm;
     // Intialize LgrCollection from string.
-    LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
+    Opm::LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
     //  Read global COORD and ZCORN from reference simulator output.
-    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid("CARFIN-COLUMN.EGRID", "global");
+    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid(sourceFile, "global");
     //  Read LGR CELL COORD and ZCORN from reference simulator output.
-    std::tie(coord_l, zcorn_l) = read_cpg_from_egrid("CARFIN-COLUMN.EGRID", "LGR1");
+    std::tie(coord_l, zcorn_l) = read_cpg_from_egrid(sourceFile, "LGR1");
     //  Eclipse Grid is intialzied with COORD and ZCORN.
     Opm::EclipseGrid eclipse_grid_file(global_grid_dim, coord_g, zcorn_g);
     //  LgrCollection is used to initalize LGR Cells in the Eclipse Grid.
     eclipse_grid_file.init_lgr_cells(lgr_col);
     // LGR COORD and ZCORN is parsed to EclipseGridLGR children cell. (Simulates the process of recieving the LGR refinement.)
     const auto& lgr1 = eclipse_grid_file.getLGRCell("LGR1");
+
     // Intialize host_cell numbering.
     eclipse_grid_file.init_children_host_cells();    // Save EclipseGrid.
 
     const std::array<double,3> dim_lgr1_calculated = lgr1.getCellDimensions(0,0,0);
     const std::array<double,3> dim_lgr1_value = dimensions_collumn_lgr();
 
-
     const double tol = 1e-6;
     BOOST_CHECK_CLOSE( dim_lgr1_calculated[0] , dim_lgr1_value[0], tol);
     BOOST_CHECK_CLOSE( dim_lgr1_calculated[1] , dim_lgr1_value[1], tol);
     BOOST_CHECK_CLOSE( dim_lgr1_calculated[2] , dim_lgr1_value[2], tol);
 
-    eclipse_grid_file.save("OPMCARFIN-COLUMN.EGRID",false,vecNNC,units);
+    eclipse_grid_file.save("OPMCARFIN-COLUMN.EGRID", false, vecNNC, units);
 
     // Once the new EGRID is saved, another EclipseGrid Object is created for the sake of comparison.
-    std::tie(coord_g_opm, zcorn_g_opm)  = read_cpg_from_egrid("OPMCARFIN-COLUMN.EGRID", "global");
+    std::tie(coord_g_opm, zcorn_g_opm)  = read_cpg_from_egrid(saveFile, "global");
     //  Read LGR CELL COORD and ZCORN from reference simulator output.
-    std::tie(coord_l_opm, zcorn_l_opm) = read_cpg_from_egrid("OPMCARFIN-COLUMN.EGRID", "LGR1");
+    std::tie(coord_l_opm, zcorn_l_opm) = read_cpg_from_egrid(saveFile, "LGR1");
     //  Eclipse Grid is intialzied with COORD and ZCORN.
     Opm::EclipseGrid eclipse_grid_OPM(global_grid_dim, coord_g_opm, zcorn_g_opm);
 //  LgrCollection is used to initalize LGR Cells in the Eclipse Grid.
@@ -409,7 +420,7 @@ SCHEDULE
     for (index = 0; index < zcorn_g.size(); index++) {
       BOOST_CHECK_EQUAL( zcorn_g_opm[index] , zcorn_g[index]);
     }
-  }
+}
 
 BOOST_AUTO_TEST_CASE(TestLgrOutputDoubleLGR) {
     const std::string deck_string = R"(
@@ -433,12 +444,12 @@ ENDFIN
 DX
   9*1000 /
 DY
-	9*1000 /
+        9*1000 /
 DZ
-	9*20 /
+        9*20 /
 
 TOPS
-	9*8325 /
+        9*8325 /
 
 PORO
   9*0.15 /
@@ -470,18 +481,25 @@ SOLUTION
 
 SCHEDULE
 )";
+
+    const auto sourceFile = std::string { "CARFIN-DOUBLE.EGRID" };
+    const auto saveFile = std::string { "OPMCARFIN-DOUBLE.EGRID" };
+
+    WorkArea work;
+    work.copyIn(sourceFile);
+
     Opm::UnitSystem units(1);
     std::vector<Opm::NNCdata> vecNNC;
     std::array<int,3> global_grid_dim = {3,3,1};
     std::vector<double> coord_g, zcorn_g, coord_l1, zcorn_l1, coord_l2, zcorn_l2,
                         coord_g_opm, zcorn_g_opm, coord_l1_opm, zcorn_l1_opm, coord_l2_opm, zcorn_l2_opm;
     // Intialize LgrCollection from string.
-    LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
+    Opm::LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
     //  Read global COORD and ZCORN from reference simulator output.
-    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid("CARFIN-DOUBLE.EGRID", "global");
+    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid(sourceFile, "global");
     //  Read LGR CELL COORD and ZCORN from reference simulator output.
-    std::tie(coord_l1, zcorn_l1) = read_cpg_from_egrid("CARFIN-DOUBLE.EGRID", "LGR1");
-    std::tie(coord_l2, zcorn_l2) = read_cpg_from_egrid("CARFIN-DOUBLE.EGRID", "LGR2");
+    std::tie(coord_l1, zcorn_l1) = read_cpg_from_egrid(sourceFile, "LGR1");
+    std::tie(coord_l2, zcorn_l2) = read_cpg_from_egrid(sourceFile, "LGR2");
 
     //  Eclipse Grid is intialzied with COORD and ZCORN.
     Opm::EclipseGrid eclipse_grid_file(global_grid_dim, coord_g, zcorn_g);
@@ -491,12 +509,12 @@ SCHEDULE
     // Intialize host_cell numbering.
     eclipse_grid_file.init_children_host_cells();
     // Save EclipseGrid.
-    eclipse_grid_file.save("OPMCARFIN-DOUBLE.EGRID",false,vecNNC,units);
+    eclipse_grid_file.save(saveFile,false,vecNNC,units);
     // Once the new EGRID is saved, another EclipseGrid Object is created for the sake of comparison.
-    std::tie(coord_g_opm, zcorn_g_opm)  = read_cpg_from_egrid("OPMCARFIN-DOUBLE.EGRID", "global");
+    std::tie(coord_g_opm, zcorn_g_opm)  = read_cpg_from_egrid(saveFile, "global");
     //  Read LGR CELL COORD and ZCORN from reference simulator output.
-    std::tie(coord_l1_opm, zcorn_l1_opm) = read_cpg_from_egrid("OPMCARFIN-DOUBLE.EGRID", "LGR1");
-    std::tie(coord_l2_opm, zcorn_l2_opm) = read_cpg_from_egrid("OPMCARFIN-DOUBLE.EGRID", "LGR2");
+    std::tie(coord_l1_opm, zcorn_l1_opm) = read_cpg_from_egrid(saveFile, "LGR1");
+    std::tie(coord_l2_opm, zcorn_l2_opm) = read_cpg_from_egrid(saveFile, "LGR2");
     //  Eclipse Grid is intialzied with COORD and ZCORN.
     Opm::EclipseGrid eclipse_grid_OPM(global_grid_dim, coord_g_opm, zcorn_g_opm);
 //  LgrCollection is used to initalize LGR Cells in the Eclipse Grid.
@@ -516,7 +534,7 @@ SCHEDULE
     for (index = 0; index < zcorn_g.size(); index++) {
       BOOST_CHECK_EQUAL( zcorn_g_opm[index] , zcorn_g[index]);
     }
-  }
+}
 
 BOOST_AUTO_TEST_CASE(TestLgrOutputNESTED) {
     const std::string deck_string = R"(
@@ -540,12 +558,12 @@ ENDFIN
 DX
   9*1000 /
 DY
-	9*1000 /
+        9*1000 /
 DZ
-	9*20 /
+        9*20 /
 
 TOPS
-	9*8325 /
+        9*8325 /
 
 PORO
   9*0.15 /
@@ -577,17 +595,24 @@ SOLUTION
 
 SCHEDULE
 )";
+
+    const auto sourceFile = std::string { "CARFIN-NESTED.EGRID" };
+    const auto saveFile = std::string { "OPMCARFIN-NESTED.EGRID" };
+
+    WorkArea work;
+    work.copyIn(sourceFile);
+
     Opm::UnitSystem units(1);
     std::vector<Opm::NNCdata> vecNNC;
     std::array<int,3> global_grid_dim = {3,3,1};
     std::vector<double> coord_g, zcorn_g, coord_l1, zcorn_l1, coord_l2, zcorn_l2;
     // Intialize LgrCollection from string.
-    LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
+    Opm::LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
     //  Read global COORD and ZCORN from reference simulator output.
-    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid("CARFIN-NESTED.EGRID", "global");
+    std::tie(coord_g, zcorn_g) = read_cpg_from_egrid(sourceFile, "global");
     //  Read LGR CELL COORD and ZCORN from reference simulator output.
-    std::tie(coord_l1, zcorn_l1) = read_cpg_from_egrid("CARFIN-NESTED.EGRID", "LGR1");
-    std::tie(coord_l2, zcorn_l2) = read_cpg_from_egrid("CARFIN-NESTED.EGRID", "LGR2");
+    std::tie(coord_l1, zcorn_l1) = read_cpg_from_egrid(sourceFile, "LGR1");
+    std::tie(coord_l2, zcorn_l2) = read_cpg_from_egrid(sourceFile, "LGR2");
 
     //  Eclipse Grid is intialzied with COORD and ZCORN.
      Opm::EclipseGrid eclipse_grid_file(global_grid_dim, coord_g, zcorn_g);
@@ -600,20 +625,19 @@ SCHEDULE
 
     // Intialize host_cell numbering.
     eclipse_grid_file.init_children_host_cells();
+
     // Save EclipseGrid.
     eclipse_grid_file.save("OPMCARFIN-NESTED.EGRID",false,vecNNC,units);
     const auto [depth_lgr1, vol_lgr1, depth_lgr2, vol_lgr2] = solution_nestedLGR();
     const double tol = 1e-6;
 
-    BOOST_CHECK_CLOSE(depth_lgr1, lgr1.getCellDepth(0), tol );
-    BOOST_CHECK_CLOSE(vol_lgr1, lgr1.getCellVolume(0), tol );
-    BOOST_CHECK_CLOSE(depth_lgr2, lgr2.getCellDepth(0), tol );
-    BOOST_CHECK_CLOSE(vol_lgr2, lgr2.getCellVolume(0), tol );
+    BOOST_CHECK_CLOSE(depth_lgr1, lgr1.getCellDepth(0), tol);
+    BOOST_CHECK_CLOSE(vol_lgr1, lgr1.getCellVolume(0), tol);
+    BOOST_CHECK_CLOSE(depth_lgr2, lgr2.getCellDepth(0), tol);
+    BOOST_CHECK_CLOSE(vol_lgr2, lgr2.getCellVolume(0), tol);
+}
 
-
-  }
-
-  BOOST_AUTO_TEST_CASE(Test_lgr_host_cells_logical) {
+BOOST_AUTO_TEST_CASE(Test_lgr_host_cells_logical) {
     const std::string deck_string = R"(
 RUNSPEC
 
@@ -631,12 +655,12 @@ ENDFIN
 DX
   3*1000 /
 DY
-	3*1000 /
+        3*1000 /
 DZ
-	3*20 /
+        3*20 /
 
 TOPS
-	3*8325 /
+        3*8325 /
 
 PORO
   3*0.15 /
@@ -678,11 +702,9 @@ SCHEDULE
     std::vector<int> host_vec_sol = { 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3};
     std::vector<int> host_vec = eclipse_grid.getLGRCell(0).save_hostnum();
     BOOST_CHECK_EQUAL_COLLECTIONS(host_vec.begin(), host_vec.end(), host_vec_sol.begin(), host_vec_sol.end());
-
   }
 
-
-  BOOST_AUTO_TEST_CASE(TestLGRDepth) {
+BOOST_AUTO_TEST_CASE(TestLGRDepth) {
     const std::string deck_string = R"(
 RUNSPEC
 TITLE
@@ -897,34 +919,38 @@ TSTEP
 /
 END
 )";
-    Opm::UnitSystem units(1);
-    std::vector<Opm::NNCdata> vecNNC;
-    std::array<int,3> global_grid_dim = {10,10,3};
+
+    const Opm::UnitSystem units(1);
+    const std::array<int,3> global_grid_dim = {10,10,3};
     std::vector<double> coord_g, zcorn_g, coord_l1, zcorn_l1, coord_l2, zcorn_l2;
+
     // Intialize LgrCollection from string.
-    LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
+    const auto lgr_col = read_lgr(deck_string,
+                                  global_grid_dim[0],
+                                  global_grid_dim[1],
+                                  global_grid_dim[2]);
 
     //  Eclipse Grid is intialzied with COORD and ZCORN.
-     Opm::EclipseGrid eclipse_grid_file(init_deck(deck_string));
+    Opm::EclipseGrid eclipse_grid_file(init_deck(deck_string));
+
     //  LgrCollection is used to initalize LGR Cells in the Eclipse Grid.
     eclipse_grid_file.init_lgr_cells(lgr_col);
 
-    eclipse_grid_file.save("SPECASE1_CARFIN_TEST.EGRID",false,vecNNC,units);
-    auto tol = 1e-6;
+    const auto tol = 1e-6;
 
     // Coarse grid cells
-    auto l1_cell = eclipse_grid_file.getCellDims(0,0,0);
-    auto l2_cell = eclipse_grid_file.getCellDims(0,0,1);
-    auto l3_cell = eclipse_grid_file.getCellDims(0,0,2);
+    const auto l1_cell = eclipse_grid_file.getCellDims(0,0,0);
+    const auto l2_cell = eclipse_grid_file.getCellDims(0,0,1);
+    const auto l3_cell = eclipse_grid_file.getCellDims(0,0,2);
 
     // LGR grids
-    auto lgr1 = eclipse_grid_file.getLGRCell("LGR1");
-    auto lgr2 = eclipse_grid_file.getLGRCell("LGR2");
+    const auto lgr1 = eclipse_grid_file.getLGRCell("LGR1");
+    const auto lgr2 = eclipse_grid_file.getLGRCell("LGR2");
 
     // --- Level 1 cells in LGR1 ---
-    auto lgr1_l1_cell_01 = lgr1.getCellDims(0,0,0);
-    auto lgr1_l1_cell_02 = lgr1.getCellDims(0,0,1);
-    auto lgr1_l1_cell_03 = lgr1.getCellDims(0,0,2);
+    const auto lgr1_l1_cell_01 = lgr1.getCellDims(0,0,0);
+    const auto lgr1_l1_cell_02 = lgr1.getCellDims(0,0,1);
+    const auto lgr1_l1_cell_03 = lgr1.getCellDims(0,0,2);
 
     // Check that Z-dimensions are consistent in LGR1 Level 1
     BOOST_CHECK_CLOSE(lgr1_l1_cell_01[2], lgr1_l1_cell_02[2], tol);
@@ -932,19 +958,19 @@ END
     BOOST_CHECK_CLOSE(lgr1_l1_cell_03[2], lgr1_l1_cell_01[2], tol);
 
     // --- Level 2 cells in LGR1 ---
-    auto lgr1_l2_cell_01 = lgr1.getCellDims(0,0,3);
-    auto lgr1_l2_cell_02 = lgr1.getCellDims(0,0,4);
-    auto lgr1_l2_cell_03 = lgr1.getCellDims(0,0,5);
+    const auto lgr1_l2_cell_01 = lgr1.getCellDims(0,0,3);
+    const auto lgr1_l2_cell_02 = lgr1.getCellDims(0,0,4);
+    const auto lgr1_l2_cell_03 = lgr1.getCellDims(0,0,5);
 
     // Check that Z-dimensions are consistent in LGR1 Level 2
     BOOST_CHECK_CLOSE(lgr1_l2_cell_01[2], lgr1_l2_cell_02[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l2_cell_02[2], lgr1_l2_cell_03[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l2_cell_03[2], lgr1_l2_cell_01[2], tol);
 
-      // --- Level 3 cells in LGR1 ---
-      auto lgr1_l3_cell_01 = lgr1.getCellDims(0,0,6);
-      auto lgr1_l3_cell_02 = lgr1.getCellDims(0,0,7);
-      auto lgr1_l3_cell_03 = lgr1.getCellDims(0,0,8);
+    // --- Level 3 cells in LGR1 ---
+    const auto lgr1_l3_cell_01 = lgr1.getCellDims(0,0,6);
+    const auto lgr1_l3_cell_02 = lgr1.getCellDims(0,0,7);
+    const auto lgr1_l3_cell_03 = lgr1.getCellDims(0,0,8);
 
     // Check that Z-dimensions are consistent between LGR1 Level 3
     BOOST_CHECK_CLOSE(lgr1_l3_cell_01[2], lgr1_l3_cell_02[2], tol);
@@ -952,25 +978,25 @@ END
     BOOST_CHECK_CLOSE(lgr1_l3_cell_03[2], lgr1_l3_cell_01[2], tol);
 
     // CHECKING IF LGR1 and LGR2 LEVEL 1 CELLS ARE THE SAME
-    auto lgr2_l1_cell_01 = lgr2.getCellDims(0,0,0);
-    auto lgr2_l1_cell_02 = lgr2.getCellDims(0,0,1);
-    auto lgr2_l1_cell_03 = lgr2.getCellDims(0,0,2);
+    const auto lgr2_l1_cell_01 = lgr2.getCellDims(0,0,0);
+    const auto lgr2_l1_cell_02 = lgr2.getCellDims(0,0,1);
+    const auto lgr2_l1_cell_03 = lgr2.getCellDims(0,0,2);
     BOOST_CHECK_CLOSE(lgr1_l1_cell_01[2], lgr2_l1_cell_01[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l1_cell_02[2], lgr2_l1_cell_02[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l1_cell_03[2], lgr2_l1_cell_03[2], tol);
 
     // --- Level 2 cells in LGR2 ---
-    auto lgr2_l2_cell_01 = lgr2.getCellDims(0,0,3);
-    auto lgr2_l2_cell_02 = lgr2.getCellDims(0,0,4);
-    auto lgr2_l2_cell_03 = lgr2.getCellDims(0,0,5);
+    const auto lgr2_l2_cell_01 = lgr2.getCellDims(0,0,3);
+    const auto lgr2_l2_cell_02 = lgr2.getCellDims(0,0,4);
+    const auto lgr2_l2_cell_03 = lgr2.getCellDims(0,0,5);
     BOOST_CHECK_CLOSE(lgr1_l2_cell_01[2], lgr2_l2_cell_01[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l2_cell_02[2], lgr2_l2_cell_02[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l2_cell_03[2], lgr2_l2_cell_03[2], tol);
 
     // --- Level 3 cells in LGR2 ---
-    auto lgr2_l3_cell_01 = lgr2.getCellDims(0,0,6);
-    auto lgr2_l3_cell_02 = lgr2.getCellDims(0,0,7);
-    auto lgr2_l3_cell_03 = lgr2.getCellDims(0,0,8);
+    const auto lgr2_l3_cell_01 = lgr2.getCellDims(0,0,6);
+    const auto lgr2_l3_cell_02 = lgr2.getCellDims(0,0,7);
+    const auto lgr2_l3_cell_03 = lgr2.getCellDims(0,0,8);
     BOOST_CHECK_CLOSE(lgr1_l3_cell_01[2], lgr2_l3_cell_01[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l3_cell_02[2], lgr2_l3_cell_02[2], tol);
     BOOST_CHECK_CLOSE(lgr1_l3_cell_03[2], lgr2_l3_cell_03[2], tol);
@@ -979,11 +1005,9 @@ END
     BOOST_CHECK_CLOSE(l1_cell[2], lgr1_l1_cell_01[2] + lgr1_l1_cell_02[2] + lgr1_l1_cell_03[2], tol);
     BOOST_CHECK_CLOSE(l2_cell[2], lgr1_l2_cell_01[2] + lgr1_l2_cell_02[2] + lgr1_l2_cell_03[2], tol);
     BOOST_CHECK_CLOSE(l3_cell[2], lgr1_l3_cell_01[2] + lgr1_l3_cell_02[2] + lgr1_l3_cell_03[2], tol);
+}
 
-  }
-
-
-  BOOST_AUTO_TEST_CASE(TestFinalDepth) {
+BOOST_AUTO_TEST_CASE(TestFinalDepth) {
     const std::string deck_string = R"(
 RUNSPEC
 TITLE
@@ -1194,26 +1218,29 @@ TSTEP
 /
 END
 )";
-    Opm::UnitSystem units(1);
-    std::vector<Opm::NNCdata> vecNNC;
+
+    const Opm::UnitSystem units(1);
     std::array<int,3> global_grid_dim = {2,2,5};
     std::vector<double> coord_g, zcorn_g, coord_l1, zcorn_l1, coord_l2, zcorn_l2;
+
     // Intialize LgrCollection from string.
-    LgrCollection lgr_col = read_lgr(deck_string,global_grid_dim[0],global_grid_dim[1],global_grid_dim[2]);
+    const auto lgr_col = read_lgr(deck_string,
+                                  global_grid_dim[0],
+                                  global_grid_dim[1],
+                                  global_grid_dim[2]);
 
     //  Eclipse Grid is intialzied with COORD and ZCORN.
-     Opm::EclipseGrid eclipse_grid_file(init_deck(deck_string));
+    Opm::EclipseGrid eclipse_grid_file(init_deck(deck_string));
+
     //  LgrCollection is used to initalize LGR Cells in the Eclipse Grid.
     eclipse_grid_file.init_lgr_cells(lgr_col);
-
-    eclipse_grid_file.save("SPECASE1_CARFIN_TEST_SMALL.EGRID",false,vecNNC,units);
 
     // LGR1 grids
     const auto& lgr1 = eclipse_grid_file.getLGRCell("LGR1");
     const auto lgr1_coord = lgr1.getCOORD();
     const auto lgr1_zcorn = lgr1.getZCORN();
 
-    auto [expected_coord, expected_zcorn] = final_test_data();
+    const auto [expected_coord, expected_zcorn] = final_test_data();
     check_vec_close(lgr1_coord, expected_coord, 1e-2);
     check_vec_close(lgr1_zcorn, expected_zcorn, 1e-2);
 
@@ -1236,12 +1263,9 @@ END
     const auto l5_cell = eclipse_grid_file.getCellDims(0,0,4);
     const auto lgr1_l5_cell = lgr1.getCellDims(0,0,17);
     BOOST_CHECK_CLOSE(l5_cell[2], 4*lgr1_l5_cell[2], 1e-6);
-  }
+}
 
-
-
-
-    BOOST_AUTO_TEST_CASE(TestFinalDepthDeformed) {
+BOOST_AUTO_TEST_CASE(TestFinalDepthDeformed) {
     const std::string deck_string = R"(
     RUNSPEC
     TITLE
@@ -1416,5 +1440,4 @@ END
     auto [expected_depth, expected_porv] = final_deformed_data_geometric();
     check_vec_close(lgr_depth, expected_depth);
     check_vec_close(lgr_porv, expected_porv);
-
-  }
+}
