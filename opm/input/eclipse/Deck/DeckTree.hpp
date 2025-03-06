@@ -20,52 +20,56 @@
 #ifndef DECK_TREE_HPP
 #define DECK_TREE_HPP
 
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
-#include <optional>
-
 
 namespace Opm {
 
+// Class DeckTree maintains a minimal relationship between the include files
+// in the deck.  In particular, this class supports writing decks with the
+// keywords in the correct files.
 
-/*
-  The purpose of the DeckTree class is to maintain a minimal relationship
-  between the include files in the deck; the sole purpose of this class is to
-  support writing of decks with the keywords in the correct files.
-*/
-
-class DeckTree {
+class DeckTree
+{
 public:
     DeckTree() = default;
-    explicit DeckTree(const std::string&);
+    explicit DeckTree(std::string_view root_file);
 
-    const std::string& parent(const std::string& fname) const;
-    bool includes(const std::string& parent_file, const std::string& include_file) const;
-    void add_include(std::string parent_file, std::string include_file);
-    void add_root(const std::string& fname);
-    bool has_include(const std::string& fname) const;
+    const std::string& parent(std::string_view fname) const;
     const std::string& root() const;
 
+    bool includes(std::string_view parent_file,
+                  std::string_view include_file) const;
+
+    bool has_include(std::string_view fname) const;
+
+    void add_include(std::string_view parent_file,
+                     std::string_view include_file);
+
+    void add_root(std::string_view fname);
+
 private:
-    class TreeNode {
-    public:
+    struct TreeNode
+    {
         explicit TreeNode(const std::string& fn);
         TreeNode(const std::string& pn, const std::string& fn);
-        void add_include(const std::string& include_file);
+        void add_include(std::string_view include_file);
         bool includes(const std::string& include_file) const;
 
-        std::string fname;
-        std::optional<std::string> parent;
-        std::unordered_set<std::string> include_files;
+        std::string fname{};
+        std::optional<std::string> parent{};
+        std::unordered_set<std::string> include_files{};
     };
 
-    std::string add_node(const std::string& fname);
+    std::optional<std::string> root_file_{};
+    std::unordered_map<std::string, TreeNode> nodes_{};
 
-    std::optional<std::string> root_file;
-    std::unordered_map<std::string, TreeNode> nodes;
+    std::string add_node(std::string_view fname);
 };
 
+} // namespace Opm
 
-}
-#endif  /* DECKRECORD_HPP */
+#endif // DECK_TREE_HPP
