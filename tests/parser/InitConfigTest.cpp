@@ -417,26 +417,36 @@ BOOST_AUTO_TEST_CASE(RestartCWD)
     }
 
     {
-        const Deck deck = Parser{}.parseFile("simulation/CASE.DATA");
-        const InitConfig init_config(deck);
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "simulation/BASE");
+        const auto init_config = Opm::InitConfig {
+            Parser{}.parseFile("simulation/CASE.DATA")
+        };
+
+        BOOST_CHECK_EQUAL(init_config.getRestartRootName(),
+                          output_area.currentWorkingDirectory() / "simulation/BASE");
     }
 
     {
-        const Deck deck = Parser{}.parseFile("simulation/CASE5.DATA");
-        const InitConfig init_config(deck);
+        const auto init_config = Opm::InitConfig {
+            Parser{}.parseFile("simulation/CASE5.DATA")
+        };
+
         BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
     }
 
     {
-        const Deck deck = Parser{}.parseFile("CWD_CASE.DATA");
-        const InitConfig init_config(deck);
-        BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "BASE");
+        const auto init_config = Opm::InitConfig {
+            Parser{}.parseFile("CWD_CASE.DATA")
+        };
+
+        BOOST_CHECK_EQUAL(init_config.getRestartRootName(),
+                          output_area.currentWorkingDirectory() / "BASE");
     }
 
     {
-        const Deck deck = Parser{}.parseFile("CASE5.DATA");
-        const InitConfig init_config(deck);
+        const auto init_config = Opm::InitConfig {
+            Opm::Parser{}.parseFile("CASE5.DATA")
+        };
+
         BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
     }
 }
