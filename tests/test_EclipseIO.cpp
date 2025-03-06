@@ -693,6 +693,8 @@ EQUALS
 ///                  written via first record of GRIDOPTS
 void testMultxyz(std::array<std::bitset<2>,3> doxyz, bool write_all_multminus = false)
 {
+    WorkArea work{};
+
     const auto [deckString, exspectedMult] = createMULTXYZDECK(doxyz, write_all_multminus);
     const auto deck = Parser().parseString(deckString);
     auto es = EclipseState( deck );
@@ -840,6 +842,8 @@ SCHEDULE
 
 void checkMULTPV(const std::pair<std::string, std::vector<float>>& deckAndValues)
 {
+    WorkArea work{};
+
     const auto [deckString, expectedMultPV] = deckAndValues;
     const auto deck = Parser().parseString(deckString);
     auto es = EclipseState( deck );
@@ -870,7 +874,6 @@ BOOST_AUTO_TEST_CASE(MULTPVInit)
 {
     checkMULTPV(createMULTPVDECK(false));
     checkMULTPV(createMULTPVDECK(true));
-
 }
 
 namespace {
