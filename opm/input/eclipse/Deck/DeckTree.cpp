@@ -14,15 +14,34 @@
   GNU General Public License for more details.
 
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
- */
+*/
 
 #include <opm/input/eclipse/Deck/DeckTree.hpp>
 
 #include <filesystem>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 
-namespace fs = std::filesystem;
+namespace {
+
+    std::string absName(std::string_view fname)
+    {
+        return std::filesystem::absolute(fname).generic_string();
+    }
+
+} // Anonymous namespace
+
+// ---------------------------------------------------------------------------
 
 namespace Opm {
+
+// ---------------------------------------------------------------------------
+// class DeckTree::TreeNode
+// ---------------------------------------------------------------------------
 
 DeckTree::TreeNode::TreeNode(const std::string& fn)
     : fname(fn)
@@ -33,69 +52,91 @@ DeckTree::TreeNode::TreeNode(const std::string& pn, const std::string& fn)
     , parent(pn)
 {}
 
-void DeckTree::TreeNode::add_include(const std::string& include_file) {
+void DeckTree::TreeNode::add_include(std::string_view include_file)
+{
     this->include_files.emplace(include_file);
 }
 
-bool DeckTree::TreeNode::includes(const std::string& include_file) const {
-    return this->include_files.count(include_file) > 0;
+bool DeckTree::TreeNode::includes(const std::string& include_file) const
+{
+    return this->include_files.find(include_file) != this->include_files.end();
 }
 
+// ---------------------------------------------------------------------------
+// Public interface of class DeckTree
+// ---------------------------------------------------------------------------
 
-std::string DeckTree::add_node(const std::string& fname) {
-    auto abs_path = fs::canonical(fname).generic_string();
-    this->nodes.emplace( abs_path, TreeNode(abs_path) );
+DeckTree::DeckTree(std::string_view root_file)
+{
+    this->add_root(root_file);
+}
+
+const std::string& DeckTree::parent(std::string_view fname) const
+{
+    const auto& parent = this->nodes_
+        .at(absName(fname)).parent.value();
+
+    return this->nodes_.at(parent).fname;
+}
+
+const std::string& DeckTree::root() const
+{
+    return this->root_file_.value();
+}
+
+bool DeckTree::includes(std::string_view parent_file,
+                        std::string_view include_file) const
+{
+    if (!this->root_file_.has_value()) {
+        return false;
+    }
+
+    return this->nodes_.at(absName(parent_file))
+        .includes(absName(include_file));
+}
+
+bool DeckTree::has_include(std::string_view fname) const
+{
+    const auto filePos = this->nodes_.find(absName(fname));
+
+    return (filePos != this->nodes_.end())
+        && !filePos->second.include_files.empty();
+}
+
+void DeckTree::add_include(std::string_view parent_file,
+                           std::string_view include_file)
+{
+    if (!this->root_file_.has_value()) {
+        return;
+    }
+
+    const auto parent_fn = absName(parent_file);
+    const auto include_fn = absName(include_file);
+
+    this->nodes_.try_emplace(include_fn, parent_fn, include_fn);
+    this->nodes_.at(parent_fn).add_include(include_fn);
+}
+
+void DeckTree::add_root(std::string_view fname)
+{
+    if (this->root_file_.has_value()) {
+        throw std::logic_error("Root already assigned");
+    }
+
+    this->root_file_ = this->add_node(fname);
+}
+
+// ---------------------------------------------------------------------------
+// Private member functions of class DeckTree
+// ---------------------------------------------------------------------------
+
+std::string DeckTree::add_node(std::string_view fname)
+{
+    auto abs_path = absName(fname);
+
+    this->nodes_.try_emplace(abs_path, abs_path);
+
     return abs_path;
 }
 
-
-DeckTree::DeckTree(const std::string& fname)
-{
-    this->add_root(fname);
-}
-
-void DeckTree::add_root(const std::string& fname)
-{
-    if (this->root_file.has_value())
-        throw std::logic_error("Root already assigned");
-
-    this->root_file = this->add_node(fname);
-}
-
-
-
-bool DeckTree::includes(const std::string& parent_file, const std::string& include_file) const {
-    if (!this->root_file.has_value())
-        return false;
-
-    const auto& parent_node = this->nodes.at(fs::canonical(parent_file).generic_string());
-    return parent_node.includes(fs::canonical(include_file).generic_string());
-}
-
-const std::string& DeckTree::parent(const std::string& fname) const {
-    const auto& node = this->nodes.at(fs::canonical(fname).generic_string());
-    const auto& parent_node = this->nodes.at( node.parent.value() );
-    return parent_node.fname;
-}
-
-const std::string& DeckTree::root() const {
-    return this->root_file.value();
-}
-
-void DeckTree::add_include(std::string parent_file, std::string include_file) {
-    if (!this->root_file.has_value())
-        return;
-
-    parent_file = fs::canonical(parent_file).generic_string();
-    include_file = fs::canonical(include_file).generic_string();
-    this->nodes.emplace(include_file, TreeNode(parent_file, include_file));
-    auto& parent_node = this->nodes.at(parent_file);
-    parent_node.add_include( include_file );
-}
-
-bool DeckTree::has_include(const std::string& fname) const {
-    const auto fileIt = this->nodes.find(fname);
-    return (fileIt != this->nodes.end()) && !fileIt->second.include_files.empty();
-}
-
-}
+} // namespace Opm
