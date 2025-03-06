@@ -21,9 +21,9 @@
 
 #include <algorithm>
 #include <random>
+#include <string>
 
-namespace Opm
-{
+namespace Opm {
 
 std::string unique_path(const std::string& input)
 {
@@ -45,4 +45,4 @@ std::string unique_path(const std::string& input)
     return ret;
 }
 
-}
+} // namespace FileSystem

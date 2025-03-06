@@ -51,20 +51,27 @@ along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace Opm;
 
-inline std::string prepath() {
-    int idx;
+namespace {
+
+std::string prepath()
+{
+    int idx{};
+
 #if BOOST_VERSION / 100000 == 1 && BOOST_VERSION / 100 % 1000 < 71
     idx = 2;
 #else
     idx = 1;
 #endif
+
     const std::filesystem::path path {
         boost::unit_test::framework::master_test_suite().argv[idx]
     };
+
     return std::filesystem::canonical(path).generic_string();
 }
 
-static Deck createDeckTOP() {
+Deck createDeckTOP()
+{
     const char *deckData =
 "RUNSPEC\n"
 "\n"
@@ -105,9 +112,10 @@ static Deck createDeckTOP() {
 "1000*2 /\n"
 "\n";
 
-    Parser parser;
-    return parser.parseString( deckData );
+    return Parser{}.parseString( deckData );
 }
+
+} // Anonymous namespace
 
 BOOST_AUTO_TEST_CASE(GetPOROTOPBased) {
     auto deck = createDeckTOP();
@@ -123,7 +131,10 @@ BOOST_AUTO_TEST_CASE(GetPOROTOPBased) {
     }
 }
 
-static Deck createDeck() {
+namespace {
+
+Deck createDeck()
+{
 const char *deckData =
 "RUNSPEC\n"
 "\n"
@@ -170,11 +181,11 @@ const char *deckData =
 "1000*2 /\n"
 "\n";
 
-    Parser parser;
-    return parser.parseString( deckData );
+return Parser{}.parseString(deckData);
 }
 
-static Deck createDeckNoFaults() {
+Deck createDeckNoFaults()
+{
 const char *deckData =
 "RUNSPEC\n"
 "\n"
@@ -207,9 +218,10 @@ const char *deckData =
 " 600*1 100*15 300*1 /\n"
 "\n";
 
-    Parser parser;
-    return parser.parseString( deckData );
+    return Parser{}.parseString( deckData );
 }
+
+} // Anonymous namespace
 
 BOOST_AUTO_TEST_CASE(CreateSchedule) {
     auto deck = createDeck();
@@ -219,8 +231,10 @@ BOOST_AUTO_TEST_CASE(CreateSchedule) {
     BOOST_CHECK_EQUAL(schedule.getStartTime(), asTimeT(TimeStampUTC( 1998 , 3 , 8)));
 }
 
-static Deck createDeckSimConfig() {
-const std::string& inputStr = "RUNSPEC\n"
+namespace {
+
+Deck createDeckSimConfig() {
+const std::string inputStr = "RUNSPEC\n"
                 "EQLOPTS\n"
                 "THPRES /\n "
                 "DIMENS\n"
@@ -249,9 +263,10 @@ const std::string& inputStr = "RUNSPEC\n"
                 "/\n"
                 "\n";
 
-    Parser parser;
-    return parser.parseString( inputStr );
+    return Parser{}.parseString( inputStr );
 }
+
+} // Anonymous namespace
 
 BOOST_AUTO_TEST_CASE(CreateSimulationConfig) {
 
@@ -369,7 +384,9 @@ BOOST_AUTO_TEST_CASE(FaceTransMults) {
     }
 }
 
-static Deck createDeckNoGridOpts() {
+namespace {
+
+Deck createDeckNoGridOpts() {
     const char *deckData =
         "RUNSPEC\n"
         "\n"
@@ -391,11 +408,10 @@ static Deck createDeckNoGridOpts() {
         "MULTNUM\n"
         "  1000*1 /\n";
 
-    Parser parser;
-    return parser.parseString(deckData) ;
+    return Parser{}.parseString(deckData);
 }
 
-static Deck createDeckWithGridOpts() {
+Deck createDeckWithGridOpts() {
     const char *deckData =
         "RUNSPEC\n"
         "GRIDOPTS\n"
@@ -419,9 +435,10 @@ static Deck createDeckWithGridOpts() {
         "MULTNUM\n"
         "  1000*1 /\n";
 
-    Parser parser;
-    return parser.parseString( deckData );
+    return Parser{}.parseString( deckData );
 }
+
+} // Anonymous namespace
 
 BOOST_AUTO_TEST_CASE(NoGridOptsDefaultRegion) {
     auto deck = createDeckNoGridOpts();
@@ -449,18 +466,16 @@ BOOST_AUTO_TEST_CASE(WithGridOptsDefaultRegion) {
     BOOST_CHECK_NE( &fluxnum  , &multnum );
 }
 
-BOOST_AUTO_TEST_CASE(TestIOConfigBaseName) {
-    Parser parser;
-    auto deck = parser.parseFile(prepath() + "/IOConfig/SPE1CASE2.DATA");
-    EclipseState state(deck);
-    const auto& io = state.cfg().io();
+BOOST_AUTO_TEST_CASE(TestIOConfigBaseName)
+{
+    const auto io = EclipseState {
+        Parser{}.parseFile(prepath() + "/IOConfig/SPE1CASE2.DATA")
+    }.cfg().io();
+
     BOOST_CHECK_EQUAL(io.getBaseName(), "SPE1CASE2");
     BOOST_CHECK_EQUAL(io.getOutputDir(), prepath() + "/IOConfig");
 
-    Parser parser2;
-    auto deck2 = createDeckWithGridOpts();
-    EclipseState state2(deck2);
-    const auto& io2 = state2.cfg().io();
+    const auto io2 = EclipseState { createDeckWithGridOpts() }.cfg().io();
     BOOST_CHECK_EQUAL(io2.getBaseName(), "");
     BOOST_CHECK_EQUAL(io2.getOutputDir(), ".");
 }
