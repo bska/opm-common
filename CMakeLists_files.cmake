@@ -179,6 +179,7 @@ if(ENABLE_ECL_INPUT)
     opm/input/eclipse/EclipseState/SimulationConfig/RockConfig.cpp
     opm/input/eclipse/EclipseState/SimulationConfig/SimulationConfig.cpp
     opm/input/eclipse/EclipseState/SimulationConfig/ThresholdPressure.cpp
+    opm/input/eclipse/EclipseState/SummaryConfig/RegionVariableSupport.cpp
     opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.cpp
     opm/input/eclipse/EclipseState/Tables/Aqudims.cpp
     opm/input/eclipse/EclipseState/Tables/ColumnSchema.cpp
@@ -443,6 +444,9 @@ if(ENABLE_ECL_OUTPUT)
           opm/io/eclipse/rst/well.cpp
           opm/output/data/Aquifer.cpp
           opm/output/data/InterRegFlowMap.cpp
+          opm/output/data/RegionsetVariableDescriptor.cpp
+          opm/output/data/RegionVariableMapping.cpp
+          opm/output/data/RegionVariableValues.cpp
           opm/output/data/Solution.cpp
           opm/output/eclipse/ActiveIndexByColumns.cpp
           opm/output/eclipse/AggregateActionxData.cpp
@@ -471,6 +475,7 @@ if(ENABLE_ECL_OUTPUT)
           opm/output/eclipse/LinearisedOutputTable.cpp
           opm/output/eclipse/LoadRestart.cpp
           opm/output/eclipse/LogiHEAD.cpp
+          opm/output/eclipse/RegionVariableCollection.cpp
           opm/output/eclipse/RestartIO.cpp
           opm/output/eclipse/Inplace.cpp
           opm/output/eclipse/Summary.cpp
@@ -682,6 +687,10 @@ if(ENABLE_ECL_OUTPUT)
           tests/test_data_GuideRateValue.cpp
           tests/test_data_InterRegFlow.cpp
           tests/test_data_InterRegFlowMap.cpp
+          tests/test_data_regionsetvariabledescriptor.cpp
+          tests/test_data_regionvariablemapping.cpp
+          tests/test_data_regionvariablevalues.cpp
+          tests/test_data_regionvariableview.cpp
           tests/test_EclipseIO.cpp
           tests/test_EclipseIO_LGR.cpp
           tests/test_HeadersLGR.cpp
@@ -694,6 +703,7 @@ if(ENABLE_ECL_OUTPUT)
           tests/test_OutputStream.cpp
           tests/test_PaddedOutputString.cpp
           tests/test_regionCache.cpp
+          tests/test_region_variable_collection.cpp
           tests/test_restartwellinfo.cpp
           tests/test_rst.cpp
           tests/test_rst_netbalan.cpp
@@ -1202,6 +1212,7 @@ if(ENABLE_ECL_INPUT)
        opm/input/eclipse/EclipseState/InitConfig/FoamConfig.hpp
        opm/input/eclipse/EclipseState/Util/IOrderSet.hpp
        opm/input/eclipse/EclipseState/Util/OrderedMap.hpp
+       opm/input/eclipse/EclipseState/SummaryConfig/RegionVariableSupport.hpp
        opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp
        opm/input/eclipse/EclipseState/Grid/FieldData.hpp
        opm/input/eclipse/EclipseState/Grid/Keywords.hpp
@@ -1582,6 +1593,10 @@ if(ENABLE_ECL_OUTPUT)
         opm/output/data/Groups.hpp
         opm/output/data/InterRegFlow.hpp
         opm/output/data/InterRegFlowMap.hpp
+        opm/output/data/RegionsetVariableDescriptor.hpp
+        opm/output/data/RegionVariableMapping.hpp
+        opm/output/data/RegionVariableValues.hpp
+        opm/output/data/RegionVariableView.hpp
         opm/output/data/Solution.hpp
         opm/output/data/Wells.hpp
         opm/output/eclipse/VectorItems/action.hpp
@@ -1589,11 +1604,10 @@ if(ENABLE_ECL_OUTPUT)
         opm/output/eclipse/VectorItems/connection.hpp
         opm/output/eclipse/VectorItems/group.hpp
         opm/output/eclipse/VectorItems/intehead.hpp
-        opm/output/eclipse/VectorItems/logihead.hpp
         opm/output/eclipse/VectorItems/lgrheadd.hpp
         opm/output/eclipse/VectorItems/lgrheadi.hpp
         opm/output/eclipse/VectorItems/lgrheadq.hpp
-
+        opm/output/eclipse/VectorItems/logihead.hpp
         opm/output/eclipse/VectorItems/msw.hpp
         opm/output/eclipse/VectorItems/network.hpp
         opm/output/eclipse/VectorItems/tabdims.hpp
@@ -1620,6 +1634,7 @@ if(ENABLE_ECL_OUTPUT)
         opm/output/eclipse/LinearisedOutputTable.hpp
         opm/output/eclipse/LogiHEAD.hpp
         opm/output/eclipse/RegionCache.hpp
+        opm/output/eclipse/RegionVariableCollection.hpp
         opm/output/eclipse/RestartIO.hpp
         opm/output/eclipse/RestartValue.hpp
         opm/output/eclipse/Inplace.hpp
