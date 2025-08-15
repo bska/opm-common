@@ -431,6 +431,9 @@ if(ENABLE_ECL_OUTPUT)
           opm/io/eclipse/rst/well.cpp
           opm/output/data/Aquifer.cpp
           opm/output/data/InterRegFlowMap.cpp
+          opm/output/data/RegionsetVariableDescriptor.cpp
+          #opm/output/data/RegionVariableContainer.cpp
+          opm/output/data/RegionVariableMapping.cpp
           opm/output/data/Solution.cpp
           opm/output/eclipse/ActiveIndexByColumns.cpp
           opm/output/eclipse/AggregateActionxData.cpp
@@ -659,6 +662,7 @@ if(ENABLE_ECL_OUTPUT)
           tests/test_data_GuideRateValue.cpp
           tests/test_data_InterRegFlow.cpp
           tests/test_data_InterRegFlowMap.cpp
+          tests/test_data_regionvariablemapping.cpp
           tests/test_EclipseIO.cpp
           tests/test_EclipseIO_LGR.cpp
           tests/test_Inplace.cpp
@@ -1550,6 +1554,10 @@ if(ENABLE_ECL_OUTPUT)
         opm/output/data/Groups.hpp
         opm/output/data/InterRegFlow.hpp
         opm/output/data/InterRegFlowMap.hpp
+        opm/output/data/RegionsetVariableDescriptor.hpp
+        #opm/output/data/RegionVariableContainer.hpp
+        opm/output/data/RegionVariableMapping.hpp
+        opm/output/data/RegionVariableView.hpp
         opm/output/data/Solution.hpp
         opm/output/data/Wells.hpp
         opm/output/eclipse/VectorItems/action.hpp
@@ -1557,11 +1565,10 @@ if(ENABLE_ECL_OUTPUT)
         opm/output/eclipse/VectorItems/connection.hpp
         opm/output/eclipse/VectorItems/group.hpp
         opm/output/eclipse/VectorItems/intehead.hpp
-        opm/output/eclipse/VectorItems/logihead.hpp
         opm/output/eclipse/VectorItems/lgrheadd.hpp
         opm/output/eclipse/VectorItems/lgrheadi.hpp
         opm/output/eclipse/VectorItems/lgrheadq.hpp
-
+        opm/output/eclipse/VectorItems/logihead.hpp
         opm/output/eclipse/VectorItems/msw.hpp
         opm/output/eclipse/VectorItems/network.hpp
         opm/output/eclipse/VectorItems/tabdims.hpp
