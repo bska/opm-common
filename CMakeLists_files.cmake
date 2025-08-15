@@ -147,6 +147,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/input/eclipse/EclipseState/SimulationConfig/RockConfig.cpp
   opm/input/eclipse/EclipseState/SimulationConfig/SimulationConfig.cpp
   opm/input/eclipse/EclipseState/SimulationConfig/ThresholdPressure.cpp
+  opm/input/eclipse/EclipseState/SummaryConfig/RegionVariableSupport.cpp
   opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.cpp
   opm/input/eclipse/EclipseState/Tables/Aqudims.cpp
   opm/input/eclipse/EclipseState/Tables/ColumnSchema.cpp
@@ -393,6 +394,9 @@ list(APPEND MAIN_SOURCE_FILES
   opm/ml/ml_model.cpp
   opm/output/data/Aquifer.cpp
   opm/output/data/InterRegFlowMap.cpp
+  opm/output/data/RegionsetVariableDescriptor.cpp
+  opm/output/data/RegionVariableMapping.cpp
+  opm/output/data/RegionVariableValues.cpp
   opm/output/data/Solution.cpp
   opm/output/eclipse/ActiveIndexByColumns.cpp
   opm/output/eclipse/AggregateActionxData.cpp
@@ -421,6 +425,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/output/eclipse/LinearisedOutputTable.cpp
   opm/output/eclipse/LoadRestart.cpp
   opm/output/eclipse/LogiHEAD.cpp
+  opm/output/eclipse/RegionVariableCollection.cpp
   opm/output/eclipse/RestartIO.cpp
   opm/output/eclipse/Inplace.cpp
   opm/output/eclipse/Summary.cpp
@@ -508,6 +513,10 @@ list(APPEND TEST_SOURCE_FILES
   tests/test_data_GuideRateValue.cpp
   tests/test_data_InterRegFlow.cpp
   tests/test_data_InterRegFlowMap.cpp
+  tests/test_data_regionsetvariabledescriptor.cpp
+  tests/test_data_regionvariablemapping.cpp
+  tests/test_data_regionvariablevalues.cpp
+  tests/test_data_regionvariableview.cpp
   tests/test_DatumDepth.cpp
   tests/test_DoubHEAD.cpp
   tests/test_EclipseIO.cpp
@@ -542,6 +551,7 @@ list(APPEND TEST_SOURCE_FILES
   tests/test_PAvgCalculator.cpp
   tests/test_PAvgDynamicSourceData.cpp
   tests/test_regionCache.cpp
+  tests/test_region_variable_collection.cpp
   tests/test_RegionSetMatcher.cpp
   tests/test_Restart.cpp
   tests/test_RestartFileView.cpp
@@ -995,6 +1005,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/input/eclipse/EclipseState/SimulationConfig/RockConfig.hpp
   opm/input/eclipse/EclipseState/SimulationConfig/SimulationConfig.hpp
   opm/input/eclipse/EclipseState/SimulationConfig/ThresholdPressure.hpp
+  opm/input/eclipse/EclipseState/SummaryConfig/RegionVariableSupport.hpp
   opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp
   opm/input/eclipse/EclipseState/Tables/Aqudims.hpp
   opm/input/eclipse/EclipseState/Tables/AqutabTable.hpp
@@ -1490,6 +1501,10 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/output/data/GuideRateValue.hpp
   opm/output/data/InterRegFlow.hpp
   opm/output/data/InterRegFlowMap.hpp
+  opm/output/data/RegionVariableMapping.hpp
+  opm/output/data/RegionVariableValues.hpp
+  opm/output/data/RegionVariableView.hpp
+  opm/output/data/RegionsetVariableDescriptor.hpp
   opm/output/data/Solution.hpp
   opm/output/data/Wells.hpp
   opm/output/eclipse/ActiveIndexByColumns.hpp
@@ -1513,6 +1528,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/output/eclipse/LgrHEADQ.hpp
   opm/output/eclipse/LinearisedOutputTable.hpp
   opm/output/eclipse/LogiHEAD.hpp
+  opm/output/eclipse/RegionVariableCollection.hpp
   opm/output/eclipse/RegionCache.hpp
   opm/output/eclipse/RestartIO.hpp
   opm/output/eclipse/RestartValue.hpp
