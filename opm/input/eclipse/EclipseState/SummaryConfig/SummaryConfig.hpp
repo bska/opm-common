@@ -44,6 +44,10 @@ namespace Opm {
     class Schedule;
 } // namespace Opm
 
+namespace Opm::data {
+    class RegionVariableMapping;
+} // namespace Opm::data
+
 namespace Opm {
 
     /// Definition of a single summary vector.

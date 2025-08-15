@@ -64,9 +64,15 @@
 #include <opm/output/data/Aquifer.hpp>
 #include <opm/output/data/Groups.hpp>
 #include <opm/output/data/GuideRateValue.hpp>
+#include <opm/output/data/RegionsetVariableDescriptor.hpp>
+#include <opm/output/data/RegionVariableMapping.hpp>
+#include <opm/output/data/RegionVariableValues.hpp>
+#include <opm/output/data/RegionVariableView.hpp>
 #include <opm/output/data/Wells.hpp>
+
 #include <opm/output/eclipse/Inplace.hpp>
 #include <opm/output/eclipse/RegionCache.hpp>
+#include <opm/output/eclipse/RegionVariableCollection.hpp>
 #include <opm/output/eclipse/WStat.hpp>
 
 #include <algorithm>
@@ -677,6 +683,9 @@ struct fn_args
     const Opm::Inplace* initial_inplace{nullptr};
     const Opm::Inplace& inplace;
     const Opm::UnitSystem& unit_system;
+
+    const Opm::data::RegionVariableMapping* reg_var_map{nullptr};
+    const Opm::RegionVariableCollection* reg_var_coll{nullptr};
 };
 
 /* Since there are several enums in opm scattered about more-or-less
@@ -1644,12 +1653,62 @@ inline quantity bhp( const fn_args& args ) {
     return { p->second.bhp, measure::pressure };
 }
 
-/*
-  This function is slightly ugly - the evaluation of ROEW uses the already
-  calculated COPT results. We do not really have any formalism for such
-  dependencies between the summary vectors. For this particualar case there is a
-  hack in SummaryConfig which should ensure that this is safe.
-*/
+quantity calculate_roew(const fn_args&     args,
+                        const double       ropt,
+                        const std::string& region_name)
+{
+    const auto oil_prod = args.unit_system
+        .to_si(Opm::UnitSystem::measure::volume, ropt);
+
+    return {
+        oil_prod / args.initial_inplace->get(region_name, Opm::Inplace::Phase::OIL, args.num),
+        measure::identity
+    };
+}
+
+// This function is slightly ugly - the evaluation of ROEW uses the already
+// calculated COPT results. We do not really have any formalism for such
+// dependencies between the summary vectors. For this particualar case there
+// is a hack in SummaryConfig which should ensure that this is safe.
+
+quantity roew_v1(const fn_args& args, const std::string& region_name)
+{
+    double oil_prod = 0;
+    for (const auto& [well, global_index] : args.regionCache.connections(region_name, args.num)) {
+        const auto copt_key = fmt::format("COPT:{}:{}", well, global_index + 1);
+
+        if (args.st.has(copt_key)) {
+            oil_prod += args.st.get(copt_key);
+        }
+    }
+
+    return calculate_roew(args, oil_prod, region_name);
+}
+
+quantity roew_v2(const fn_args& args, const std::string& region_name)
+{
+    const auto zero = quantity { 0.0, measure::identity };
+
+    const auto varIx = args.reg_var_coll
+        ->variableIndex(*args.reg_var_map, "ConnOPT");
+    if (! varIx.has_value()) {
+        return zero;
+    }
+
+    const auto regsetIx = args.reg_var_coll
+        ->regionSetIndex(*args.reg_var_map, region_name);
+    if (! regsetIx.has_value()) {
+        return zero;
+    }
+
+    const auto roptValues = args.reg_var_coll
+        ->regionVariableValues().values(*varIx);
+    if (! roptValues.has_value()) {
+        return zero;
+    }
+
+    return calculate_roew(args, roptValues->element(*regsetIx, args.num), region_name);
+}
 
 quantity roew(const fn_args& args)
 {
@@ -1668,21 +1727,13 @@ quantity roew(const fn_args& args)
         return zero;
     }
 
-    double oil_prod = 0;
-    for (const auto& [well, global_index] : args.regionCache.connections(region_name, args.num)) {
-        const auto copt_key = fmt::format("COPT:{}:{}", well, global_index + 1);
-
-        if (args.st.has(copt_key)) {
-            oil_prod += args.st.get(copt_key);
-        }
+    if ((args.reg_var_coll != nullptr) && (args.reg_var_map != nullptr)) {
+        return roew_v2(args, region_name);
     }
 
-    oil_prod = args.unit_system.to_si(Opm::UnitSystem::measure::volume, oil_prod);
-
-    return {
-        oil_prod / args.initial_inplace->get(region_name, Opm::Inplace::Phase::OIL, args.num),
-        measure::identity
-    };
+    // Fall back to original COPT-based mode if region variable collection
+    // is not available.
+    return roew_v1(args, region_name);
 }
 
 quantity roe(const fn_args& args)
@@ -3970,6 +4021,9 @@ namespace Evaluator {
         const std::map<std::pair<std::string, int>, double>& block;
         const Opm::data::Aquifers& aquifers;
         const std::unordered_map<std::string, Opm::data::InterRegFlowMap>& ireg;
+
+        const Opm::data::RegionVariableMapping* reg_var_map{nullptr};
+        const Opm::RegionVariableCollection* reg_var_coll{nullptr};
     };
 
     class Base
@@ -4019,7 +4073,9 @@ namespace Evaluator {
                 input.reg, input.grid, input.sched,
                 std::move(eFac.factors),
                 input.initial_inplace, simRes.inplace,
-                input.sched.getUnits()
+                input.sched.getUnits(),
+                simRes.reg_var_map,
+                simRes.reg_var_coll
             };
 
             const auto& usys = input.es.getUnits();
@@ -5331,7 +5387,9 @@ eval(const int                    sim_step,
         region_values,
         block_values,
         aquifer_values,
-        interreg_flows
+        interreg_flows,
+        values.reg_var_map,
+        values.reg_var_coll
     };
 
     for (auto& evalPtr : this->outputParameters_.getEvaluators()) {
@@ -5795,6 +5853,8 @@ void Summary::eval(const int                    report_step,
     this->pImpl_->eval(sim_step, secs_elapsed, values, st);
 }
 
+Summary::~Summary() = default;
+
 void Summary::add_timestep(const SummaryState& st,
                            const int           report_step,
                            const int           ministep_id,
@@ -5807,7 +5867,5 @@ void Summary::write(const bool is_final_summary) const
 {
     this->pImpl_->write(is_final_summary);
 }
-
-Summary::~Summary() {}
 
 } // namespace Opm::out
