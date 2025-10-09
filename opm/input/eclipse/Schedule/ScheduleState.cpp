@@ -25,8 +25,9 @@
 #include <opm/input/eclipse/Schedule/GasLiftOpt.hpp>
 #include <opm/input/eclipse/Schedule/Group/GConSale.hpp>
 #include <opm/input/eclipse/Schedule/Group/GConSump.hpp>
-#include <opm/input/eclipse/Schedule/Group/GSatProd.hpp>
 #include <opm/input/eclipse/Schedule/Group/GroupEconProductionLimits.hpp>
+#include <opm/input/eclipse/Schedule/Group/GroupSatelliteInjection.hpp>
+#include <opm/input/eclipse/Schedule/Group/GSatProd.hpp>
 #include <opm/input/eclipse/Schedule/Group/GuideRateConfig.hpp>
 #include <opm/input/eclipse/Schedule/Network/Balance.hpp>
 #include <opm/input/eclipse/Schedule/Network/ExtNetwork.hpp>
@@ -70,6 +71,57 @@ namespace {
 } // Anonymous namespace
 
 namespace Opm {
+
+void
+ScheduleState::WellListChangeTracker::
+recordStaticChangedLists(const StringVec& lists)
+{
+    this->recordChangedLists(lists, this->lists_[1 - this->dyn_ix_]);
+}
+
+void
+ScheduleState::WellListChangeTracker::
+recordActionChangedLists(const StringVec& lists)
+{
+    this->recordChangedLists(lists, this->lists_[this->dyn_ix_]);
+}
+
+void
+ScheduleState::WellListChangeTracker::prepareNextReportStep()
+{
+    this->dyn_ix_ = 1 - this->dyn_ix_;
+
+    this->lists_[this->dyn_ix_].clear();
+}
+
+void
+ScheduleState::WellListChangeTracker::
+recordChangedLists(const StringVec& src, StringVec& dst)
+{
+    dst.insert(dst.end(), src.begin(), src.end());
+
+    std::sort(dst.begin(), dst.end());
+
+    dst.erase(std::unique(dst.begin(), dst.end()), dst.end());
+}
+
+ScheduleState::WellListChangeTracker
+ScheduleState::WellListChangeTracker::serializationTestObject()
+{
+    using namespace std::string_literals;
+
+    auto tracker = WellListChangeTracker{};
+
+    // Just to swap ::dyn_ix_ from its default value...
+    tracker.prepareNextReportStep();
+
+    tracker.recordStaticChangedLists(StringVec { "*A"s, "*B"s, "*D"s });
+    tracker.recordStaticChangedLists(StringVec { "*D"s, "*Q"s, "*P"s, "*C"s, });
+
+    return tracker;
+}
+
+// ---------------------------------------------------------------------------
 
 void ScheduleState::updateSAVE(bool save) {
     this->m_save_step = save;
@@ -159,6 +211,16 @@ ScheduleState::ScheduleState(const ScheduleState& src, const time_point& start_t
             // New report step.  All ASSIGNments and all NEXT updates from
             // previous report steps have been performed.
             this->udq.update(std::move(new_udq));
+        }
+    }
+
+    {
+        auto tracker = this->wlist_tracker();
+
+        tracker.prepareNextReportStep();
+
+        if (tracker.changedLists() != src.wlist_tracker().changedLists()) {
+            this->wlist_tracker.update(std::move(tracker));
         }
     }
 }
@@ -370,7 +432,10 @@ bool ScheduleState::operator==(const ScheduleState& other) const {
         && this->udq.get() == other.udq.get()
         && this->bhp_defaults.get() == other.bhp_defaults.get()
         && this->source.get() == other.source.get()
+        && this->wcycle() == other.wcycle()
+        && this->wlist_tracker() == other.wlist_tracker()
         && this->wells == other.wells
+        && this->satelliteInjection == other.satelliteInjection
         && this->inj_streams == other.inj_streams
         && this->groups == other.groups
         && this->vfpprod == other.vfpprod
@@ -425,6 +490,8 @@ ScheduleState ScheduleState::serializationTestObject() {
     ts.rft_config.update( RFTConfig::serializationTestObject() );
     ts.rst_config.update( RSTConfig::serializationTestObject() );
     ts.source.update( Source::serializationTestObject() );
+    ts.wcycle.update(WCYCLE::serializationTestObject());
+    ts.wlist_tracker.update(WellListChangeTracker::serializationTestObject());
 
     return ts;
 }

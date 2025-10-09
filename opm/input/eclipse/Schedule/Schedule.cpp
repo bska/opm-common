@@ -111,6 +111,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iostream>
+#include <iterator>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -1246,6 +1247,26 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
         return this->wellMatcher(report_step).sort(std::move(changedWells));
     }
 
+    std::vector<std::string>
+    Schedule::changedWellLists(const std::size_t report_step,
+                               const std::size_t initialStep) const
+    {
+        auto changedLists = std::vector<std::string>{};
+
+        if (report_step == initialStep) {
+            const auto& wlm = this->snapshots[report_step].wlist_manager();
+            changedLists.reserve(wlm.WListSize());
+
+            std::transform(wlm.begin(), wlm.end(), std::back_inserter(changedLists),
+                           [](const auto& wlistPair) { return wlistPair.first; });
+        }
+        else {
+            changedLists = this->snapshots[report_step]
+                .wlist_tracker().changedLists();
+        }
+
+        return changedLists;
+    }
 
     std::vector<Well> Schedule::getWells(std::size_t timeStep) const
     {
@@ -2989,6 +3010,7 @@ void Schedule::create_first(const time_point& start_time, const std::optional<ti
     sched_state.bhp_defaults.update( ScheduleState::BHPDefaults() );
     sched_state.source.update( Source() );
     sched_state.wcycle.update( WCYCLE() );
+    sched_state.wlist_tracker.update(ScheduleState::WellListChangeTracker{});
     //sched_state.update_date( start_time );
     this->addGroup("FIELD", 0);
 }

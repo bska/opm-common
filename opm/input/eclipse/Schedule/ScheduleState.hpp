@@ -42,12 +42,17 @@
 
 #include <opm/input/eclipse/Deck/DeckKeyword.hpp>
 
+#include <array>
 #include <cstddef>
+#include <iterator>
 #include <memory>
 #include <optional>
+#include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -326,6 +331,45 @@ namespace Opm {
             }
         };
 
+        class WellListChangeTracker
+        {
+        public:
+            using StringVec = std::vector<std::string>;
+
+            void recordStaticChangedLists(const StringVec& lists);
+            void recordActionChangedLists(const StringVec& lists);
+
+            const StringVec& changedLists() const
+            {
+                return this->lists_[1 - this->dyn_ix_];
+            }
+
+            void prepareNextReportStep();
+
+            static WellListChangeTracker serializationTestObject();
+
+            bool operator==(const WellListChangeTracker& that) const
+            {
+                return (this->dyn_ix_ == that.dyn_ix_)
+                    && (this->lists_ == that.lists_);
+            }
+
+            template <class Serializer>
+            void serializeOp(Serializer& serializer)
+            {
+                serializer(this->lists_);
+                serializer(this->dyn_ix_);
+            }
+
+        private:
+            using ListColl = std::array<StringVec, 2>;
+
+            ListColl lists_{};
+            std::size_t dyn_ix_ { std::size_t{1} };
+
+            void recordChangedLists(const StringVec& src, StringVec& dst);
+        };
+
         ScheduleState() = default;
         explicit ScheduleState(const time_point& start_time);
         ScheduleState(const time_point& start_time, const time_point& end_time);
@@ -439,6 +483,8 @@ namespace Opm {
         ptr_member<Source> source;
         ptr_member<WCYCLE> wcycle;
 
+        ptr_member<WellListChangeTracker> wlist_tracker;
+
         template <typename T>
         ptr_member<T>& get() {
             return const_cast<ptr_member<T>&>(std::as_const(*this).template get<T>());
@@ -495,6 +541,8 @@ namespace Opm {
                                   return this->source;
             else if constexpr ( std::is_same_v<T, WCYCLE> )
                                   return this->wcycle;
+            else if constexpr ( std::is_same_v<T, WellListChangeTracker> )
+                                  return this->wlist_tracker;
             else {
                 #if !OPM_IS_COMPILING_WITH_GPU_COMPILER // NVCC evaluates this branch for some reason
                 static_assert(always_false1::value, "Template type <T> not supported in get()");
@@ -549,6 +597,7 @@ namespace Opm {
             serializer(bhp_defaults);
             serializer(source);
             serializer(wcycle);
+            serializer(this->wlist_tracker);
             serializer(vfpprod);
             serializer(vfpinj);
             serializer(groups);

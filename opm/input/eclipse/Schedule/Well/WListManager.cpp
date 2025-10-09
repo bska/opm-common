@@ -137,19 +137,24 @@ namespace Opm {
         }
     }
 
-    void WListManager::addOrCreateWellList(const std::string& wlname, const std::vector<std::string>& wnames)
+    void WListManager::addOrCreateWellList(const std::string&              wlname,
+                                           const std::vector<std::string>& wnames)
     {
         if (!this->hasList(wlname)) {
             this->newList(wlname, wnames);
-        } else {
+        }
+        else {
             for (const auto& wname : wnames) {
                 this->addWListWell(wname, wlname);
             }
         }
     }
 
-    void WListManager::delWell(const std::string& wname)
+    std::vector<std::string>
+    WListManager::delWell(const std::string& wname)
     {
+        auto affected = std::vector<std::string>{};
+
         for (auto& pair: this->wlists) {
             auto& wlist = pair.second;
             wlist.del(wname);
@@ -163,12 +168,17 @@ namespace Opm {
                     if (no_wl == 0) {
                         wlist_vec.clear();
                     }
+
+                    affected.push_back(wlist.getName());
                 }
             }
         }
+
+        return affected;
     }
 
-    void WListManager::delWListWell(const std::string& wname, const std::string& wlname)
+    bool WListManager::delWListWell(const std::string& wname,
+                                    const std::string& wlname)
     {
         //delete well from well list
         this->getList(wlname).del(wname);
@@ -183,8 +193,12 @@ namespace Opm {
                 if (no_wl == 0) {
                     wlist_vec.clear();
                 }
+
+                return true;
             }
         }
+
+        return false;
     }
 
     bool WListManager::operator==(const WListManager& data) const

@@ -114,6 +114,14 @@ public:
     WList& newList(const std::string&              name,
                    const std::vector<std::string>& wname);
 
+    /// Start of sequence of run's current well lists.
+    ///
+    /// Sorted by well list name.
+    auto begin() const { return this->wlists.begin(); }
+
+    /// End of sequence of run's current well lists.
+    auto end() const { return this->wlists.end(); }
+
     /// Sequence of well lists containing named well.
     ///
     /// \param[in] wname Well name.
@@ -163,14 +171,19 @@ public:
     /// Implements the DEL operation.
     ///
     /// \param[in] wname Well name.
-    void delWell(const std::string& wname);
+    ///
+    /// \return Well lists affected by this operation.
+    std::vector<std::string>
+    delWell(const std::string& wname);
 
     /// Remove named well from specific, named well list.
     ///
     /// \param[in] wname Named well.
     ///
     /// \param[in] wlname Well list name, including leading asterisk.
-    void delWListWell(const std::string& wname, const std::string& wlname);
+    ///
+    /// \return Whether or not \p wlname changed.
+    bool delWListWell(const std::string& wname, const std::string& wlname);
 
     /// Equality predicate.
     ///

@@ -929,6 +929,11 @@ public:
     /// parse().
     void apply(WListManager& wlm);
 
+    const std::vector<std::string>& affectedLists() const
+    {
+        return this->affected_wlists_;
+    }
+
 private:
     /// Well list operation.
     enum class Action : std::size_t {
@@ -960,6 +965,10 @@ private:
 
     /// Set of wells involved in current operation.
     std::vector<std::string> wells_{};
+
+    /// Set of well lists affected by the current set of well list
+    /// operations.
+    std::vector<std::string> affected_wlists_{};
 
     /// Internalise well list name.
     ///
@@ -1026,6 +1035,9 @@ private:
     /// wells named in wells_ will no longer be included in the well list
     /// named in well_list_.
     void del(WListManager& wlm);
+
+    /// Track affected well lists from single operation.
+    void affectedWellLists(const std::vector<std::string>& wlists);
 
     /// Report a parsing error through the run's parse context/error guard
     ///
@@ -1121,20 +1133,29 @@ void WListOperation::parseWListWells(const DeckRecord& record)
 void WListOperation::newList(WListManager& wlm)
 {
     wlm.newList(this->wlist_name_, this->wells_);
+
+    this->affectedWellLists({ this->wlist_name_ });
 }
 
 void WListOperation::add(WListManager& wlm)
 {
     wlm.addOrCreateWellList(this->wlist_name_, this->wells_);
+
+    this->affectedWellLists({ this->wlist_name_ });
 }
 
 void WListOperation::move(WListManager& wlm)
 {
+    auto affected = std::vector<std::string>{};
+
     for (const auto& well : this->wells_) {
-        wlm.delWell(well);
+        const auto lists = wlm.delWell(well);
+
+        affected.insert(affected.end(), lists.begin(), lists.end());
     }
 
     this->add(wlm);
+    this->affectedWellLists(affected);
 }
 
 void WListOperation::del(WListManager& wlm)
@@ -1147,9 +1168,23 @@ void WListOperation::del(WListManager& wlm)
         return;
     }
 
+    auto affected = false;
+
     for (const auto& well : this->wells_) {
-        wlm.delWListWell(well, this->wlist_name_);
+        if (wlm.delWListWell(well, this->wlist_name_)) {
+            affected = true;
+        }
     }
+
+    if (affected) {
+        this->affectedWellLists({ this->wlist_name_ });
+    }
+}
+
+void WListOperation::affectedWellLists(const std::vector<std::string>& wlists)
+{
+    this->affected_wlists_.insert(this->affected_wlists_.end(),
+                                  wlists.begin(), wlists.end());
 }
 
 void WListOperation::errorInvalidName(std::string_view message) const
@@ -1185,6 +1220,23 @@ void handleWLIST(HandlerContext& handlerContext)
 
         handlerContext.state().wlist_manager.update(std::move(wlm));
     }
+
+    const auto& affectedLists = wlistOperation.affectedLists();
+
+    if (affectedLists.empty()) {
+        return;
+    }
+
+    auto tracker = handlerContext.state().wlist_tracker();
+
+    if (handlerContext.action_mode) {
+        tracker.recordActionChangedLists(affectedLists);
+    }
+    else {
+        tracker.recordStaticChangedLists(affectedLists);
+    }
+
+    handlerContext.state().wlist_tracker.update(std::move(tracker));
 }
 
 // ---------------------------------------------------------------------------
