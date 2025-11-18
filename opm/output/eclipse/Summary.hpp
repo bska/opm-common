@@ -56,25 +56,46 @@ namespace Opm::out {
 class Summary
 {
 public:
-    /// Collection of named scalar quantities such as field-wide pressures,
-    /// rates, and volumes, as well as performance related quantities such
-    /// as CPU time, number of linear iterations &c.
-    using GlobalProcessParameters = std::map<std::string, double>;
+    struct DynamicSimulatorState
+    {
+        /// Collection of named scalar quantities such as field-wide pressures,
+        /// rates, and volumes, as well as performance related quantities such
+        /// as CPU time, number of linear iterations &c.
+        using GlobalProcessParameters = std::map<std::string, double>;
 
-    /// Collection of named per-region quantities.  Name may or may not
-    /// include a region set identifier.
-    using RegionParameters = std::map<std::string, std::vector<double>>;
+        /// Collection of named per-region quantities.  Name may or may not
+        /// include a region set identifier.
+        using RegionParameters = std::map<std::string, std::vector<double>>;
 
-    /// Collection of per-block (cell) quantities.
-    ///
-    /// Identifier associates a summary keyword and a block ID (linearised
-    /// Cartesian cell index).
-    using BlockValues = std::map<std::pair<std::string, int>, double>;
+        /// Collection of per-block (cell) quantities.
+        ///
+        /// Identifier associates a summary keyword and a block ID (linearised
+        /// Cartesian cell index).
+        using BlockValues = std::map<std::pair<std::string, int>, double>;
 
-    /// Collection of named inter-region flows (rates and cumulatives)
-    ///
-    /// Name may or may not include a region set identifier.
-    using InterRegFlowValues = std::unordered_map<std::string, data::InterRegFlowMap>;
+        /// Collection of named inter-region flows (rates and cumulatives)
+        ///
+        /// Name may or may not include a region set identifier.
+        using InterRegFlowValues = std::unordered_map<std::string, data::InterRegFlowMap>;
+
+        struct VolumeInPlace
+        {
+            const Inplace* current {nullptr};
+            const Inplace* initial {nullptr};
+        };
+
+        const data::Wells* well_solution {nullptr};
+        const data::WellBlockAveragePressures* wbp {nullptr};
+        const data::GroupAndNetworkValues* group_and_nwrk_solution {nullptr};
+        const GlobalProcessParameters* single_values {nullptr};
+
+        VolumeInPlace inplace{};
+
+        const RegionParameters* region_values {nullptr};
+        const BlockValues* block_values {nullptr};
+        const data::Aquifers* aquifer_values {nullptr};
+        const InterRegFlowValues* interreg_flows {nullptr};
+    };
 
     /// Constructor
     ///
@@ -187,19 +208,10 @@ public:
     /// \param[in] interreg_flows Inter-region flows (rates and
     /// cumulatives).  Empty if no such values exist (e.g., in unit tests)
     /// or if no such summary vectors have been requested.
-    void eval(SummaryState&                          summary_state,
-              const int                              report_step,
-              const double                           secs_elapsed,
-              const data::Wells&                     well_solution,
-              const data::WellBlockAveragePressures& wbp,
-              const data::GroupAndNetworkValues&     group_and_nwrk_solution,
-              const GlobalProcessParameters&         single_values,
-              const std::optional<Inplace>&          initial_inplace,
-              const Inplace&                         inplace,
-              const RegionParameters&                region_values = {},
-              const BlockValues&                     block_values  = {},
-              const data::Aquifers&                  aquifers_values = {},
-              const InterRegFlowValues&              interreg_flows = {}) const;
+    void eval(const int                    report_step,
+              const double                 secs_elapsed,
+              const DynamicSimulatorState& values,
+              SummaryState&                summary_state) const;
 
     /// Write all current summary vector buffers to output files.
     ///
