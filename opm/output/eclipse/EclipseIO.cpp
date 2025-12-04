@@ -70,7 +70,6 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
-#include <unordered_map>
 #include <utility>    // move
 #include <vector>
 
@@ -336,6 +335,7 @@ public:
                       std::map<std::string, std::vector<int>> int_data,
                       const NNCCollection&                    nnc_col) const;
 
+    void recordNewDynamicWellConns(const DynamicConns& newConns);
 
     /// Create summary file output.
     ///
@@ -823,6 +823,11 @@ void Opm::EclipseIO::Impl::writeInitial(std::vector<data::Solution>             
     }
 }
 
+void Opm::EclipseIO::Impl::
+recordNewDynamicWellConns(const DynamicConns& newConns)
+{
+    this->summary_.recordNewDynamicWellConns(newConns);
+}
 
 void Opm::EclipseIO::Impl::writeSummaryFile(const SummaryState&      st,
                                             const int                report_step,
@@ -1187,7 +1192,6 @@ void Opm::EclipseIO::writeTimeStep(const Action::State& action_state,
     this->impl->countTimeStep();
 }
 
-
 void Opm::EclipseIO::writeTimeStep(const Action::State&      action_state,
                                    const WellTestState&      wtest_state,
                                    const SummaryState&       st,
@@ -1230,6 +1234,11 @@ void Opm::EclipseIO::writeTimeStep(const Action::State&      action_state,
     this->impl->countTimeStep();
 }
 
+void Opm::EclipseIO::
+recordNewDynamicWellConns(const DynamicConns& newConns)
+{
+    this->impl->recordNewDynamicWellConns(newConns);
+}
 
 Opm::RestartValue
 Opm::EclipseIO::loadRestart(Action::State&                 action_state,
