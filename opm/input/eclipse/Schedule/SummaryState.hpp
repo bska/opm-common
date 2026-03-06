@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <ctime>
 #include <iosfwd>
+#include <limits>
 #include <optional>
 #include <set>
 #include <string>
@@ -36,6 +37,23 @@ namespace Opm {
 
 class UDQSet;
 
+// Opaque handle for O(1) access to summary values.
+// Clients can cache these handles to avoid repeated string lookups.
+struct SummaryHandle {
+    std::size_t index{std::numeric_limits<std::size_t>::max()};
+    
+    bool is_valid() const noexcept { 
+        return index != std::numeric_limits<std::size_t>::max(); 
+    }
+    
+    bool operator==(const SummaryHandle&) const = default;
+    
+    template<class Serializer>
+    void serializeOp(Serializer& serializer) {
+        serializer(index);
+    }
+};
+
 } // namespace Opm
 
 // The purpose of the SummaryState class is to serve as a small container
@@ -43,29 +61,22 @@ class UDQSet;
 // typically be used by the UDQ, WTEST and ACTIONX calculations.  Observe
 // that all values are stored in the run's output unit conventions.
 //
-// The main key used to access the content of this container is the eclipse
-// style colon separated string - i.e. 'WWCT:OPX' to get the watercut in
-// well 'OPX'.  The main usage of the SummaryState class is a temporary
-// holding ground while assembling data for the summary output, but it is
-// also used as a context object when evaulating the condition in ACTIONX
-// keywords. For that reason some of the data is duplicated both in the
-// general structure and a specialized structure:
+// PERFORMANCE NOTE:
+// For performance-critical code (e.g., inner loops), use the handle-based API:
 //
-//     SummaryState st { start, udqUndefined };
+//     auto handle = st.register_well_var("OPX", "WWCT");
+//     // ... later, in a loop:
+//     st.update(handle, new_value);
+//     double val = st.get(handle);
 //
-//     st.add_well_var("OPX", "WWCT", 0.75);
-//     st.add("WGOR:OPY", 120);
+// This provides O(1) access after the initial registration.
 //
-//     // The WWCT:OPX key has been added with the specialized add_well_var()
-//     // method and this data is available both with the general
-//     // st.has("WWCT:OPX") and the specialized st.has_well_var("OPX", "WWCT");
-//     st.has("WWCT:OPX") => True
-//     st.has_well_var("OPX", "WWCT") => True
+// For convenience and backward compatibility, string-based access is still supported:
 //
-//     // The WGOR:OPY key is added with the general add("WGOR:OPY") and is *not*
-//     // accessible through the specialized st.has_well_var("OPY", "WGOR").
-//     st.has("WGOR:OPY") => True
-//     st.has_well_var("OPY", "WGOR") => False
+//     st.update_well_var("OPX", "WWCT", 0.75);
+//     double val = st.get_well_var("OPX", "WWCT");
+//
+// The string-based API performs a hash lookup on each call.
 
 namespace Opm {
 
@@ -83,6 +94,47 @@ public:
     SummaryState() : SummaryState(std::time_t{0}) {}
     ~SummaryState() = default;
 
+    // ========================================================================
+    // HANDLE-BASED API (NEW - for performance-critical code)
+    // ========================================================================
+    
+    // Register a summary variable and get a handle for fast access.
+    // If the variable is already registered, returns the existing handle.
+    // These methods never throw and always return a valid handle.
+    SummaryHandle register_key(const std::string& key);
+    SummaryHandle register_well_var(const std::string& well, const std::string& var);
+    SummaryHandle register_group_var(const std::string& group, const std::string& var);
+    SummaryHandle register_conn_var(const std::string& well, const std::string& var, std::size_t global_index);
+    SummaryHandle register_segment_var(const std::string& well, const std::string& var, std::size_t segment);
+    SummaryHandle register_region_var(const std::string& regSet, const std::string& var, std::size_t region);
+    
+    // Fast O(1) read access using a handle.
+    // Precondition: handle must be valid (from a register_* call on this SummaryState).
+    double get(SummaryHandle handle) const;
+    
+    // Fast O(1) write access using a handle.
+    // Returns a reference to the value for direct modification.
+    // Precondition: handle must be valid.
+    double& operator[](SummaryHandle handle);
+    
+    // Update a value using a handle.
+    // Automatically handles totals (accumulation) vs. state variables (assignment).
+    // Precondition: handle must be valid.
+    void update(SummaryHandle handle, double value);
+    
+    // Set a value unconditionally (no total accumulation).
+    // Precondition: handle must be valid.
+    void set(SummaryHandle handle, double value);
+    
+    // Check if a handle is valid for this SummaryState.
+    bool is_valid_handle(SummaryHandle handle) const noexcept {
+        return handle.is_valid() && handle.index < values_.size();
+    }
+    
+    // ========================================================================
+    // STRING-BASED API (existing - kept for compatibility)
+    // ========================================================================
+    
     // The canonical way to update the SummaryState is through the
     // update_xxx() methods which will inspect the variable and either
     // accumulate or just assign, depending on whether it represents a total
@@ -149,16 +201,17 @@ public:
         serializer(sim_start);
         serializer(this->udq_undefined);
         serializer(elapsed);
-        serializer(values);
-        serializer(well_values);
+        
+        // Serialize new indexed storage
+        serializer(values_);
+        serializer(key_to_handle_);
+        serializer(is_total_);
+        
+        // Entity tracking
         serializer(m_wells);
         serializer(well_names);
-        serializer(group_values);
         serializer(m_groups);
         serializer(group_names);
-        serializer(conn_values);
-        serializer(segment_values);
-        serializer(this->region_values);
     }
 
     static SummaryState serializationTestObject();
@@ -167,32 +220,49 @@ private:
     time_point sim_start;
     double udq_undefined{};
     double elapsed = 0;
-    std::unordered_map<std::string,double> values;
-
-    // The first key is the variable and the second key is the well.
-    std::unordered_map<std::string, std::unordered_map<std::string, double>> well_values;
+    
+    // ========================================================================
+    // NEW INDEXED STORAGE - eliminates duplication and indirection
+    // ========================================================================
+    
+    // Single source of truth for all summary values
+    std::vector<double> values_;
+    
+    // Maps composite keys to handles (one lookup instead of 2-3)
+    std::unordered_map<std::string, SummaryHandle> key_to_handle_;
+    
+    // Tracks whether each value is a total (needs accumulation) or state (assignment)
+    std::vector<bool> is_total_;
+    
+    // ========================================================================
+    // LEGACY DATA STRUCTURES (for backward compatibility during transition)
+    // TODO: Remove these after full migration
+    // ========================================================================
+    
+    // Kept for compatibility with existing serialization and legacy code
+    std::unordered_map<std::string, double> values;  // Legacy - mirrored from values_
+    
+    // Entity tracking (still needed for wells(), groups() methods)
     std::set<std::string> m_wells;
     mutable std::optional<std::vector<std::string>> well_names;
-
-    // The first key is the variable and the second key is the group.
-    std::unordered_map<std::string, std::unordered_map<std::string, double>> group_values;
     std::set<std::string> m_groups;
     mutable std::optional<std::vector<std::string>> group_names;
 
-    // The first key is the variable and the second key is the well and the
-    // third is the global index. NB: The global_index has offset 1!
-    std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::size_t, double>>> conn_values;
+    // Reusable buffer for formatting keys
+    mutable std::string key_buffer_;
 
-    // The first key is the variable and the second key is the well and the
-    // third is the one-based segment number.
-    std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::size_t, double>>> segment_values;
-
-    // First key is variable (e.g., ROIP), second key is region set (e.g.,
-    // FIPNUM, FIPABC), and the third key is the one-based region number.
-    std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<std::size_t, double>>> region_values;
-
-    // Reusable buffer for formatting connection keys in update_conn_var to avoid allocation.
-    mutable std::string conn_key_buffer_;
+    // ========================================================================
+    // HELPER METHODS
+    // ========================================================================
+    
+    // Internal method to register a key and allocate storage
+    SummaryHandle make_handle(const std::string& key, bool is_total_var);
+    
+    // Sync legacy 'values' map from indexed storage (for backward compat)
+    void sync_legacy_map(SummaryHandle handle, const std::string& key);
+    
+    // Extract entity name from a composite key (e.g., "WOPR:WELL_A" -> "WELL_A")
+    void track_entity(const std::string& key);
 };
 
 std::ostream& operator<<(std::ostream& stream, const SummaryState& st);
