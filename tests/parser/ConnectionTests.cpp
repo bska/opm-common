@@ -23,6 +23,7 @@
 #include <opm/input/eclipse/Schedule/Well/Connection.hpp>
 
 #include <opm/common/utility/ActiveGridCells.hpp>
+#include <opm/common/utility/OpmInputError.hpp>
 
 #include <opm/input/eclipse/Python/Python.hpp>
 
@@ -46,13 +47,19 @@
 #include <opm/input/eclipse/Deck/Deck.hpp>
 
 #include <opm/input/eclipse/Parser/ErrorGuard.hpp>
+#include <opm/input/eclipse/Parser/InputErrorAction.hpp>
 #include <opm/input/eclipse/Parser/ParseContext.hpp>
 
 #include <opm/input/eclipse/Parser/Parser.hpp>
 
+#include <array>
 #include <cstddef>
-#include <stdexcept>
+#include <memory>
 #include <ostream>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace {
     double cp_rm3_per_db()
@@ -761,4 +768,158 @@ BOOST_AUTO_TEST_CASE(loadCOMPTRAJTESTSPE1_2) {
          BOOST_CHECK_CLOSE(connections[i].CF(), units.to_si(Opm::UnitSystem::measure::transmissibility, connection_factor[i]), 2e-2);
          BOOST_CHECK_EQUAL(connections[i].global_index(), global_index[i]);
     }
+}
+
+BOOST_AUTO_TEST_CASE(Compdat_Zero_Perm_Dflt_Action)
+{
+    const auto deck = Opm::Parser{}.parseString(R"(RUNSPEC
+START
+  18 MAR 2026 /
+OIL
+WATER
+DIMENS
+3 1 3 /
+TABDIMS
+/
+EQLDIMS
+/
+WELLDIMS
+ 1 3 1 1 /
+GRID
+DXV
+ 3*100 /
+DYV
+ 100 /
+DZV
+ 3*10 /
+DEPTHZ
+ 8*2000 /
+EQUALS
+ PERMX 100 /
+ PERMY 100 /
+ PERMZ  10 /
+ PORO    0.3 /
+/
+-- Kx(2,1,2) = Ky(2,1,2) = 0.
+EQUALS
+ PERMX 0  2 2  1 1  2 2 /
+ PERMY 0 /
+/
+PROPS
+DENSITY
+  800 1000 1 /
+SOLUTION
+EQUIL
+2010 200 2010 1.23 1995 0.0 1* 1* -5 /
+SCHEDULE
+WELSPECS
+  'P' 'G' 2 2 2005.0 LIQ /
+/
+COMPDAT
+  'P'  2  1  1  3  OPEN  1  1*  0.3048  /
+/
+TSTEP
+  5*10 /
+END
+)");
+
+    const auto ctx = Opm::ParseContext{};
+    auto errors = Opm::ErrorGuard{};
+
+    const auto es = Opm::EclipseState { deck };
+    const auto sched = Opm::Schedule {
+        deck, es, ctx, errors,
+        std::make_shared<Opm::Python>()
+    };
+
+    const auto& well_p = sched.back().wells("P");
+
+    BOOST_REQUIRE_MESSAGE(well_p.hasConnections(),
+                          R"(Well "P" must have connections at end of simulation)");
+
+    BOOST_REQUIRE_EQUAL(well_p.getConnections().size(), std::size_t{2});
+
+    {
+        const auto& c0 = well_p.getConnections()[0];
+
+        BOOST_CHECK_EQUAL(c0.getI(), 1);
+        BOOST_CHECK_EQUAL(c0.getJ(), 0);
+        BOOST_CHECK_EQUAL(c0.getK(), 0);
+    }
+
+    {
+        const auto& c1 = well_p.getConnections()[1];
+
+        BOOST_CHECK_EQUAL(c1.getI(), 1);
+        BOOST_CHECK_EQUAL(c1.getJ(), 0);
+        BOOST_CHECK_EQUAL(c1.getK(), 2);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(Compdat_Zero_Perm_Throw)
+{
+    const auto deck = Opm::Parser{}.parseString(R"(RUNSPEC
+START
+  18 MAR 2026 /
+OIL
+WATER
+DIMENS
+3 1 3 /
+TABDIMS
+/
+EQLDIMS
+/
+WELLDIMS
+ 1 3 1 1 /
+GRID
+DXV
+ 3*100 /
+DYV
+ 100 /
+DZV
+ 3*10 /
+DEPTHZ
+ 8*2000 /
+EQUALS
+ PERMX 100 /
+ PERMY 100 /
+ PERMZ  10 /
+ PORO    0.3 /
+/
+-- Kx(2,1,2) = Ky(2,1,2) = 0.
+EQUALS
+ PERMX 0  2 2  1 1  2 2 /
+ PERMY 0 /
+/
+PROPS
+DENSITY
+  800 1000 1 /
+SOLUTION
+EQUIL
+2010 200 2010 1.23 1995 0.0 1* 1* -5 /
+SCHEDULE
+WELSPECS
+  'P' 'G' 2 2 2005.0 LIQ /
+/
+COMPDAT
+  'P'  2  1  1  3  OPEN  1  1*  0.3048  /
+/
+TSTEP
+  5*10 /
+END
+)");
+
+    const auto ctx = Opm::ParseContext {
+        std::vector {
+            std::pair { Opm::ParseContext::SCHEDULE_COMPDAT_ZERO_PERM,
+                        Opm::InputErrorAction::THROW_EXCEPTION },
+        }
+    };
+
+    auto errors = Opm::ErrorGuard{};
+
+    const auto es = Opm::EclipseState { deck };
+
+    BOOST_CHECK_THROW(Opm::Schedule(deck, es, ctx, errors, std::make_shared<Opm::Python>()),
+                      Opm::OpmInputError);
 }

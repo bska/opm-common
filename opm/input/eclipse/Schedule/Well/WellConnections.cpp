@@ -62,8 +62,10 @@
 #include <limits>
 #include <numbers>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -131,6 +133,35 @@ namespace {
         return {{ extent[ p[0] ] ,
                   extent[ p[1] ] ,
                   extent[ p[2] ] }};
+    }
+
+    void diagnoseZeroPermConnectionSkipped(const Opm::KeywordLocation&      location,
+                                           std::string_view                 wname,
+                                           std::span<const int, 3>          ijk_1based,
+                                           const Opm::Connection::Direction direction,
+                                           const Opm::ParseContext&         parseContext,
+                                           Opm::ErrorGuard&                 errors)
+    {
+        const auto dirs = std::array {
+            Opm::Connection::Direction::X,
+            Opm::Connection::Direction::Y,
+            Opm::Connection::Direction::Z,
+        };
+
+        const auto dirIdx = directionIndices(direction);
+
+        const auto msg_fmt = fmt::format(R"(Problem with keyword {{keyword}}
+In {{file}} line {{line}}
+Connection ({},{},{}) (direction '{}') for well {} ignored because
+   PERM{}=0 and PERM{}=0.)",
+                                         ijk_1based[0], ijk_1based[1], ijk_1based[2],
+                                         Opm::Connection::Direction2String(direction),
+                                         wname,
+                                         Opm::Connection::Direction2String(dirs[dirIdx[0]]),
+                                         Opm::Connection::Direction2String(dirs[dirIdx[1]]));
+
+        parseContext.handleError(Opm::ParseContext::SCHEDULE_COMPDAT_ZERO_PERM,
+                                 msg_fmt, location, errors);
     }
 
     // Compute Peaceman's effective radius of single completion.
@@ -377,8 +408,8 @@ namespace Opm {
                                        const ScheduleGrid&               grid,
                                        const KeywordLocation&            location,
                                        const std::optional<std::string>& lgr_label,
-                                       [[maybe_unused]] const ParseContext& parseContext,
-                                       [[maybe_unused]] ErrorGuard&         errors)
+                                       const ParseContext&               parseContext,
+                                       ErrorGuard&                       errors)
     {
         const auto& itemI = record.getItem("I");
         const auto defaulted_I = itemI.defaultApplied(0) || (itemI.get<int>(0) == 0);
@@ -484,7 +515,16 @@ The cell ({},{},{}) in well {} is not active and the connection will be ignored)
             // We must calculate CF and Kh from the items in the COMPDAT
             // record and cell properties.
             if (ctf_props.r0 < 0.0) {
-                ctf_props.r0 = effectiveRadius(K, D);
+                if ((K[0] > 0.0) && (K[1] > 0.0)) {
+                    ctf_props.r0 = effectiveRadius(K, D);
+                }
+                else {
+                    // Zero permeability cell.  No connection.
+                    diagnoseZeroPermConnectionSkipped(location, wname,
+                                                      std::array {I + 1, J + 1, k + 1},
+                                                      direction, parseContext, errors);
+                    continue;
+                }
             }
 
             if (const auto peaceman_denom = peacemanDenominator(ctf_props);
