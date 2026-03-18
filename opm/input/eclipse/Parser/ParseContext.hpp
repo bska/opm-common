@@ -565,6 +565,9 @@ namespace Opm {
         /// Connection data (COMPDAT keyword) invalid in some way.
         const static std::string SCHEDULE_COMPDAT_INVALID;
 
+        /// Connection in zero-permeability cell (COMPDAT keyword).
+        const static std::string SCHEDULE_COMPDAT_ZERO_PERM;
+
         /// ICD keyword (WSEGAICD, WSEGSICD, WSEGVALV) references a missing
         /// well segment.
         ///
