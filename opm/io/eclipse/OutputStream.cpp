@@ -81,6 +81,11 @@ namespace {
             return formatted ? "FRFT" : "RFT";
         }
 
+        std::string store(const bool formatted)
+        {
+            return formatted ? "FSTORE" : "STORE";
+        }
+
         std::string smspec(const bool formatted)
         {
             return formatted ? "FSMSPEC" : "SMSPEC";
@@ -479,6 +484,157 @@ namespace Opm { namespace EclIO { namespace OutputStream {
     template <typename T>
     void Restart::writeImpl(const std::string&    kw,
                             const std::vector<T>& data)
+    {
+        this->stream().write(kw, data);
+    }
+
+}}}
+
+// =====================================================================
+
+Opm::EclIO::OutputStream::Store::
+Store(const ResultSet& rset,
+      const int        seqnum,
+      const Formatted& fmt)
+{
+    const auto ext   = FileExtension::store(fmt.set);
+    const auto fname = outputFileName(rset, ext);
+
+    this->openUnified(fname, fmt.set, seqnum);
+
+    // Write SEQNUM value to stream to start new output sequence.
+    this->stream_->write("SEQNUM", std::vector<int>{ seqnum });
+}
+
+Opm::EclIO::OutputStream::Store::~Store()
+{}
+
+Opm::EclIO::OutputStream::Store::Store(Store&& rhs)
+    : stream_{ std::move(rhs.stream_) }
+{}
+
+Opm::EclIO::OutputStream::Store&
+Opm::EclIO::OutputStream::Store::operator=(Store&& rhs)
+{
+    this->stream_ = std::move(rhs.stream_);
+
+    return *this;
+}
+
+void Opm::EclIO::OutputStream::Store::message(const std::string& msg)
+{
+    this->stream().message(msg);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+write(const std::string& kw, const std::vector<int>& data)
+{
+    this->writeImpl(kw, data);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+write(const std::string& kw, const std::vector<bool>& data)
+{
+    this->writeImpl(kw, data);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+write(const std::string& kw, const std::vector<float>& data)
+{
+    this->writeImpl(kw, data);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+write(const std::string& kw, const std::vector<double>& data)
+{
+    this->writeImpl(kw, data);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+write(const std::string& kw, const std::vector<std::string>& data)
+{
+    this->writeImpl(kw, data);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+write(const std::string&                        kw,
+      const std::vector<PaddedOutputString<8>>& data)
+{
+    this->writeImpl(kw, data);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+openUnified(const std::string& fname,
+            const bool         formatted,
+            const int          seqnum)
+{
+    auto rst = Open::Restart::read(fname);
+
+    if (rst == nullptr) {
+        this->openNew(fname, formatted);
+    }
+    else if (! rst->hasKey("SEQNUM")) {
+        throw std::invalid_argument {
+            "Purported existing unified store file '"
+            + std::filesystem::path{fname}.filename().string()
+            + "' does not appear to be a unified store file"
+        };
+    }
+    else {
+        this->openExisting(fname, formatted,
+                           rst->restartStepWritePosition(seqnum));
+    }
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+openNew(const std::string& fname,
+        const bool         formatted)
+{
+    this->stream_ = Open::Restart::writeNew(fname, formatted);
+}
+
+void
+Opm::EclIO::OutputStream::Store::
+openExisting(const std::string&   fname,
+             const bool           formatted,
+             const std::streampos writePos)
+{
+    this->stream_ = Open::Restart::writeExisting(fname, formatted);
+
+    if (writePos == std::streampos(-1)) {
+        return;
+    }
+
+    std::filesystem::resize_file(fname, writePos);
+
+    if (! this->stream_->ofileH.seekp(0, std::ios_base::end)) {
+        throw std::invalid_argument {
+            "Unable to Seek to Write Position " +
+            std::to_string(writePos) + " of File '"
+            + fname + "'"
+        };
+    }
+}
+
+Opm::EclIO::EclOutput&
+Opm::EclIO::OutputStream::Store::stream()
+{
+    return *this->stream_;
+}
+
+namespace Opm { namespace EclIO { namespace OutputStream {
+
+    template <typename T>
+    void Store::writeImpl(const std::string&    kw,
+                          const std::vector<T>& data)
     {
         this->stream().write(kw, data);
     }

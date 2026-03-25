@@ -35,10 +35,13 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -223,7 +226,7 @@ namespace {
 
     // -----------------------------------------------------------------------
 
-    void expand_RPTRST_mnemonics(std::map<std::string, int>& mnemonics)
+    void expand_RPTRST_mnemonics(std::map<std::string, int, std::less<>>& mnemonics)
     {
         auto allprops_iter = mnemonics.find("ALLPROPS");
         if (allprops_iter == mnemonics.end()) {
@@ -245,7 +248,8 @@ namespace {
     }
 
     std::optional<int>
-    extract(std::map<std::string, int>& mnemonics, const std::string& key)
+    extract(std::string_view                         key,
+            std::map<std::string, int, std::less<>>& mnemonics)
     {
         auto iter = mnemonics.find(key);
         if (iter == mnemonics.end()) {
@@ -258,16 +262,13 @@ namespace {
         return value;
     }
 
-    std::map<std::string, int>
+    std::map<std::string, int, std::less<>>
     asMap(const std::vector<std::pair<std::string, int>>& mnemonic_list)
     {
         return { mnemonic_list.begin(), mnemonic_list.end() };
     }
 
-    std::pair<
-        std::map<std::string, int>,
-        std::pair<std::optional<int>, std::optional<int>>
-        >
+    std::tuple<std::map<std::string, int, std::less<>>, std::optional<int>, std::optional<int>>
     RPTRST(const Opm::DeckKeyword&  keyword,
            const Opm::ParseContext& parseContext,
            Opm::ErrorGuard&         errors,
@@ -280,17 +281,17 @@ namespace {
 
         auto mnemonics = asMap(mnemonic_list);
 
-        const auto basic = extract(mnemonics, "BASIC");
-        const auto freq  = extract(mnemonics, "FREQ");
+        const auto basic = extract("BASIC", mnemonics);
+        const auto freq  = extract("FREQ" , mnemonics);
 
         expand_RPTRST_mnemonics(mnemonics);
 
-        return { mnemonics, { basic, freq }};
+        return { mnemonics, basic, freq };
     }
 
     template <typename T>
-    void update_optional(std::optional<T>&       target,
-                         const std::optional<T>& src)
+    void update_optional(const std::optional<T>& src,
+                         std::optional<T>&       target)
     {
         if (src.has_value()) {
             target = src;
@@ -305,10 +306,10 @@ namespace Opm {
 
 RSTConfig::RSTConfig(const SOLUTIONSection& solution_section,
                      const ParseContext&    parseContext,
-                     const bool compositional_arg,
+                     const bool             compositional_arg,
                      ErrorGuard&            errors)
-    : write_rst_file(true)
-    , compositional(compositional_arg)
+    : write_rst_file_ { true }
+    , compositional_  { compositional_arg }
 {
     for (const auto& keyword : solution_section) {
         if (keyword.name() == ParserKeywords::RPTRST::keywordName) {
@@ -336,64 +337,156 @@ void RSTConfig::update(const DeckKeyword&  keyword,
 }
 
 // The RPTRST keyword semantics differs between the SOLUTION and SCHEDULE
-// sections.  This function takes an RSTConfig object constructed from
-// SOLUTION section information and creates a transformed copy suitable as
-// the first RSTConfig object in the SCHEDULE section.
-RSTConfig RSTConfig::first(const RSTConfig& solution_config)
+// sections.  This function assumes that the current object is constructed
+// from SOLUTION section information and creates a transformed copy suitable
+// as the first RSTConfig object in the SCHEDULE section.
+RSTConfig RSTConfig::makeFirstStepConfig() const
 {
-    auto rst_config = solution_config;
+    auto first = *this;
 
-    rst_config.solution_only_keywords.clear();
-    for (const auto& kw : solution_config.solution_only_keywords) {
-        rst_config.keywords.erase(kw);
+    first.solution_only_keywords_.clear();
+    for (const auto& kw : this->solution_only_keywords_) {
+        first.mnemonics_.erase(kw);
     }
 
-    const auto basic = rst_config.basic;
+    const auto basic = first.basic_;
     if (!basic.has_value()) {
-        rst_config.write_rst_file = false;
-        return rst_config;
+        first.write_rst_file_ = false;
+        return first;
     }
 
     const auto basic_value = basic.value();
     if (basic_value == 0) {
-        rst_config.write_rst_file = false;
+        first.write_rst_file_ = false;
     }
     else if ((basic_value == 1) || (basic_value == 2)) {
-        rst_config.write_rst_file = true;
+        first.write_rst_file_ = true;
     }
     else if (basic_value >= 3) {
-        rst_config.write_rst_file = {};
+        first.write_rst_file_.reset();
     }
 
-    return rst_config;
+    return first;
 }
 
 RSTConfig RSTConfig::serializationTestObject()
 {
     RSTConfig rst_config;
 
-    rst_config.basic = 10;
-    rst_config.freq = {};
-    rst_config.write_rst_file = true;
-    rst_config.save = true;
-    rst_config.compositional = false;
-    rst_config.keywords = {{"S1", 1}, {"S2", 2}};
-    rst_config.solution_only_keywords = { "FIP" };
+    rst_config.basic_.emplace(10);
+    rst_config.freq_.emplace(42);
+    rst_config.write_rst_file_.emplace(true);
+    rst_config.save_ = true;
+    rst_config.store_ = true;
+    rst_config.compositional_ = false;
+    rst_config.mnemonics_ = {{"S1", 1}, {"S2", 2}};
+    rst_config.solution_only_keywords_ = { "FIP" };
 
     return rst_config;
 }
 
 bool RSTConfig::operator==(const RSTConfig& other) const
 {
-    return (this->write_rst_file == other.write_rst_file)
-        && (this->keywords == other.keywords)
-        && (this->basic == other.basic)
-        && (this->freq == other.freq)
-        && (this->save == other.save)
-        && (this->compositional == other.compositional)
-        && (this->solution_only_keywords == other.solution_only_keywords)
+    return (this->mnemonics_ == other.mnemonics_)
+        && (this->write_rst_file_ == other.write_rst_file_)
+        && (this->basic_ == other.basic_)
+        && (this->freq_ == other.freq_)
+        && (this->save_ == other.save_)
+        && (this->store_ == other.store_)
+        && (this->compositional_ == other.compositional_)
+        && (this->solution_only_keywords_ == other.solution_only_keywords_)
         ;
 }
+
+bool RSTConfig::clearSaveStore()
+{
+    const auto was_updated = this->save_ || this->store_;
+
+    this->save_ = this->store_ = false;
+
+    return was_updated;
+}
+
+void RSTConfig::recordSaveEvent()
+{
+    this->save_  = true;
+    this->store_ = false;
+}
+
+void RSTConfig::recordStoreEvent()
+{
+    this->save_  = false;
+    this->store_ = true;
+}
+
+void RSTConfig::setMnemonicForTesting(const std::string& mnemonic,
+                                      const int          value)
+{
+    this->mnemonics_.insert_or_assign(mnemonic, value);
+}
+
+std::optional<int> RSTConfig::getMnemonic(std::string_view mnemonic) const
+{
+    const auto mnemonicPos = this->mnemonics_.find(mnemonic);
+    if (mnemonicPos == this->mnemonics_.end()) {
+        return {};
+    }
+
+    return { mnemonicPos->second };
+}
+
+std::optional<RSTConfig::FileType>
+RSTConfig::resultFileType(const ReportStepDescriptor& descr) const
+{
+    if (this->store_) {
+        return { FileType::Store };
+    }
+
+    if (this->save_) {
+        return { FileType::Save };
+    }
+
+    if (this->write_rst_file_.has_value() && *this->write_rst_file_) {
+        return { FileType::Restart };
+    }
+
+    const auto basic = this->basic_.value_or(0);
+
+    if ((basic == 0) || (basic > 5)) {
+        // No output (0) or unsupported setting (6+)
+        return {};
+    }
+
+    if ((basic == 1) || (basic == 2)) {
+        // Restart file output at every report step.
+        return { FileType::Restart };
+    }
+
+    if (basic == 3) {
+        // Restart file output at every 'FREQ' report step.
+        return this->shouldWriteResultFileFreq(descr.simStep);
+    }
+
+    const auto& [year_diff, month_diff] = descr.dateDiff();
+
+    if (basic == 4) {
+        // Restart file output at first report step of every 'FREQ'-ed year.
+        return this->shouldWriteResultFileFreqDate
+            (year_diff, descr.firstInYear);
+    }
+
+    // BASIC = 5.  Restart file output at first report step of every
+    // 'FREQ'-ed month.
+    return this->shouldWriteResultFileFreqDate
+        (month_diff, descr.firstInMonth);
+}
+
+bool RSTConfig::writeSaveOrStoreFile() const
+{
+    return this->save_ || this->store_;
+}
+
+// ---------------------------------------------------------------------------
 
 // Recall that handleRPTSOL() is private and invoked only from the
 // RSTConfig constructor processing SOLUTION section information.
@@ -410,28 +503,29 @@ void RSTConfig::handleRPTSOL(const DeckKeyword&  keyword,
     auto mnemonics =
         asMap(normaliseRptSchedKeyword(keyword, parseContext, errors));
 
-    const auto restart = extract(mnemonics, "RESTART");
+    const auto restart = extract("RESTART", mnemonics);
     const auto request_restart =
         (restart.has_value() && (*restart > 1));
 
-    this->write_rst_file =
-        (this->write_rst_file.has_value() && *this->write_rst_file)
+    this->write_rst_file_ =
+        (this->write_rst_file_.has_value() && *this->write_rst_file_)
         || request_restart;
 
     if (request_restart) {
         // RPTSOL's RESTART flag is set.  Internalise new flags, as
         // "SOLUTION" only properties, from 'mnemonics'.
-        this->keywords.swap(mnemonics);
-        for (const auto& kw : this->keywords) {
-            this->solution_only_keywords.insert(kw.first);
+        this->mnemonics_.swap(mnemonics);
+        for (const auto& kw : this->mnemonics_) {
+            this->solution_only_keywords_.insert(kw.first);
         }
 
         for (const auto& [key, value] : mnemonics) {
             // Note: Using emplace() after swap() means that the mnemonics
             // from RPTSOL overwrite those that might already have been
-            // present in 'keywords'.  Recall that emplace() will not insert
-            // a new element with the same key as an existing element.
-            this->keywords.emplace(key, value);
+            // present in 'mnemonics_'.  Recall that emplace() will not
+            // insert a new element with the same key as an existing
+            // element.
+            this->mnemonics_.emplace(key, value);
         }
     }
 }
@@ -440,14 +534,14 @@ void RSTConfig::handleRPTRST(const DeckKeyword&  keyword,
                              const ParseContext& parseContext,
                              ErrorGuard&         errors)
 {
-    const auto& [mnemonics, basic_freq] =
-        RPTRST(keyword, parseContext, errors, compositional);
+    const auto& [mnemonics, basic, freq] =
+        RPTRST(keyword, parseContext, errors, this->compositional_);
 
-    this->update_schedule(basic_freq);
+    this->update_schedule(basic, freq);
 
     for (const auto& [kw, num] : mnemonics) {
         // Insert_or_assign() to overwrite existing 'kw' elements.
-        this->keywords.insert_or_assign(kw, num);
+        this->mnemonics_.insert_or_assign(kw, num);
     }
 }
 
@@ -455,25 +549,26 @@ void RSTConfig::handleRPTRSTSOLUTION(const DeckKeyword&  keyword,
                                      const ParseContext& parseContext,
                                      ErrorGuard&         errors)
 {
-    const auto& [mnemonics, basic_freq] = RPTRST(keyword, parseContext, errors, compositional);
+    const auto& [mnemonics, basic, freq] =
+        RPTRST(keyword, parseContext, errors, this->compositional_);
 
-    update_optional(this->basic, basic_freq.first);
-    update_optional(this->freq, basic_freq.second);
+    update_optional(basic, this->basic_);
+    update_optional(freq , this->freq_ );
 
     for (const auto& [kw, num] : mnemonics) {
         // Insert_or_assign() to overwrite existing 'kw' elements.
-        this->keywords.insert_or_assign(kw, num);
+        this->mnemonics_.insert_or_assign(kw, num);
     }
 
     // We're processing RPTRST in the SOLUTION section.  Mnemonics from
     // RPTRST should persist beyond the SOLUTION section in this case so
     // prune these from the list of solution-only keywords.
     for (const auto& kw : mnemonics) {
-        this->solution_only_keywords.erase(kw.first);
+        this->solution_only_keywords_.erase(kw.first);
     }
 
-    if (this->basic.has_value() && this->basic.value() == 0) {
-        this->write_rst_file = false;
+    if (this->basic_.has_value() && (*this->basic_ == 0)) {
+        this->write_rst_file_ = false;
     }
 }
 
@@ -488,44 +583,74 @@ void RSTConfig::handleRPTSCHED(const DeckKeyword&  keyword,
                                            { return mnemonicPair.first == "NOTHING"; });
 
     if (nothingPos != mnemonic_list.end()) {
-        this->basic = {};
-        this->keywords.clear();
+        this->basic_.reset();
+        this->mnemonics_.clear();
+
         mnemonic_list.erase(mnemonic_list.begin(), nothingPos + 1);
     }
 
     auto mnemonics = asMap(mnemonic_list);
 
-    if (this->basic.value_or(2) <= 2) {
-        const auto restart = extract(mnemonics, "RESTART");
+    if (this->basic_.value_or(2) <= 2) {
+        const auto restart = extract("RESTART", mnemonics);
 
         if (restart.has_value()) {
             const auto basic_value = std::min(2, restart.value());
-            this->update_schedule({basic_value, 1});
+            this->update_schedule(std::make_optional(basic_value),
+                                  std::make_optional(1));
         }
     }
 
     for (const auto& [kw, num] : mnemonics) {
-        this->keywords.insert_or_assign(kw, num);
+        this->mnemonics_.insert_or_assign(kw, num);
     }
 }
 
-void RSTConfig::update_schedule(const std::pair<std::optional<int>, std::optional<int>>& basic_freq)
+void RSTConfig::update_schedule(const std::optional<int>& basic,
+                                const std::optional<int>& freq)
 {
-    update_optional(this->basic, basic_freq.first);
-    update_optional(this->freq, basic_freq.second);
+    update_optional(basic, this->basic_);
+    update_optional(freq , this->freq_ );
 
-    if (this->basic.has_value()) {
-        const auto basic_value = this->basic.value();
+    if (this->basic_.has_value()) {
+        const auto basic_value = *this->basic_;
+
         if (basic_value == 0) {
-            this->write_rst_file = false;
+            this->write_rst_file_ = false;
         }
         else if ((basic_value == 1) || (basic_value == 2)) {
-            this->write_rst_file = true;
+            this->write_rst_file_ = true;
         }
         else {
-            this->write_rst_file = {};
+            this->write_rst_file_.reset();
         }
     }
+}
+
+std::optional<RSTConfig::FileType>
+RSTConfig::shouldWriteResultFileFreq(const std::size_t count) const
+{
+    const auto freq = this->freq_.value_or(1);
+
+    if ((freq > 0) && (count % freq == 0)) {
+        return { FileType::Restart };
+    }
+
+    return {};
+}
+
+std::optional<RSTConfig::FileType>
+RSTConfig::shouldWriteResultFileFreqDate(const std::size_t count,
+                                         const bool        is_first) const
+{
+    const auto freq = static_cast<std::size_t>
+        (this->freq_.value_or(1));
+
+    if ((freq > 0) && is_first && (count >= freq)) {
+        return { FileType::Restart };
+    }
+
+    return {};
 }
 
 } // namespace Opm
