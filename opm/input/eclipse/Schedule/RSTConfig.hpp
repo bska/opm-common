@@ -181,6 +181,8 @@
   the SAVE and SFREQ mneomics are not supported.
 */
 
+#include <cstddef>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -201,6 +203,19 @@ namespace Opm {
 class RSTConfig
 {
 public:
+    enum class FileType { Restart, Store, };
+
+    struct ReportStepDescriptor
+    {
+        using DateDiffCallback = std::function
+            <std::pair<std::size_t, std::size_t>()>;
+
+        DateDiffCallback dateDiff     {};
+        std::size_t      simStep      {};
+        bool             firstInYear  { false };
+        bool             firstInMonth { false };
+    };
+
     RSTConfig() = default;
     RSTConfig(const SOLUTIONSection& solution_section,
               const ParseContext& parseContext,
@@ -211,12 +226,13 @@ public:
                 const ParseContext& parseContext,
                 ErrorGuard& errors);
 
-    static RSTConfig first(const RSTConfig& src);
+    RSTConfig makeFirstStepConfig() const;
     static RSTConfig serializationTestObject();
 
     template<class Serializer>
     void serializeOp(Serializer& serializer)
     {
+#if 0
         serializer(write_rst_file);
         serializer(keywords);
         serializer(basic);
@@ -224,19 +240,29 @@ public:
         serializer(save);
         serializer(compositional);
         serializer(this->solution_only_keywords);
+#endif
     }
 
     bool operator==(const RSTConfig& other) const;
 
-    std::optional<bool> write_rst_file{};
+    bool clearSaveStore();
+
+    std::optional<FileType>
+    shouldWriteResultFile(const ReportStepDescriptor& descr) const;
+
     std::map<std::string, int> keywords{};
-    std::optional<int> basic{};
-    std::optional<int> freq{};
-    bool save { false };
-    bool compositional { false };
 
 private:
-    std::unordered_set<std::string> solution_only_keywords{};
+    std::optional<bool> write_rst_file_{};
+    std::optional<int> basic_{};
+    std::optional<int> freq_{};
+
+    bool save_ { false };
+    bool store_ { false };
+
+    bool compositional_ { false };
+
+    std::unordered_set<std::string> solution_only_keywords_{};
 
     void handleRPTSOL(const DeckKeyword& keyword,
                       const ParseContext& parse_context,
@@ -255,6 +281,13 @@ private:
                         ErrorGuard& errors);
 
     void update_schedule(const std::pair<std::optional<int>, std::optional<int>>& basic_freq);
+
+    std::optional<FileType>
+    shouldWriteResultFileFreq(std::size_t count) const;
+
+    std::optional<FileType>
+    shouldWriteResultFileFreqDate(std::size_t count,
+                                  bool        is_first) const;
 };
 
 } // namespace Opm

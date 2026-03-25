@@ -103,29 +103,35 @@ bool ScheduleState::save() const {
 }
 
 ScheduleState::ScheduleState(const time_point& t1)
-    : m_start_time(t1)
-    , m_first_in_month(true)
-    , m_first_in_year(true)
+    : m_start_time     { t1 }
+    , m_first_in_month { true }
+    , m_first_in_year  { true }
 {
-    auto ts1 = TimeStampUTC(TimeService::to_time_t(this->m_start_time));
-    this->m_month_num = ts1.month() - 1;
+    this->m_month_num = TimeStampUTC {
+        TimeService::to_time_t(this->m_start_time)
+    }.month() - 1;
 }
 
-ScheduleState::ScheduleState(const time_point& start_time, const time_point& end_time)
-    : ScheduleState(start_time)
+ScheduleState::ScheduleState(const time_point& start_time,
+                             const time_point& end_time)
+    : ScheduleState { start_time }
 {
     this->m_end_time = end_time;
 }
 
 void ScheduleState::update_date(const time_point& prev_time)
 {
-    auto [year_diff, month_diff] = date_diff(this->m_start_time, prev_time);
-    this->m_year_num += year_diff;
-    this->m_first_in_month = (month_diff > 0);
-    this->m_first_in_year = (year_diff > 0);
+    const auto& [year_diff, month_diff] =
+        date_diff(this->m_start_time, prev_time);
 
-    auto ts1 = TimeStampUTC(TimeService::to_time_t(this->m_start_time));
-    this->m_month_num = ts1.month() - 1;
+    this->m_year_num += year_diff;
+
+    this->m_month_num = TimeStampUTC {
+        TimeService::to_time_t(this->m_start_time)
+    }.month() - 1;
+
+    this->m_first_in_month = month_diff > 0;
+    this->m_first_in_year  = year_diff  > 0;
 }
 
 ScheduleState::ScheduleState(const ScheduleState& src, const time_point& start_time)
@@ -140,35 +146,28 @@ ScheduleState::ScheduleState(const ScheduleState& src, const time_point& start_t
     this->target_wellpi.clear();
     this->m_save_step = false;
 
-    {
-        auto next_rft = this->rft_config().next();
-
-        if (next_rft.has_value()) {
-            this->rft_config.update(std::move(*next_rft));
-        }
+    if (auto next_rft = this->rft_config().next(); next_rft.has_value()) {
+        this->rft_config.update(std::move(*next_rft));
     }
 
-    {
-        this->update_date(src.m_start_time);
+    this->update_date(src.m_start_time);
 
-        if (this->rst_config().save) {
-            auto new_rst = this->rst_config();
-            new_rst.save = false;
-            this->rst_config.update(std::move(new_rst));
-        }
+    if (auto rstcfg = this->rst_config(); rstcfg.clearSaveStore()) {
+        this->rst_config.update(std::move(rstcfg));
     }
 
     if (this->next_tstep.has_value()) {
         if (!this->next_tstep->every_report()) {
-            this->next_tstep = std::nullopt;
+            this->next_tstep.reset();
         }
-        // Need to signal an event also for the persistance to take effect
+
+        // Need to signal an event also for the persistence to take effect
         this->events().addEvent(ScheduleEvents::TUNING_CHANGE);
     }
 
     // TSINIT from TUNING should only apply to one report step, but TUNING
-    // was copied from last ScheduleState. If that has TSINIT set then
-    // the first time step would be limited if a TUNING_CHANGE event happens
+    // was copied from last ScheduleState.  If that has TSINIT set then the
+    // first time step would be limited if a TUNING_CHANGE event happens
     // e.g. because of above or because of NEXTSTEP in ACTIONX
     this->m_tuning.TSINIT.reset();
 
@@ -515,31 +514,46 @@ const WellGroupEvents& ScheduleState::wellgroup_events() const {
 }
 
 
-/*
-  Observe that the decision to write a restart file will typically be a
-  combination of the RST configuration from the previous report step, and the
-  first_in_year++ attributes of this report step. That is the reason the
-  function takes a RSTConfig argument - instead of using the rst_config member.
+// Observe that the decision to write a restart file will typically be a
+// combination of the RST configuration from the previous report step, and
+// the first_in_year++ attributes of this report step.  That is the reason
+// the function takes a RSTConfig argument instead of using the rst_config
+// member.
 
-*/
-
-bool ScheduleState::rst_file(const RSTConfig&  rst,
-                             const time_point& previous_restart_output_time) const
+std::optional<RSTConfig::FileType>
+ScheduleState::rst_file(const RSTConfig&  rst,
+                        const time_point& previous_restart_output_time) const
 {
-    if (rst.save)
-        return true;
+    const auto thisStep = RSTConfig::ReportStepDescriptor {
+        .dateDiff = [this, &previous_restart_output_time]()
+        { return date_diff(this->m_start_time, previous_restart_output_time); },
+        .simStep      = this->sim_step(),
+        .firstInYear  = this->m_first_in_year,
+        .firstInMonth = this->m_first_in_month
+    };
 
-    if (rst.write_rst_file.has_value())
+    return rst.shouldWriteResultFile(thisStep);
+}
+
+#if 0
+    if (rst.save) {
+        return true;
+    }
+
+    if (rst.write_rst_file.has_value()) {
         return rst.write_rst_file.value();
+    }
 
     const auto freq = rst.freq.value_or(1);
     const auto basic = rst.basic.value_or(0);
 
-    if (basic == 0)
+    if (basic == 0) {
         return false;
+    }
 
-    if (basic == 3)
+    if ((basic == 3) && (freq > 0)) {
         return (this->sim_step() % freq) == 0;
+    }
 
     const auto [year_diff, month_diff] =
         date_diff(this->m_start_time, previous_restart_output_time);
@@ -554,9 +568,11 @@ bool ScheduleState::rst_file(const RSTConfig&  rst,
             && (month_diff >= static_cast<std::size_t>(freq));
     }
 
-    throw std::logic_error(fmt::format("Unsupported BASIC={} value", basic));
+    throw std::logic_error {
+        fmt::format("Unsupported BASIC={} value", basic)
+    };
 }
-
+#endif
 
 bool ScheduleState::has_gpmaint() const
 {
