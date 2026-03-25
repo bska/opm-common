@@ -67,8 +67,8 @@ void handleRPTRST(HandlerContext& handlerContext)
     handlerContext.state().rst_config.update(std::move(rst_config));
 }
 
-// We do not really handle the SAVE keyword, we just interpret it as: Write a
-// normal restart file at this report step.
+// We do not really handle the SAVE keyword, we just interpret it as: Write
+// a normal restart file at this report step.
 void handleSAVE(HandlerContext& handlerContext)
 {
     handlerContext.state().updateSAVE(true);

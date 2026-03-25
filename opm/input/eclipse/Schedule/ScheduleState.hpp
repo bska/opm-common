@@ -494,7 +494,10 @@ namespace Opm {
         WellProducerCMode whistctl() const;
         void update_whistctl(WellProducerCMode whistctl);
 
-        bool rst_file(const RSTConfig& rst_config, const time_point& previous_restart_output_time) const;
+        std::optional<RSTConfig::FileType>
+        rst_file(const RSTConfig&  rst_config,
+                 const time_point& previous_restart_output_time) const;
+
         void update_date(const time_point& prev_time);
         void updateSAVE(bool save);
         bool save() const;
