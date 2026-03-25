@@ -181,9 +181,12 @@
   the SAVE and SFREQ mneomics are not supported.
 */
 
+#include <cstddef>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -201,6 +204,19 @@ namespace Opm {
 class RSTConfig
 {
 public:
+    enum class FileType { Restart, Save, Store, };
+
+    struct ReportStepDescriptor
+    {
+        using DateDiffCallback = std::function
+            <std::pair<std::size_t, std::size_t>()>;
+
+        DateDiffCallback dateDiff     {};
+        std::size_t      simStep      {};
+        bool             firstInYear  { false };
+        bool             firstInMonth { false };
+    };
+
     RSTConfig() = default;
     RSTConfig(const SOLUTIONSection& solution_section,
               const ParseContext& parseContext,
@@ -211,32 +227,59 @@ public:
                 const ParseContext& parseContext,
                 ErrorGuard& errors);
 
-    static RSTConfig first(const RSTConfig& src);
+    RSTConfig makeFirstStepConfig() const;
     static RSTConfig serializationTestObject();
 
     template<class Serializer>
     void serializeOp(Serializer& serializer)
     {
-        serializer(write_rst_file);
-        serializer(keywords);
-        serializer(basic);
-        serializer(freq);
-        serializer(save);
-        serializer(compositional);
-        serializer(this->solution_only_keywords);
+        serializer(this->mnemonics_);
+        serializer(this->write_rst_file_);
+        serializer(this->basic_);
+        serializer(this->freq_);
+        serializer(this->save_);
+        serializer(this->store_);
+        serializer(this->compositional_);
+        serializer(this->solution_only_keywords_);
     }
 
     bool operator==(const RSTConfig& other) const;
 
-    std::optional<bool> write_rst_file{};
-    std::map<std::string, int> keywords{};
-    std::optional<int> basic{};
-    std::optional<int> freq{};
-    bool save { false };
-    bool compositional { false };
+    bool clearSaveStore();
+    void recordSaveEvent();
+    void recordStoreEvent();
+
+    void setMnemonicForTesting(const std::string& mnemonic, const int value);
+
+    std::optional<int> getMnemonic(std::string_view mnemonic) const;
+
+    std::optional<FileType>
+    resultFileType(const ReportStepDescriptor& descr) const;
+
+    int basicValue() const { return this->basic_.value_or(0); }
+
+    bool writeSaveOrStoreFile() const;
+
+    const std::map<std::string, int, std::less<>>& reportMnemonics() const
+    {
+        return this->mnemonics_;
+    }
 
 private:
-    std::unordered_set<std::string> solution_only_keywords{};
+    // Note: Explicitly using std::less<> (std::less<void>) here to enable
+    // heterogeneous associative lookup.
+    std::map<std::string, int, std::less<>> mnemonics_{};
+
+    std::optional<bool> write_rst_file_{};
+    std::optional<int> basic_{};
+    std::optional<int> freq_{};
+
+    bool save_ { false };
+    bool store_ { false };
+
+    bool compositional_ { false };
+
+    std::unordered_set<std::string> solution_only_keywords_{};
 
     void handleRPTSOL(const DeckKeyword& keyword,
                       const ParseContext& parse_context,
@@ -254,7 +297,15 @@ private:
                         const ParseContext& parse_context,
                         ErrorGuard& errors);
 
-    void update_schedule(const std::pair<std::optional<int>, std::optional<int>>& basic_freq);
+    void update_schedule(const std::optional<int>& basic,
+                         const std::optional<int>& freq);
+
+    std::optional<FileType>
+    shouldWriteResultFileFreq(std::size_t count) const;
+
+    std::optional<FileType>
+    shouldWriteResultFileFreqDate(std::size_t count,
+                                  bool        is_first) const;
 };
 
 } // namespace Opm

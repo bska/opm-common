@@ -116,45 +116,6 @@ namespace {
             : 0.0;
     }
 
-    void checkSaveArguments(const EclipseState& es,
-                            const RestartValue& restart_value,
-                            const EclipseGrid&  grid)
-    {
-        for (const auto& [name, vector] : restart_value.solution) {
-            // Cannot capture structured bindings in c++17
-            const char* n = name.c_str();
-            vector.visit(VisitorOverloadSet{
-                MonoThrowHandler<std::logic_error>(fmt::format("{} does not have an associate value", name)),
-                [n, &grid](const auto& data)
-                {
-                    if (data.size() != grid.getNumActive()) {
-                        const auto msg = fmt::format("Incorrectly sized solution vector {}.  "
-                                                     "Expected {} elements, but got {}.", n,
-                                         grid.getNumActive(),
-                                         data.size());
-                        throw std::runtime_error(msg);
-                    }
-                }
-            });
-        }
-
-        if (es.getSimulationConfig().getThresholdPressure().size() > 0) {
-            // If the the THPRES option is active the restart_value should have a
-            // THPRES field. This is not enforced here because not all the opm
-            // simulators have been updated to include the THPRES values.
-            if (!restart_value.hasExtra("THRESHPR")) {
-                OpmLog::warning("This model has THPRES active - should have THPRES as part of restart data.");
-                return;
-            }
-
-            const auto num_regions = es.getTableManager().getEqldims().getNumEquilRegions();
-            const auto& thpres = restart_value.getExtra("THRESHPR");
-
-            if (thpres.size() != num_regions * num_regions)
-                throw std::runtime_error("THPRES vector has invalid size - should have num_region * num_regions.");
-        }
-    }
-
     std::vector<int>
     writeHeader(const int                     report_step,
                 const int                     sim_step,
@@ -163,7 +124,7 @@ namespace {
                 const Schedule&               schedule,
                 const EclipseGrid&            grid,
                 const EclipseState&           es,
-                EclIO::OutputStream::Restart& rstFile)
+                EclIO::OutputStream::RestartBase& rstFile)
     {
         // write INTEHEAD to restart file
         auto ih = Helpers::
@@ -192,7 +153,7 @@ namespace {
     }
 
     void writeHeaderLGR(const EclipseState&           es,
-                        EclIO::OutputStream::Restart& rstFile,
+                        EclIO::OutputStream::RestartBase& rstFile,
                         const int                     lgr_index)
     {
         // create LGRHEADI
@@ -214,7 +175,7 @@ namespace {
                     const Schedule&               schedule,
                     const Opm::SummaryState&      sumState,
                     const std::vector<int>&       ih,
-                    EclIO::OutputStream::Restart& rstFile)
+                    EclIO::OutputStream::RestartBase& rstFile)
     {
         // write IGRP to restart file
         const std::size_t simStep = static_cast<std::size_t> (sim_step);
@@ -234,7 +195,7 @@ namespace {
                        const Schedule&               schedule,
                        const Opm::SummaryState&      sumState,
                        const std::vector<int>&       ih,
-                       EclIO::OutputStream::Restart& rstFile,
+                       EclIO::OutputStream::RestartBase& rstFile,
                        const std::string&            lgr_tag)
     {
         const std::size_t simStep = static_cast<std::size_t> (sim_step);
@@ -254,7 +215,7 @@ namespace {
                       const Schedule&               schedule,
                       const Opm::SummaryState&      sumState,
                       const std::vector<int>&       ih,
-                      EclIO::OutputStream::Restart& rstFile)
+                      EclIO::OutputStream::RestartBase& rstFile)
     {
         // write network data to restart file
         const std::size_t simStep = static_cast<std::size_t> (sim_step);
@@ -278,7 +239,7 @@ namespace {
                       const Opm::SummaryState&      sumState,
                       const Opm::data::Wells&       wells,
                       const std::vector<int>&       ih,
-                      EclIO::OutputStream::Restart& rstFile)
+                      EclIO::OutputStream::RestartBase& rstFile)
     {
         // write ISEG, RSEG, ILBS and ILBR to restart file
         const auto simStep = static_cast<std::size_t> (sim_step);
@@ -298,7 +259,7 @@ namespace {
                   const Schedule&               schedule,
                   const UDQState&               udq_state,
                   const std::vector<int>&       ih,
-                  EclIO::OutputStream::Restart& rstFile)
+                  EclIO::OutputStream::RestartBase& rstFile)
     {
         const auto& udqConfig = schedule[sim_step].udq();
 
@@ -352,7 +313,7 @@ namespace {
                       const Schedule&               schedule,
                       const Action::State&          action_state,
                       const SummaryState&           sum_state,
-                      EclIO::OutputStream::Restart& rstFile)
+                      EclIO::OutputStream::RestartBase& rstFile)
     {
         if ((report_step == 0) || (schedule[sim_step].actions().ecl_size() == 0)) {
             return;
@@ -382,7 +343,7 @@ namespace {
                    const Opm::WellTestState&     wtest_state,
                    const Opm::SummaryState&      sumState,
                    const std::vector<int>&       ih,
-                   EclIO::OutputStream::Restart& rstFile)
+                   EclIO::OutputStream::RestartBase& rstFile)
     {
         auto wellData = Helpers::AggregateWellData(ih);
         wellData.captureDeclaredWellData(schedule, grid, tracers, sim_step, action_state, wtest_state, sumState, ih);
@@ -417,7 +378,7 @@ namespace {
                       const Opm::WellTestState&     wtest_state,
                       const Opm::SummaryState&      sumState,
                       const std::vector<int>&       ih,
-                      EclIO::OutputStream::Restart& rstFile,
+                      EclIO::OutputStream::RestartBase& rstFile,
                       const std::string&            lgr_tag)
     {
         auto wellData = Helpers::AggregateWellData(ih);
@@ -451,7 +412,7 @@ namespace {
         }
 
     void writeAnalyticAquiferData(const Helpers::AggregateAquiferData& aquiferData,
-                                  EclIO::OutputStream::Restart&        rstFile)
+                                  EclIO::OutputStream::RestartBase&        rstFile)
     {
         rstFile.write("IAAQ", aquiferData.getIntegerAquiferData());
         rstFile.write("SAAQ", aquiferData.getSinglePrecAquiferData());
@@ -474,7 +435,7 @@ namespace {
     }
 
     void writeNumericAquiferData(const Helpers::AggregateAquiferData& aquiferData,
-                                 EclIO::OutputStream::Restart&        rstFile)
+                                 EclIO::OutputStream::RestartBase&        rstFile)
     {
         rstFile.write("IAQN", aquiferData.getNumericAquiferIntegerData());
         rstFile.write("RAQN", aquiferData.getNumericAquiferDoublePrecData());
@@ -486,7 +447,7 @@ namespace {
                                    const SummaryState&            summaryState,
                                    const UnitSystem&              usys,
                                    Helpers::AggregateAquiferData& aquiferData,
-                                   EclIO::OutputStream::Restart&  rstFile)
+                                   EclIO::OutputStream::RestartBase&  rstFile)
     {
         const auto& aqConfig = es.aquifer();
 
@@ -517,7 +478,7 @@ namespace {
                           const std::vector<int>&                       inteHD,
                           const data::Aquifers&                         aquDynData,
                           std::optional<Helpers::AggregateAquiferData>& aquiferData,
-                          EclIO::OutputStream::Restart&                 rstFile)
+                          EclIO::OutputStream::RestartBase&                 rstFile)
     {
         writeGroup(sim_step, schedule.getUnits(), schedule, sumState, inteHD, rstFile);
 
@@ -568,7 +529,7 @@ namespace {
                              const Opm::WellTestState&                     wtest_state,
                              const Opm::SummaryState&                      sumState,
                              const std::vector<int>&                       inteHD,
-                             EclIO::OutputStream::Restart&                 rstFile,
+                             EclIO::OutputStream::RestartBase&                 rstFile,
                              const std::string&                            lgr_tag)
     {
         writeGroupLGR(sim_step, schedule.getUnits(), schedule, sumState, inteHD, rstFile, lgr_tag);
@@ -697,7 +658,7 @@ namespace {
     void writeFluidInPlace(const RestartValue&           value,
                            const EclipseState&           es,
                            const bool                    writeDouble,
-                           EclIO::OutputStream::Restart& rstFile)
+                           EclIO::OutputStream::RestartBase& rstFile)
     {
         const auto vectors = fluidInPlaceVectorNames(value);
 
@@ -780,7 +741,7 @@ namespace {
                             const TracerConfig&           tracer_config,
                             const RestartValue&           value,
                             const bool                    write_double,
-                            EclIO::OutputStream::Restart& rstFile)
+                            EclIO::OutputStream::RestartBase& rstFile)
     {
         for (const auto& [tracer_rst_name, vector] : value.solution) {
             if (tracer_rst_name == "TEMP") {
@@ -832,7 +793,7 @@ namespace {
                             int                           sim_step,
                             const bool                    ecl_compatible_rst,
                             const std::vector<int>&       inteHD,
-                            EclIO::OutputStream::Restart& rstFile,
+                            EclIO::OutputStream::RestartBase& rstFile,
                             WriteDorF                     writeDorF,
                             WriteInt                      writeInt,
                             WriteDouble                   writeDouble)
@@ -854,7 +815,7 @@ namespace {
                            const bool                    ecl_compatible_rst,
                            const bool                    write_double_arg,
                            const std::vector<int>&       inteHD,
-                           EclIO::OutputStream::Restart& rstFile,
+                           EclIO::OutputStream::RestartBase& rstFile,
                            const bool                    is_lgr_grid = false)
     {
         auto writeDorF = [&rstFile, write_double = write_double_arg]
@@ -905,7 +866,7 @@ namespace {
                        const bool                    ecl_compatible_rst,
                        const bool                    write_double_arg,
                        const std::vector<int>&       inteHD,
-                       EclIO::OutputStream::Restart& rstFile)
+                       EclIO::OutputStream::RestartBase& rstFile)
     {
         rstFile.message("STARTSOL");
 
@@ -930,7 +891,7 @@ namespace {
                           const bool                    ecl_compatible_rst,
                           const bool                    write_double_arg,
                           const std::vector<int>&       inteHD,
-                          EclIO::OutputStream::Restart& rstFile,
+                          EclIO::OutputStream::RestartBase& rstFile,
                           const std::string&            lgr_tag)
     {
         rstFile.message("STARTSOL");
@@ -953,7 +914,7 @@ namespace {
 
 
     void writeExtraData(const RestartValue::ExtraVector& extra_data,
-                        EclIO::OutputStream::Restart&    rstFile)
+                        EclIO::OutputStream::RestartBase&    rstFile)
     {
         for (const auto& extra_value : extra_data) {
             const std::string& key = extra_value.first.key;
@@ -997,7 +958,7 @@ namespace {
                                                 const Schedule& schedule, const EclipseGrid& grid, const EclipseState& es,
                                                 const Action::State& action_state,  const WellTestState& wtest_state,
                                                 const SummaryState& sumState, const UDQState& udqState, bool ecl_compatible_rst,
-                                                bool write_double, EclIO::OutputStream::Restart& rstFile, const std::vector<RestartValue>& values,
+                                                bool write_double, EclIO::OutputStream::RestartBase& rstFile, const std::vector<RestartValue>& values,
                                                 std::optional<Helpers::AggregateAquiferData>& aquiferData)
     {
         const auto inteHD =
@@ -1034,7 +995,7 @@ namespace {
                          const UDQState&                              udqState,
                          bool                                         ecl_compatible_rst,
                          bool                                         write_double,
-                         EclIO::OutputStream::Restart&                rstFile,
+                         EclIO::OutputStream::RestartBase&                rstFile,
                          const std::vector<RestartValue>&             values,
                          int                                          lgrIndex,
                          int                                          index)
@@ -1065,7 +1026,86 @@ namespace {
     }
 } // Anonymous namespace
 
-void save(EclIO::OutputStream::Restart&                 rstFile,
+void
+Helpers::checkSaveArguments(const EclipseState& es,
+                            const RestartValue& restart_value,
+                            const EclipseGrid&  grid)
+{
+    for (const auto& [name, vector] : restart_value.solution) {
+        // Cannot capture structured bindings in c++17
+        const char* n = name.c_str();
+        vector.visit(VisitorOverloadSet{
+            MonoThrowHandler<std::logic_error>(fmt::format("{} does not have an associate value", name)),
+            [n, &grid](const auto& data)
+            {
+                if (data.size() != grid.getNumActive()) {
+                    const auto msg = fmt::format("Incorrectly sized solution vector {}.  "
+                                                 "Expected {} elements, but got {}.", n,
+                                     grid.getNumActive(),
+                                     data.size());
+                    throw std::runtime_error(msg);
+                }
+            }
+        });
+    }
+
+    if (es.getSimulationConfig().getThresholdPressure().size() > 0) {
+        // If the the THPRES option is active the restart_value should have a
+        // THPRES field. This is not enforced here because not all the opm
+        // simulators have been updated to include the THPRES values.
+        if (!restart_value.hasExtra("THRESHPR")) {
+            OpmLog::warning("This model has THPRES active - should have THPRES as part of restart data.");
+            return;
+        }
+
+        const auto num_regions = es.getTableManager().getEqldims().getNumEquilRegions();
+        const auto& thpres = restart_value.getExtra("THRESHPR");
+
+        if (thpres.size() != num_regions * num_regions)
+            throw std::runtime_error("THPRES vector has invalid size - should have num_region * num_regions.");
+    }
+}
+
+std::vector<int>
+Helpers::saveSingleGrid(EclIO::OutputStream::RestartBase&             stream,
+                        int                                           report_step,
+                        int                                           sim_step,
+                        double                                        seconds_elapsed,
+                        const RestartValue&                           value,
+                        const EclipseState&                           es,
+                        const EclipseGrid&                            grid,
+                        const Schedule&                               schedule,
+                        const Action::State&                          action_state,
+                        const WellTestState&                          wtest_state,
+                        const SummaryState&                           sumState,
+                        const UDQState&                               udqState,
+                        std::optional<Helpers::AggregateAquiferData>& aquiferData,
+                        bool                                          ecl_compatible_rst,
+                        bool                                          write_double)
+{
+    const auto inteHD =
+        writeHeader(report_step, sim_step, nextStepSize(value),
+                    seconds_elapsed, schedule, grid, es, stream);
+
+    if (report_step > 0) {
+        writeDynamicData(sim_step, grid, es, schedule, value.wells,
+                         action_state, wtest_state, sumState, inteHD,
+                         value.aquifer, aquiferData, stream);
+    }
+
+    writeActionx(report_step, sim_step, schedule, action_state, sumState, stream);
+
+    writeSolution(value, es, schedule, udqState, report_step, sim_step,
+                  ecl_compatible_rst, write_double, inteHD, stream);
+
+    if (! ecl_compatible_rst) {
+        writeExtraData(value.extra, stream);
+    }
+
+    return inteHD;
+}
+
+void save(EclIO::OutputStream::Restart&                     rstFile,
           int                                           report_step,
           double                                        seconds_elapsed,
           RestartValue                                  value,
@@ -1079,7 +1119,7 @@ void save(EclIO::OutputStream::Restart&                 rstFile,
           std::optional<Helpers::AggregateAquiferData>& aquiferData,
           bool                                          write_double)
 {
-    ::Opm::RestartIO::checkSaveArguments(es, value, grid);
+    Helpers::checkSaveArguments(es, value, grid);
 
     const auto& ioCfg = es.getIOConfig();
     const auto ecl_compatible_rst = ioCfg.getEclCompatibleRST();
@@ -1094,31 +1134,18 @@ void save(EclIO::OutputStream::Restart&                 rstFile,
     // Convert solution fields and extra values from SI to user units.
     value.convertFromSI(units);
 
-    const auto inteHD =
-        writeHeader(report_step, sim_step, nextStepSize(value),
-                    seconds_elapsed, schedule, grid, es, rstFile);
-
-    if (report_step > 0) {
-        writeDynamicData(sim_step, grid, es, schedule, value.wells,
-                         action_state, wtest_state, sumState, inteHD,
-                         value.aquifer, aquiferData, rstFile);
-    }
-
-    writeActionx(report_step, sim_step, schedule, action_state, sumState, rstFile);
-
-    writeSolution(value, es, schedule, udqState, report_step, sim_step,
-                  ecl_compatible_rst, write_double, inteHD, rstFile);
-
-    if (! ecl_compatible_rst) {
-        writeExtraData(value.extra, rstFile);
-    }
+    const auto inteHD = Helpers::saveSingleGrid(rstFile, report_step, sim_step,
+                                                seconds_elapsed, value, es, grid,
+                                                schedule, action_state, wtest_state,
+                                                sumState, udqState, aquiferData,
+                                                ecl_compatible_rst, write_double);
 
     // log information about writing everything
     logRestartOutput(report_step, schedule.size() - 1, inteHD);
 }
 
 
-void save(EclIO::OutputStream::Restart&                 rstFile,
+void save(EclIO::OutputStream::Restart&                     rstFile,
           int                                           report_step,
           double                                        seconds_elapsed,
           std::vector<RestartValue>                     values,
@@ -1135,12 +1162,12 @@ void save(EclIO::OutputStream::Restart&                 rstFile,
     //checking Grid
     {
         //checking Global Grid
-        ::Opm::RestartIO::checkSaveArguments(es, values[0], grid);
+        Helpers::checkSaveArguments(es, values[0], grid);
 
         //checking LGR Grids
         int i = 1;
         for (const std::string& lgr_grid_name:grid.get_all_lgr_labels()) {
-            ::Opm::RestartIO::checkSaveArguments(es, values[i], grid.getLGRCell(lgr_grid_name));
+            Helpers::checkSaveArguments(es, values[i], grid.getLGRCell(lgr_grid_name));
             ++i;
         }
     }
