@@ -20,6 +20,7 @@
 #include <opm/input/eclipse/EclipseState/Tables/TableContainer.hpp>
 
 #include <opm/input/eclipse/EclipseState/Tables/SimpleTable.hpp>
+#include <cstddef>
 
 #include <string>
 #include <utility>
@@ -34,7 +35,7 @@ namespace Opm {
         : m_maxTables(0)
     {}
 
-    TableContainer::TableContainer(size_t maxTables)
+    TableContainer::TableContainer(std::size_t maxTables)
         : m_maxTables(maxTables)
     {}
 
@@ -53,12 +54,12 @@ namespace Opm {
         return m_tables.empty();
     }
 
-    size_t TableContainer::size() const
+    std::size_t TableContainer::size() const
     {
         return m_tables.size();
     }
 
-    size_t TableContainer::max() const
+    std::size_t TableContainer::max() const
     {
         return m_maxTables;
     }
@@ -68,13 +69,13 @@ namespace Opm {
         return m_tables;
     }
 
-    bool TableContainer::hasTable(size_t tableNumber) const
+    bool TableContainer::hasTable(std::size_t tableNumber) const
     {
         return this->m_tables.find(tableNumber)
             != this->m_tables.end();
     }
 
-    const SimpleTable& TableContainer::getTable(size_t tableNumber) const
+    const SimpleTable& TableContainer::getTable(std::size_t tableNumber) const
     {
         if (tableNumber >= m_maxTables) {
             throw std::invalid_argument {
@@ -96,7 +97,7 @@ namespace Opm {
         }
     }
 
-    void TableContainer::addTable(size_t tableNumber, std::shared_ptr<SimpleTable> table)
+    void TableContainer::addTable(std::size_t tableNumber, std::shared_ptr<SimpleTable> table)
     {
         if (tableNumber >= m_maxTables) {
             throw std::invalid_argument {

@@ -1293,7 +1293,7 @@ inline quantity ratel( const fn_args& args ) {
     double sum = 0;
     const auto& connections = well->getConnections( args.num );
     for (const auto* conn_ptr : connections) {
-        const size_t global_index = conn_ptr->global_index();
+        const std::size_t global_index = conn_ptr->global_index();
         const auto& conn_data =
             std::ranges::find_if(well_data.connections,
                                  [global_index](const Opm::data::Connection& cdata)
@@ -1317,7 +1317,7 @@ inline quantity cpr( const fn_args& args ) {
     // NUMS array in the eclipse SMSPEC file; the values in this array
     // are offset 1 - whereas we need to use this index here to look
     // up a connection with offset 0.
-    const size_t global_index = args.num - 1;
+    const std::size_t global_index = args.num - 1;
     if (args.schedule_wells.empty())
         return zero;
 
@@ -1371,7 +1371,7 @@ inline quantity cratel( const fn_args& args ) {
     double lsum = 0.0;
     const auto& connections = well->getConnections(*complnum);
     for (const auto& conn_ptr : connections) {
-        const size_t global_index = conn_ptr->global_index();
+        const std::size_t global_index = conn_ptr->global_index();
         const auto& conn_data =
             std::ranges::find_if(well_data.connections,
                                  [global_index] (const Opm::data::Connection& cdata)
@@ -1450,7 +1450,7 @@ inline quantity crate( const fn_args& args ) {
     // NUMS array in the eclipse SMSPEC file; the values in this array
     // are offset 1 - whereas we need to use this index here to look
     // up a connection with offset 0.
-    const size_t global_index = args.num - 1;
+    const std::size_t global_index = args.num - 1;
     if (args.schedule_wells.empty())
         return zero;
 
@@ -1652,7 +1652,7 @@ inline quantity trans_factors ( const fn_args& args ) {
         return zero;
 
     // Like connection rate we need to look up a connection with offset 0.
-    const size_t global_index = args.num - 1;
+    const std::size_t global_index = args.num - 1;
     const auto& connections = xwPos->second.connections;
     const auto connPos =
             std::ranges::find_if(connections,
@@ -1680,7 +1680,7 @@ inline quantity d_factors ( const fn_args& args ) {
         return zero;
 
     // Like connection rate we need to look up a connection with offset 0.
-    const size_t global_index = args.num - 1;
+    const std::size_t global_index = args.num - 1;
     const auto& connections = xwPos->second.connections;
     auto connPos = std::find_if(connections.begin(), connections.end(),
         [global_index](const Opm::data::Connection& c)

@@ -19,7 +19,6 @@
 #ifndef SCHEDULE_HPP
 #define SCHEDULE_HPP
 
-#include <cstddef>
 #include <ctime>
 #include <functional>
 #include <iosfwd>
@@ -45,6 +44,7 @@
 #include <opm/input/eclipse/Schedule/Well/Connection.hpp>
 #include <opm/input/eclipse/Schedule/WriteRestartFileEvents.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
+#include <cstddef>
 
 namespace Opm {
     class ActiveGridCells;
@@ -372,7 +372,7 @@ namespace Opm {
         std::size_t size() const;
 
         bool write_rst_file(std::size_t report_step) const;
-        const std::map< std::string, int >& rst_keywords( size_t timestep ) const;
+        const std::map< std::string, int >& rst_keywords( std::size_t timestep ) const;
 
         // The applyAction() member function is invoked from the simulator
         // *after* an ACTIONX has triggered.  Its return value is a small

@@ -25,6 +25,8 @@
 
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/input/eclipse/Schedule/UDQ/UDQConfig.hpp>
+
+#include <cstddef>
 #include "../eval_uda.hpp"
 
 namespace {
@@ -98,8 +100,6 @@ bool GroupEconProductionLimits::operator!=(const GroupEconProductionLimits& othe
     return !(*this == other);
 }
 
-
-
 GroupEconProductionLimits GroupEconProductionLimits::serializationTestObject()
 {
     GroupEconProductionLimits gecon;
@@ -107,7 +107,7 @@ GroupEconProductionLimits GroupEconProductionLimits::serializationTestObject()
     return gecon;
 }
 
-size_t GroupEconProductionLimits::size() const {
+std::size_t GroupEconProductionLimits::size() const {
     return this->m_groups.size();
 }
 
@@ -223,7 +223,6 @@ GroupEconProductionLimits::EconWorkover GroupEconProductionLimits::GEconGroup::w
     return m_workover;
 }
 
-
 /* Methods for inner class GEconGroupProp */
 
 GroupEconProductionLimits::GEconGroupProp::GEconGroupProp(
@@ -284,6 +283,5 @@ std::optional<double> GroupEconProductionLimits::GEconGroupProp::maxWaterGasRati
 GroupEconProductionLimits::EconWorkover GroupEconProductionLimits::GEconGroupProp::workover() const {
     return m_workover;
 }
-
 
 } // namespace Opm

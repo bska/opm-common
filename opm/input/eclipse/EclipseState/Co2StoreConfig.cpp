@@ -29,6 +29,7 @@
 #include <opm/input/eclipse/Parser/ParserKeywords/T.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/V.hpp>
 #include <opm/input/eclipse/EclipseState/Tables/Tabdims.hpp>
+#include <cstddef>
 
 namespace {
     template <class EzrokhiTable>
@@ -108,7 +109,7 @@ namespace Opm {
             const auto& item = keyword.getRecord(0).getItem<ParserKeywords::CNAMES::data>();
             const auto num_comp = item.getData<std::string>().size();
             cnames.insert({{"H2O", -1}, {"CO2", -1}, {"NACL", -1}});
-            for (size_t c = 0; c < num_comp; ++c) {
+            for (std::size_t c = 0; c < num_comp; ++c) {
                 const auto name = item.getTrimmedString(c);
                 auto it = cnames.find(name);
                 if (it != cnames.end()) {
@@ -119,7 +120,7 @@ namespace Opm {
 
         // DENAQA and VISCAQA
         const Tabdims tabdims{deck};
-        const size_t num_eos_res = tabdims.getNumEosRes();
+        const std::size_t num_eos_res = tabdims.getNumEosRes();
         if (props_section.hasKeyword<ParserKeywords::DENAQA>()) {
             initEzrokhiTable(deck, "DENAQA", num_eos_res, cnames, denaqa_tables);
         }
@@ -211,6 +212,5 @@ namespace Opm {
             throw std::invalid_argument(input + " is not a valid Salte mixing type. See THCO2MIX item 3");
         }
     }
-
 
 } // namespace Opm

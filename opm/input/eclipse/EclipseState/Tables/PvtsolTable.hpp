@@ -20,6 +20,7 @@
 #define	OPM_PARSER_PVTSOL_TABLE_HPP
 
 #include <opm/input/eclipse/EclipseState/Tables/PvtxTable.hpp>
+#include <cstddef>
 
 namespace Opm {
 
@@ -28,7 +29,7 @@ namespace Opm {
     class PvtsolTable : public PvtxTable {
     public:
         PvtsolTable() = default;
-        PvtsolTable(const DeckKeyword& keyword, size_t tableIdx);
+        PvtsolTable(const DeckKeyword& keyword, std::size_t tableIdx);
         static PvtsolTable serializationTestObject();
         bool operator==(const PvtsolTable& data) const;
     };

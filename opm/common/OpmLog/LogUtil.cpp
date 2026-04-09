@@ -21,17 +21,15 @@
 #include <stdexcept>
 #include <opm/common/OpmLog/LogUtil.hpp>
 #include <opm/common/OpmLog/KeywordLocation.hpp>
-
+#include <cstdint>
 
 namespace Opm {
 
 namespace Log {
 
-    bool isPower2(int64_t x) {
+    bool isPower2(std::int64_t x) {
         return ((x != 0) && !(x & (x - 1)));
     }
-
-
 
     std::string fileMessage(const KeywordLocation& location, const std::string& message) {
         std::ostringstream oss;
@@ -41,12 +39,11 @@ namespace Log {
         return oss.str();
     }
 
-    std::string fileMessage(int64_t messageType , const KeywordLocation& location, const std::string& message) {
+    std::string fileMessage(std::int64_t messageType , const KeywordLocation& location, const std::string& message) {
         return fileMessage( location , prefixMessage( messageType , message ));
     }
 
-
-    std::string prefixMessage(int64_t messageType, const std::string& message) {
+    std::string prefixMessage(std::int64_t messageType, const std::string& message) {
         std::string prefix;
         switch (messageType) {
         case MessageType::Debug:
@@ -77,8 +74,7 @@ namespace Log {
         return prefix + ": " + message;
     }
 
-
-    std::string colorCodeMessage(int64_t messageType, const std::string& message) {
+    std::string colorCodeMessage(std::int64_t messageType, const std::string& message) {
         switch (messageType) {
         case MessageType::Debug:
         case MessageType::Note:

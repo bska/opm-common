@@ -28,6 +28,7 @@
 #include <opm/input/eclipse/Parser/ParserEnums.hpp>
 #include <opm/input/eclipse/Deck/UDAValue.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
+#include <cstddef>
 
 #include "raw/RawRecord.hpp"
 #include "raw/StarToken.hpp"
@@ -115,7 +116,6 @@ T& ParserItem::value_ref() {
             );
 }
 
-
 ParserItem::ParserItem( const std::string& itemName, ParserItem::itype input_type_arg) :
     m_name(itemName),
     m_defaultSet(false)
@@ -142,7 +142,7 @@ ParserItem::ParserItem( const Json::JsonObject& json ) :
             this->push_backDimension( dim.as_string() );
         }
         else if( dim.is_array() ) {
-            for( size_t i = 0; i < dim.size(); ++i )
+            for( std::size_t i = 0; i < dim.size(); ++i )
                 this->push_backDimension( dim.get_array_item( i ).as_string() );
         }
         else {
@@ -186,7 +186,6 @@ void ParserItem::setDefault( T val ) {
     this->m_defaultSet = true;
 }
 
-
 void ParserItem::setInputType(ParserItem::itype input_type_arg) {
     this->input_type = input_type_arg;
 
@@ -211,7 +210,6 @@ void ParserItem::setInputType(ParserItem::itype input_type_arg) {
         throw std::invalid_argument("BUG: input type not recognized in setInputType()");
 }
 
-
 template< typename T >
 void ParserItem::setDataType( T) {
     this->data_type = get_type< T >();
@@ -220,7 +218,6 @@ void ParserItem::setDataType( T) {
 bool ParserItem::hasDefault() const {
     return this->m_defaultSet;
 }
-
 
 template< typename T>
 const T& ParserItem::getDefault() const {
@@ -233,7 +230,6 @@ const T& ParserItem::getDefault() const {
 
     return this->value_ref< T >();
 }
-
 
 const std::vector<std::string>& ParserItem::dimensions() const {
     return this->m_dimensions;
@@ -261,11 +257,9 @@ void ParserItem::push_backDimension( const std::string& dim ) {
         return m_name;
     }
 
-
     type_tag ParserItem::dataType() const {
         return this->data_type;
     }
-
 
     ParserItem::item_size ParserItem::sizeType() const {
         return m_sizeType;
@@ -279,7 +273,6 @@ void ParserItem::push_backDimension( const std::string& dim ) {
     {
         return m_description;
     }
-
 
     void ParserItem::setSizeType(item_size size_type) {
         /*
@@ -297,11 +290,9 @@ void ParserItem::push_backDimension( const std::string& dim ) {
         this->m_sizeType = size_type;
     }
 
-
     void ParserItem::setDescription(const std::string& description) {
         m_description = description;
     }
-
 
     bool ParserItem::operator==( const ParserItem& rhs ) const {
     if( !( this->data_type      == rhs.data_type
@@ -352,7 +343,6 @@ bool ParserItem::operator!=( const ParserItem& rhs ) const {
     return !( *this == rhs );
 }
 
-
 std::string ParserItem::size_literal() const {
     if (this->m_sizeType == item_size::ALL)
         return "ParserItem::item_size::ALL";
@@ -395,7 +385,6 @@ std::string ParserItem::to_string(itype input_type) {
     throw std::invalid_argument("Can not convert to string");
 }
 
-
 ParserItem::itype ParserItem::from_string(const std::string& string_value) {
     if( string_value == "INT" )       return itype::INT;
     if( string_value == "DOUBLE" )    return itype::DOUBLE;
@@ -404,7 +393,6 @@ ParserItem::itype ParserItem::from_string(const std::string& string_value) {
     if( string_value == "UDA")        return itype::UDA;
     throw std::invalid_argument( string_value + " cannot be converted to ParserInputType" );
 }
-
 
 std::string ParserItem::createCode(const std::string& indent) const {
     std::stringstream stream;
@@ -557,7 +545,6 @@ void scan_item( DeckItem& deck_item, const ParserItem& parser_item, RawRecord& r
 
 }
 
-
 /// Scans the records data according to the ParserItems definition.
 /// returns a DeckItem object.
 /// NOTE: data are popped from the records deque!
@@ -691,7 +678,6 @@ std::string ParserItem::inlineClassInit(const std::string& parentClass,
 
     return ss.str();
 }
-
 
 std::ostream& operator<<( std::ostream& stream, const ParserItem::item_size& sz ) {
     return stream << ParserItem::string_from_size( sz );

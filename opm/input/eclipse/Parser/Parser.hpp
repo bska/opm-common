@@ -32,6 +32,7 @@
 #include <stddef.h>
 
 #include <opm/input/eclipse/Parser/ParserKeyword.hpp>
+#include <cstddef>
 
 namespace Json {
     class JsonObject;
@@ -137,7 +138,7 @@ namespace Opm {
          *
          * This is an approximate number because regular expresions are disconsidered.
          */
-        size_t size() const;
+        std::size_t size() const;
 
         template <class T>
         void addKeyword() {

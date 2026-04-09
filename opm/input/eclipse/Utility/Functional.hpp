@@ -21,6 +21,7 @@
 #define OPM_FUNCTIONAL_HPP
 
 #include <algorithm>
+#include <cstddef>
 #include <iterator>
 #include <vector>
 #include <numeric>
@@ -224,7 +225,7 @@ namespace fun {
                     friend class iota;
             };
 
-            size_t size() const;
+            std::size_t size() const;
 
             const_iterator begin() const;
             const_iterator end() const;

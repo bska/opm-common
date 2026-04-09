@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cctype>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
@@ -127,7 +128,7 @@ template<typename T>
 void replaceAll(T& data, const T& toSearch, const T& replace)
 {
     // Get the first occurrence
-    size_t pos = data.find(toSearch);
+    std::size_t pos = data.find(toSearch);
 
     // Repeat till end is reached
     while (pos != std::string::npos)
