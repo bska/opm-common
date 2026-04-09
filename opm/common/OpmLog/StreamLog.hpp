@@ -21,21 +21,21 @@
 #define STREAMLOG_H
 
 #include <fstream>
-#include <cstdint>
 
 #include <opm/common/OpmLog/LogBackend.hpp>
+#include <cstdint>
 
 namespace Opm {
 
 class StreamLog : public LogBackend {
 
 public:
-    StreamLog(const std::string& logFile , int64_t messageMask, bool append = false);
-    StreamLog(std::ostream& os , int64_t messageMask);
+    StreamLog(const std::string& logFile , std::int64_t messageMask, bool append = false);
+    StreamLog(std::ostream& os , std::int64_t messageMask);
     ~StreamLog() override;
 
 protected:
-    void addMessageUnconditionally(int64_t messageType, const std::string& message) override;
+    void addMessageUnconditionally(std::int64_t messageType, const std::string& message) override;
 
 private:
     void close();

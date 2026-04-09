@@ -23,10 +23,10 @@
 //     ApplicationLibCode\ReservoirDataModel\RigMainGrid.cpp
 //     ApplicationLibCode\ReservoirDataModel\RigWellPathIntersectionTools.cpp
 
-
 #include "RigEclipseWellLogExtractor.hpp"
 #include <opm/input/eclipse/EclipseState/Grid/EclipseGrid.hpp>
 #include <opm/input/eclipse/Schedule/ScheduleGrid.hpp>
+#include <cstddef>
 
 #include <external/resinsight/ReservoirDataModel/RigWellLogExtractionTools.h>
 #include <external/resinsight/ReservoirDataModel/RigWellPath.h>
@@ -37,7 +37,6 @@
 #include <external/resinsight/LibGeometry/cvfBoundingBox.h>
 
 #include <map>
-
 
 namespace external {
 
@@ -51,7 +50,6 @@ namespace external {
     calculateIntersection();
 }
 
-
 // Modified version of ApplicationLibCode\ReservoirDataModel\RigEclipseWellLogExtractor.cpp
 void RigEclipseWellLogExtractor::calculateIntersection()
 {
@@ -61,7 +59,7 @@ void RigEclipseWellLogExtractor::calculateIntersection()
 
     buildCellSearchTree();
 
-    for ( size_t wpp = 0; wpp < m_wellPathGeometry->wellPathPoints().size() - 1; ++wpp )
+    for ( std::size_t wpp = 0; wpp < m_wellPathGeometry->wellPathPoints().size() - 1; ++wpp )
     {
         std::vector<HexIntersectionInfo> intersections;
         cvf::Vec3d                       p1 = m_wellPathGeometry->wellPathPoints()[wpp];
@@ -72,7 +70,7 @@ void RigEclipseWellLogExtractor::calculateIntersection()
         bb.add( p1 );
         bb.add( p2 );
 
-        std::vector<size_t> closeCellIndices = findCloseCellIndices( bb );
+        std::vector<std::size_t> closeCellIndices = findCloseCellIndices( bb );
 
         for ( const auto& globalCellIndex : closeCellIndices )
         {
@@ -97,7 +95,7 @@ void RigEclipseWellLogExtractor::calculateIntersection()
 }
 
 // Modified version of ApplicationLibCode\ReservoirDataModel\RigEclipseWellLogExtractor.cpp
-cvf::Vec3d RigEclipseWellLogExtractor::calculateLengthInCell( size_t            cellIndex,
+cvf::Vec3d RigEclipseWellLogExtractor::calculateLengthInCell( std::size_t            cellIndex,
                                                               const cvf::Vec3d& startPoint,
                                                               const cvf::Vec3d& endPoint ) const
 {
@@ -105,7 +103,7 @@ cvf::Vec3d RigEclipseWellLogExtractor::calculateLengthInCell( size_t            
     RigEclipseWellLogExtractor::hexCornersOpmToResinsight( hexCorners, cellIndex );
 
     std::array<cvf::Vec3d, 8> hexCorners2;
-    for (size_t i = 0; i < 8; i++)
+    for (std::size_t i = 0; i < 8; i++)
            hexCorners2[i] =  hexCorners[i];
 
     return RigEclipseWellLogExtractor::calculateLengthInCell( hexCorners2, startPoint, endPoint );
@@ -184,7 +182,7 @@ void RigEclipseWellLogExtractor::findCellLocalXYZ( const std::array<cvf::Vec3d, 
 }
 
 // Convert opm to resinsight numbering of cornerpoints, see RigCellGeometryTools.cpp
-void RigEclipseWellLogExtractor::hexCornersOpmToResinsight( cvf::Vec3d hexCorners[8], size_t cellIndex ) const
+void RigEclipseWellLogExtractor::hexCornersOpmToResinsight( cvf::Vec3d hexCorners[8], std::size_t cellIndex ) const
 {
     const auto[i,j,k] = m_grid.getIJK(cellIndex);
     std::array<std::size_t, 8> opm2resinsight = {0, 1, 3, 2, 4, 5, 7, 6};
@@ -205,15 +203,15 @@ void RigEclipseWellLogExtractor::buildCellSearchTree()
         auto ny = m_grid.getNY();
         auto nz = m_grid.getNZ();
 
-        size_t cellCount = nx * ny * nz;
-        std::vector<size_t>           cellIndicesForBoundingBoxes;
+        std::size_t cellCount = nx * ny * nz;
+        std::vector<std::size_t>           cellIndicesForBoundingBoxes;
         std::vector<cvf::BoundingBox> cellBoundingBoxes;
 
 // #pragma omp parallel
 //         {
-            size_t threadCellCount = cellCount;
+            std::size_t threadCellCount = cellCount;
 
-            std::vector<size_t>           threadIndicesForBoundingBoxes;
+            std::vector<std::size_t>           threadIndicesForBoundingBoxes;
             std::vector<cvf::BoundingBox> threadBoundingBoxes;
 
             threadIndicesForBoundingBoxes.reserve( threadCellCount );
@@ -255,7 +253,7 @@ void RigEclipseWellLogExtractor::buildCellSearchTree()
 }
 
 // From ApplicationLibCode\ReservoirDataModel\RigMainGrid.cpp
-void RigEclipseWellLogExtractor::findIntersectingCells( const cvf::BoundingBox& inputBB, std::vector<size_t>* cellIndices ) const
+void RigEclipseWellLogExtractor::findIntersectingCells( const cvf::BoundingBox& inputBB, std::vector<std::size_t>* cellIndices ) const
 {
     CVF_ASSERT( m_cellSearchTree.notNull() );
 
@@ -263,9 +261,9 @@ void RigEclipseWellLogExtractor::findIntersectingCells( const cvf::BoundingBox& 
 }
 
 // Modified version of ApplicationLibCode\ReservoirDataModel\RigEclipseWellLogExtractor.cpp
-std::vector<size_t> RigEclipseWellLogExtractor::findCloseCellIndices( const cvf::BoundingBox& bb )
+std::vector<std::size_t> RigEclipseWellLogExtractor::findCloseCellIndices( const cvf::BoundingBox& bb )
 {
-    std::vector<size_t> closeCells;
+    std::vector<std::size_t> closeCells;
     this->findIntersectingCells( bb, &closeCells );
     return closeCells;
 }

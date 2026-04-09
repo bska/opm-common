@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <opm/input/eclipse/Utility/Functional.hpp>
+#include <cstddef>
 
 namespace Opm {
 namespace fun {
@@ -25,7 +26,7 @@ namespace fun {
 
     iota::iota( int lst ) : iota( 0, lst ) {}
 
-    size_t iota::size() const {
+    std::size_t iota::size() const {
         return this->last - this->first;
     }
 
@@ -61,7 +62,6 @@ namespace fun {
     }
 
     iota::const_iterator::const_iterator( int x ) : value( x ) {}
-
 
 }
 }

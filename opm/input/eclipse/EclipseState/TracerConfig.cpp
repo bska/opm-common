@@ -33,6 +33,7 @@
 #include <fmt/format.h>
 
 #include <algorithm>
+#include <cstddef>
 
 namespace Opm {
 
@@ -168,7 +169,7 @@ TracerConfig TracerConfig::serializationTestObject()
     return result;
 }
 
-size_t TracerConfig::size() const {
+std::size_t TracerConfig::size() const {
     return this->tracers.size();
 }
 

@@ -31,8 +31,7 @@
 #include <opm/input/eclipse/EclipseState/Grid/Fault.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/FaultFace.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/FaceDir.hpp>
-
-
+#include <cstddef>
 
 BOOST_AUTO_TEST_CASE(CreateInvalidFace) {
     // I out of range
@@ -46,23 +45,22 @@ BOOST_AUTO_TEST_CASE(CreateInvalidFace) {
 
 }
 
-
 BOOST_AUTO_TEST_CASE(CreateFace) {
     Opm::FaultFace face1(10,10,10,0, 2  , 0 , 0 , 0 , 0 , Opm::FaceDir::YPlus);
     Opm::FaultFace face2(10,10,10,0, 2  , 1 , 1 , 0 , 0 , Opm::FaceDir::YPlus);
     Opm::FaultFace face3(10,10,10,0, 2  , 0 , 0 , 1 , 1 , Opm::FaceDir::YPlus);
 
     {
-        const std::vector<size_t> trueValues1{0,1,2};
-        const std::vector<size_t> trueValues2{10,11,12};
-        const std::vector<size_t> trueValues3{100,101,102};
+        const std::vector<std::size_t> trueValues1{0,1,2};
+        const std::vector<std::size_t> trueValues2{10,11,12};
+        const std::vector<std::size_t> trueValues3{100,101,102};
         auto iter3 = face3.begin();
         auto iter2 = face2.begin();
-        size_t i = 0;
+        std::size_t i = 0;
         for (auto iter1 = face1.begin(); iter1 != face1.end(); ++iter1) {
-            size_t index1 = *iter1;
-            size_t index2 = *iter2;
-            size_t index3 = *iter3;
+            std::size_t index1 = *iter1;
+            std::size_t index2 = *iter2;
+            std::size_t index3 = *iter3;
 
             BOOST_CHECK_EQUAL( index1 , trueValues1[i] );
             BOOST_CHECK_EQUAL( index2 , trueValues2[i] );
@@ -75,7 +73,6 @@ BOOST_AUTO_TEST_CASE(CreateFace) {
     }
     BOOST_CHECK_EQUAL( face1.getDir() , Opm::FaceDir::YPlus);
 }
-
 
 BOOST_AUTO_TEST_CASE(CreateFault) {
     Opm::Fault fault("FAULT1");
@@ -111,15 +108,12 @@ BOOST_AUTO_TEST_CASE(AddFaceToFaults) {
 
 }
 
-
-
 BOOST_AUTO_TEST_CASE(CreateFaultCollection) {
     Opm::FaultCollection faults;
     BOOST_CHECK_EQUAL( faults.size() , 0U );
     BOOST_CHECK(! faults.hasFault("NO-NotThisOne"));
     BOOST_CHECK_THROW( faults.getFault("NO") , std::invalid_argument );
 }
-
 
 BOOST_AUTO_TEST_CASE(AddFaultsToCollection) {
     Opm::FaultCollection faults;
