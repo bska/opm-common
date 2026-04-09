@@ -29,6 +29,7 @@
 
 #include <opm/input/eclipse/Parser/ParserEnums.hpp>
 #include <opm/input/eclipse/Parser/ParserRecord.hpp>
+#include <cstddef>
 
 namespace Json {
     class JsonObject;
@@ -90,7 +91,6 @@ namespace Opm {
 
         void initSizeKeyword( const std::string& sizeKeyword, const std::string& sizeItem, bool table_collection, int size_shift);
 
-
         static bool validInternalName(const std::string& name);
         static bool validDeckName(const std::string_view& name);
         bool hasMatchRegex() const;
@@ -101,14 +101,14 @@ namespace Opm {
         bool hasDimension() const;
         void addRecord( ParserRecord );
         void addDataRecord( ParserRecord );
-        const ParserRecord& getRecord(size_t recordIndex) const;
-        ParserRecord& getRecord(size_t recordIndex);
+        const ParserRecord& getRecord(std::size_t recordIndex) const;
+        ParserRecord& getRecord(std::size_t recordIndex);
         std::vector< ParserRecord >::const_iterator begin() const;
         std::vector< ParserRecord >::const_iterator end() const;
         const std::string className() const;
         const std::string& getName() const;
         std::optional<std::size_t> min_size() const;
-        size_t getFixedSize() const;
+        std::size_t getFixedSize() const;
         bool hasFixedSize() const;
         bool isTableCollection() const;
         const std::string& getDescription() const;

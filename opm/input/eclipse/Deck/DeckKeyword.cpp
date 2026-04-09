@@ -27,6 +27,7 @@
 #include <opm/input/eclipse/Deck/DeckItem.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <ostream>
 
 namespace Opm {
@@ -84,7 +85,7 @@ namespace Opm {
 
     namespace {
     template <typename T>
-    void add_deckvalue( DeckItem deck_item, DeckRecord& deck_record, const ParserItem& parser_item, const std::vector<DeckValue>& input_record, size_t j) {
+    void add_deckvalue( DeckItem deck_item, DeckRecord& deck_record, const ParserItem& parser_item, const std::vector<DeckValue>& input_record, std::size_t j) {
          if (j >= input_record.size() || input_record[j].is_default()) {
               if (parser_item.hasDefault())
                   deck_item.push_backDefault( parser_item.getDefault<T>() );
@@ -108,13 +109,13 @@ namespace Opm {
         if (parserKeyword.hasFixedSize() && (record_list.size() != parserKeyword.getFixedSize()))
              throw std::invalid_argument("Wrong number of records added to constructor for deckkeyword '" + name() + "'.");
 
-        for (size_t i = 0; i < record_list.size(); i++) {
+        for (std::size_t i = 0; i < record_list.size(); i++) {
 
              const ParserRecord& parser_record = parserKeyword.getRecord(i);
              const std::vector<DeckValue>& input_record = record_list[i];
              DeckRecord deck_record;
 
-             for (size_t j = 0; j < parser_record.size(); j++) {
+             for (std::size_t j = 0; j < parser_record.size(); j++) {
                   const ParserItem& parser_item = parser_record.get(j);
                   if (parser_item.sizeType() == ParserItem::item_size::ALL)
                       throw std::invalid_argument("constructor  DeckKeyword::DeckKeyword(const ParserKeyword&,  const std::vector<std::vector<DeckValue>>&) does not handle sizetype ALL.");
@@ -251,7 +252,7 @@ namespace Opm {
         return m_keywordName;
     }
 
-    size_t DeckKeyword::size() const {
+    std::size_t DeckKeyword::size() const {
         return m_recordList.size();
     }
 
@@ -279,11 +280,11 @@ namespace Opm {
         return this->m_recordList.at( index );
     }
 
-    const DeckRecord& DeckKeyword::getRecord(size_t index) const {
+    const DeckRecord& DeckKeyword::getRecord(std::size_t index) const {
         return this->operator[](index);
     }
 
-    DeckRecord& DeckKeyword::getRecord(size_t index) {
+    DeckRecord& DeckKeyword::getRecord(std::size_t index) {
         return this->operator[](index);
     }
 
@@ -295,7 +296,7 @@ namespace Opm {
     }
 
 
-    size_t DeckKeyword::getDataSize() const {
+    std::size_t DeckKeyword::getDataSize() const {
         return this->getDataRecord().getDataItem().data_size();
     }
 
@@ -370,7 +371,7 @@ namespace Opm {
         if (this->size() != other.size())
             return false;
 
-        for (size_t index = 0; index < this->size(); index++) {
+        for (std::size_t index = 0; index < this->size(); index++) {
             const auto& this_record = this->getRecord( index );
             const auto& other_record = other.getRecord( index );
             if (!this_record.equal( other_record , cmp_default, cmp_numeric))

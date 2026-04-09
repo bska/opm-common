@@ -25,6 +25,7 @@
 #include <opm/common/OpmLog/StreamLog.hpp>
 
 #include <cassert>
+#include <cstdint>
 #include <ios>
 #include <sstream>
 
@@ -44,7 +45,7 @@ TimerLog::TimerLog(std::ostream& os)
 
 
 
-void TimerLog::addMessageUnconditionally(int64_t messageType, const std::string& msg ) {
+void TimerLog::addMessageUnconditionally(std::int64_t messageType, const std::string& msg ) {
     if (messageType == StopTimer) {
         clock_t stop = clock();
         double secondsElapsed = 1.0 * (m_start - stop) / CLOCKS_PER_SEC ;

@@ -24,6 +24,7 @@
 #include <opm/input/eclipse/Deck/DeckTree.hpp>
 #include <opm/input/eclipse/Deck/DeckKeyword.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
+#include <cstddef>
 
 #include <iosfwd>
 #include <memory>
@@ -40,8 +41,6 @@ namespace Opm {
      * use-after-free.
      */
     class DeckOutput;
-
-
 
     class Deck {
         public:
@@ -114,8 +113,6 @@ namespace Opm {
                 return this->hasKeyword( Keyword::keywordName );
             }
 
-
-
             const std::vector<std::size_t> index(const std::string& keyword) const {
                 return this->global_view().index(keyword);
             }
@@ -124,7 +121,7 @@ namespace Opm {
             std::size_t count() const {
                 return count( Keyword::keywordName );
             }
-            size_t count(const std::string& keyword) const;
+            std::size_t count(const std::string& keyword) const;
 
             void remove_keywords(int from, int to) { keywordList.erase(keywordList.begin() +from, keywordList.begin() + to); };
 
