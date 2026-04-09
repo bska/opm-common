@@ -39,9 +39,9 @@ namespace Opm
 namespace {
 
 std::optional<std::size_t> global_index(const EclipseGrid& grid, const DeckRecord& record, std::size_t item_offset) {
-    std::size_t i = static_cast<size_t>(record.getItem(0 + item_offset).get< int >(0)-1);
-    std::size_t j = static_cast<size_t>(record.getItem(1 + item_offset).get< int >(0)-1);
-    std::size_t k = static_cast<size_t>(record.getItem(2 + item_offset).get< int >(0)-1);
+    std::size_t i = static_cast<std::size_t>(record.getItem(0 + item_offset).get< int >(0)-1);
+    std::size_t j = static_cast<std::size_t>(record.getItem(1 + item_offset).get< int >(0)-1);
+    std::size_t k = static_cast<std::size_t>(record.getItem(2 + item_offset).get< int >(0)-1);
 
     if (i >= grid.getNX())
         return {};
@@ -276,7 +276,7 @@ bool is_neighbor(const EclipseGrid& grid, std::size_t g1, std::size_t g2) {
         return result;
     }
 
-    bool NNC::addNNC(const size_t cell1, const size_t cell2, const double trans) {
+    bool NNC::addNNC(const std::size_t cell1, const std::size_t cell2, const double trans) {
         if (cell1 > cell2)
             return this->addNNC(cell2, cell1, trans);
 
@@ -376,7 +376,7 @@ bool is_neighbor(const EclipseGrid& grid, std::size_t g1, std::size_t g2) {
 
 /// Inserts an NNC entry (cell1, cell2, trans) into the container, enforcing
 /// cell1 <= cell2.
-bool NNCDataContainer::addNNC(const size_t cell1, const size_t cell2, const double trans) {
+bool NNCDataContainer::addNNC(const std::size_t cell1, const std::size_t cell2, const double trans) {
     if (cell1 > cell2)
         return this->addNNC(cell2, cell1, trans);
     this->nnc_container.emplace_back(cell1,cell2, trans);
@@ -403,7 +403,7 @@ bool NNCDataContainer::operator==(const NNCDataContainer& other) const
 /// Inserts a cross-grid NNC entry without enforcing any cell ordering, since
 /// cell1 and cell2 belong to different grids and swapping them would lose
 /// the grid-association information.
-bool NNCDataContainerDiffGrid::addNNC(const size_t cell1, const size_t cell2, const double trans)
+bool NNCDataContainerDiffGrid::addNNC(const std::size_t cell1, const std::size_t cell2, const double trans)
 {
     nnc_container.emplace_back(cell1, cell2, trans);
     return true;

@@ -20,6 +20,7 @@
 #ifndef GROUP_ECON_PRODUCTION_LIMITS_H
 #define GROUP_ECON_PRODUCTION_LIMITS_H
 
+#include <cstddef>
 #include <opm/input/eclipse/Deck/UDAValue.hpp>
 
 #include <map>
@@ -134,7 +135,7 @@ public:
         serializer(m_groups);
     }
     static GroupEconProductionLimits serializationTestObject();
-    size_t size() const;
+    std::size_t size() const;
 
 private:
     std::map<std::string, GEconGroup> m_groups;

@@ -20,6 +20,7 @@
 #ifndef PARSERRECORD_HPP
 #define PARSERRECORD_HPP
 
+#include <cstddef>
 #include <iosfwd>
 #include <vector>
 #include <memory>
@@ -39,10 +40,10 @@ namespace Opm {
     class ParserRecord {
     public:
         ParserRecord();
-        size_t size() const;
+        std::size_t size() const;
         void addItem( ParserItem );
         void addDataItem( ParserItem item );
-        const ParserItem& get(size_t index) const;
+        const ParserItem& get(std::size_t index) const;
         const ParserItem& get(const std::string& itemName) const;
         DeckRecord parse( const ParseContext&, ErrorGuard&, RawRecord&, UnitSystem& active_unitsystem, UnitSystem& default_unitsystem, const KeywordLocation& location) const;
         bool isDataRecord() const;

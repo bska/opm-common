@@ -19,6 +19,7 @@
 #ifndef OPM_TIMERLOG_HPP
 #define OPM_TIMERLOG_HPP
 
+#include <cstdint>
 #include <time.h>
 
 #include <memory>
@@ -36,8 +37,8 @@ namespace Opm {
 
 class TimerLog : public StreamLog {
 public:
-    static const int64_t StartTimer = 4096;
-    static const int64_t StopTimer  = 8192;
+    static const std::int64_t StartTimer = 4096;
+    static const std::int64_t StopTimer  = 8192;
 
     explicit TimerLog(const std::string& logFile);
     explicit TimerLog(std::ostream& os);
@@ -45,7 +46,7 @@ public:
     void clear();
 
 protected:
-    void addMessageUnconditionally(int64_t messageFlag,
+    void addMessageUnconditionally(std::int64_t messageFlag,
                                    const std::string& message) override;
 private:
     clock_t m_start;

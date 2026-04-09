@@ -21,6 +21,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <iosfwd>
 #include <string>
@@ -34,8 +36,8 @@
 
 namespace Opm { namespace EclIO {
 
-using ArrSourceEntry = std::tuple<std::string, std::string, int, uint64_t>;
-using TimeStepEntry = std::tuple<int, int, uint64_t>;
+using ArrSourceEntry = std::tuple<std::string, std::string, int, std::uint64_t>;
+using TimeStepEntry = std::tuple<int, int, std::uint64_t>;
 using RstEntry = std::tuple<std::string, int>;
 
 class ESmry
@@ -71,7 +73,7 @@ public:
 
     int timestepIdxAtReportstepStart(const int reportStep) const;
 
-    size_t numberOfTimeSteps() const { return nTstep; }
+    std::size_t numberOfTimeSteps() const { return nTstep; }
 
     const std::string& get_unit(const std::string& name) const;
     const std::string& get_unit(const SummaryNode& node) const;
@@ -89,7 +91,7 @@ private:
 
     int nI, nJ, nK, nSpecFiles;
     bool fromSingleRun;
-    size_t nVect, nTstep;
+    std::size_t nVect, nTstep;
 
     std::vector<bool> formattedFiles;
     std::vector<std::string> dataFileList;
@@ -150,11 +152,11 @@ private:
         return result;
     }
 
-    std::vector<std::tuple <std::string, uint64_t>>
+    std::vector<std::tuple <std::string, std::uint64_t>>
     getListOfArrays(const std::string& filename, bool formatted);
 
     std::vector<int> makeKeywPosVector(int speInd) const;
-    std::string read_string_from_disk(std::fstream& fileH, uint64_t size) const;
+    std::string read_string_from_disk(std::fstream& fileH, std::uint64_t size) const;
 
     void read_ministeps_from_disk();
     int read_ministep_formatted(std::fstream& fileH);

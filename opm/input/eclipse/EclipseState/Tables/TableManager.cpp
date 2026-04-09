@@ -373,7 +373,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     }
 
 
-    void TableManager::addTables(const std::string& tableName, size_t numTables)
+    void TableManager::addTables(const std::string& tableName, std::size_t numTables)
     {
         this->m_simpleTables.try_emplace(tableName, numTables);
     }
@@ -398,7 +398,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             return pair->second;
     }
 
-    TableContainer& TableManager::forceGetTables( const std::string& tableName , size_t numTables )  {
+    TableContainer& TableManager::forceGetTables( const std::string& tableName , std::size_t numTables )  {
         auto pair = m_simpleTables.find( tableName );
         if (pair == m_simpleTables.end()) {
             addTables( tableName , numTables );
@@ -491,11 +491,11 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
         addTables( "AQUTAB", m_aqudims.getNumInfluenceTablesCT());
         {
-            size_t numMiscibleTables = ParserKeywords::MISCIBLE::NTMISC::defaultValue;
+            std::size_t numMiscibleTables = ParserKeywords::MISCIBLE::NTMISC::defaultValue;
             if (deck.hasKeyword<ParserKeywords::MISCIBLE>()) {
                 const auto& keyword = deck.get<ParserKeywords::MISCIBLE>().back();
                 const auto& record = keyword.getRecord(0);
-                numMiscibleTables =  static_cast<size_t>(record.getItem<ParserKeywords::MISCIBLE::NTMISC>().get< int >(0));
+                numMiscibleTables =  static_cast<std::size_t>(record.getItem<ParserKeywords::MISCIBLE::NTMISC>().get< int >(0));
             }
             addTables( "SORWMIS", numMiscibleTables);
             addTables( "SGCWMIS", numMiscibleTables);
@@ -504,12 +504,12 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             addTables( "TLPMIXPA",numMiscibleTables);
         }
         {
-            size_t numEndScaleTables = ParserKeywords::ENDSCALE::NTENDP::defaultValue;
+            std::size_t numEndScaleTables = ParserKeywords::ENDSCALE::NTENDP::defaultValue;
 
             if (deck.hasKeyword<ParserKeywords::ENDSCALE>()) {
                 const auto& keyword = deck.get<ParserKeywords::ENDSCALE>().back();
                 const auto& record = keyword.getRecord(0);
-                numEndScaleTables = static_cast<size_t>(record.getItem<ParserKeywords::ENDSCALE::NTENDP>().get< int >(0));
+                numEndScaleTables = static_cast<std::size_t>(record.getItem<ParserKeywords::ENDSCALE::NTENDP>().get< int >(0));
             }
 
             addTables( "ENKRVD", numEndScaleTables);
@@ -518,12 +518,12 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             addTables( "IMPTVD", numEndScaleTables);
         }
         {
-            size_t numRocktabTables = ParserKeywords::ROCKCOMP::NTROCC::defaultValue;
+            std::size_t numRocktabTables = ParserKeywords::ROCKCOMP::NTROCC::defaultValue;
 
             if (deck.hasKeyword<ParserKeywords::ROCKCOMP>()) {
                 const auto& keyword = deck.get<ParserKeywords::ROCKCOMP>().back();
                 const auto& record = keyword.getRecord(0);
-                numRocktabTables = static_cast<size_t>(record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0));
+                numRocktabTables = static_cast<std::size_t>(record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0));
             }
             addTables( "ROCKTAB", numRocktabTables);
             addTables( "ROCKWNOD", numRocktabTables);
@@ -562,12 +562,12 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
         initSimpleTableContainer<DiffMICPTable>(deck, "DIFFMICP" , m_tabdims.getNumPVTTables());
         initSimpleTableContainer<AqutabTable>(deck, "AQUTAB" , m_aqudims.getNumInfluenceTablesCT());
         {
-            size_t numEndScaleTables = ParserKeywords::ENDSCALE::NTENDP::defaultValue;
+            std::size_t numEndScaleTables = ParserKeywords::ENDSCALE::NTENDP::defaultValue;
 
             if (deck.hasKeyword<ParserKeywords::ENDSCALE>()) {
                 const auto& keyword = deck.get<ParserKeywords::ENDSCALE>().back();
                 const auto& record = keyword.getRecord(0);
-                numEndScaleTables = static_cast<size_t>(record.getItem<ParserKeywords::ENDSCALE::NTENDP>().get< int >(0));
+                numEndScaleTables = static_cast<std::size_t>(record.getItem<ParserKeywords::ENDSCALE::NTENDP>().get< int >(0));
             }
 
             initSimpleTableContainer<EnkrvdTable>( deck , "ENKRVD", numEndScaleTables);
@@ -576,11 +576,11 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             initSimpleTableContainer<ImptvdTable>( deck , "IMPTVD", numEndScaleTables);
         }
         {
-            size_t numMiscibleTables = ParserKeywords::MISCIBLE::NTMISC::defaultValue;
+            std::size_t numMiscibleTables = ParserKeywords::MISCIBLE::NTMISC::defaultValue;
             if (deck.hasKeyword<ParserKeywords::MISCIBLE>()) {
                 const auto& keyword = deck.get<ParserKeywords::MISCIBLE>().back();
                 const auto& record = keyword.getRecord(0);
-                numMiscibleTables =  static_cast<size_t>(record.getItem<ParserKeywords::MISCIBLE::NTMISC>().get< int >(0));
+                numMiscibleTables =  static_cast<std::size_t>(record.getItem<ParserKeywords::MISCIBLE::NTMISC>().get< int >(0));
             }
             initSimpleTableContainer<SorwmisTable>(deck, "SORWMIS", numMiscibleTables);
             initSimpleTableContainer<SgcwmisTable>(deck, "SGCWMIS", numMiscibleTables);
@@ -590,12 +590,12 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
         }
         {
-            size_t numRocktabTables = ParserKeywords::ROCKCOMP::NTROCC::defaultValue;
+            std::size_t numRocktabTables = ParserKeywords::ROCKCOMP::NTROCC::defaultValue;
 
             if (deck.hasKeyword<ParserKeywords::ROCKCOMP>()) {
                 const auto& keyword = deck.get<ParserKeywords::ROCKCOMP>().back();
                 const auto& record = keyword.getRecord(0);
-                numRocktabTables = static_cast<size_t>(record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0));
+                numRocktabTables = static_cast<std::size_t>(record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0));
             }
             initSimpleTableContainer<RockwnodTable>(deck, "ROCKWNOD", numRocktabTables);
             initSimpleTableContainer<OverburdTable>(deck, "OVERBURD", numRocktabTables);
@@ -732,9 +732,9 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             return;
         }
 
-        const size_t num_tables = deck.count("PLYMWINJ");
+        const std::size_t num_tables = deck.count("PLYMWINJ");
         const auto& keywords = deck.getKeywordList<ParserKeywords::PLYMWINJ>();
-        for (size_t i = 0; i < num_tables; ++i) {
+        for (std::size_t i = 0; i < num_tables; ++i) {
             const DeckKeyword &keyword = *keywords[i];
 
             // not const for std::move
@@ -762,9 +762,9 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             return;
         }
 
-        const size_t num_tables = deck.count("SKPRWAT");
+        const std::size_t num_tables = deck.count("SKPRWAT");
         const auto& keywords = deck.getKeywordList<ParserKeywords::SKPRWAT>();
-        for (size_t i = 0; i < num_tables; ++i) {
+        for (std::size_t i = 0; i < num_tables; ++i) {
             const DeckKeyword &keyword = *keywords[i];
 
             // not const for std::move
@@ -792,9 +792,9 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             return;
         }
 
-        const size_t num_tables = deck.count("SKPRPOLY");
+        const std::size_t num_tables = deck.count("SKPRPOLY");
         const auto& keywords = deck.getKeywordList<ParserKeywords::SKPRPOLY>();
-        for (size_t i = 0; i < num_tables; ++i) {
+        for (std::size_t i = 0; i < num_tables; ++i) {
             const DeckKeyword &keyword = *keywords[i];
 
             // not const for std::move
@@ -818,7 +818,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     }
 
     void TableManager::initPlyrockTables(const Deck& deck) {
-        size_t numTables = m_tabdims.getNumSatTables();
+        std::size_t numTables = m_tabdims.getNumSatTables();
         const std::string keywordName = "PLYROCK";
         if (!deck.hasKeyword(keywordName)) {
             return;
@@ -831,7 +831,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
         const auto& keyword = deck.get<ParserKeywords::PLYROCK>().back();
         auto& container = forceGetTables(keywordName , numTables);
-        for (size_t tableIdx = 0; tableIdx < keyword.size(); ++tableIdx) {
+        for (std::size_t tableIdx = 0; tableIdx < keyword.size(); ++tableIdx) {
             const auto& tableRecord = keyword.getRecord( tableIdx );
             std::shared_ptr<PlyrockTable> table = std::make_shared<PlyrockTable>(tableRecord);
             container.addTable( tableIdx , table );
@@ -840,7 +840,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
 
     void TableManager::initPlymaxTables(const Deck& deck) {
-        size_t numTables = m_regdims.getNPLMIX();
+        std::size_t numTables = m_regdims.getNPLMIX();
         const std::string keywordName = "PLYMAX";
         if (!deck.hasKeyword(keywordName)) {
             return;
@@ -853,7 +853,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
         const auto& keyword = deck.get<ParserKeywords::PLYMAX>().back();
         auto& container = forceGetTables(keywordName , numTables);
-        for (size_t tableIdx = 0; tableIdx < keyword.size(); ++tableIdx) {
+        for (std::size_t tableIdx = 0; tableIdx < keyword.size(); ++tableIdx) {
             const auto& tableRecord = keyword.getRecord( tableIdx );
             std::shared_ptr<PlymaxTable> table = std::make_shared<PlymaxTable>( tableRecord );
             container.addTable( tableIdx , table );
@@ -884,7 +884,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
         }
         const auto& rockcompKeyword = deck.get<ParserKeywords::ROCKCOMP>().back();
         const auto& record = rockcompKeyword.getRecord( 0 );
-        size_t numTables = record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0);
+        std::size_t numTables = record.getItem<ParserKeywords::ROCKCOMP::NTROCC>().get< int >(0);
         auto& container = forceGetTables("ROCKTAB" , numTables);
         const auto rocktabKeyword = deck["ROCKTAB"].back();
 
@@ -913,7 +913,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
             }
         }
 
-        for (size_t tableIdx = 0; tableIdx < rocktabKeyword.size(); ++tableIdx) {
+        for (std::size_t tableIdx = 0; tableIdx < rocktabKeyword.size(); ++tableIdx) {
             const auto& tableRecord = rocktabKeyword.getRecord( tableIdx );
             const auto& dataItem = tableRecord.getItem( 0 );
             if (dataItem.data_size() > 0) {
@@ -923,8 +923,8 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
         }
     }
 
-        size_t TableManager::numFIPRegions() const {
-        size_t ntfip = m_tabdims.getNumFIPRegions();
+        std::size_t TableManager::numFIPRegions() const {
+        std::size_t ntfip = m_tabdims.getNumFIPRegions();
         if (m_regdims.getNTFIP( ) > ntfip)
             return m_regdims.getNTFIP( );
         else
@@ -1335,7 +1335,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     void TableManager::complainAboutAmbiguousKeyword(const Deck& deck, const std::string& keywordName) {
         OpmLog::error("The " + keywordName + " keyword must be unique in the deck. Ignoring all!");
         const auto& keywords = deck.getKeywordList(keywordName);
-        for (size_t i = 0; i < keywords.size(); ++i) {
+        for (std::size_t i = 0; i < keywords.size(); ++i) {
             std::string msg = "Ambiguous keyword "+keywordName+" defined here";
             OpmLog::error(Log::fileMessage(keywords[i]->location(), msg));
         }
@@ -1411,11 +1411,11 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     }
 
     void TableManager::initSolventTables(const Deck& deck,  std::vector<SolventDensityTable>& solventtables) {
-        size_t numTables = m_tabdims.getNumPVTTables();
+        std::size_t numTables = m_tabdims.getNumPVTTables();
         solventtables.resize(numTables);
 
         const auto& keyword = deck["SDENSITY"].back();
-        size_t numEntries = keyword.size();
+        std::size_t numEntries = keyword.size();
         assert(numEntries == numTables);
         for (unsigned lineIdx = 0; lineIdx < numEntries; ++lineIdx) {
             solventtables[lineIdx].init(keyword.getRecord(lineIdx));
@@ -1578,13 +1578,13 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
         const auto& rockcompKeyword = deck["ROCKCOMP"].back();
         const auto& record = rockcompKeyword.getRecord( 0 );
-        size_t numTables = record.getItem("NTROCC").get< int >(0);
+        std::size_t numTables = record.getItem("NTROCC").get< int >(0);
         rocktable.resize(numTables);
 
         const auto& keyword = deck[keywordName].back();
-        size_t numEntries = keyword.size();
-        size_t regionIdx = 0;
-        size_t tableIdx = 0;
+        std::size_t numEntries = keyword.size();
+        std::size_t regionIdx = 0;
+        std::size_t tableIdx = 0;
         for (unsigned lineIdx = 0; lineIdx < numEntries; ++lineIdx) {
             if (keyword.getRecord(lineIdx).getItem("PRESSURE").hasValue(0)) {
                 rocktable[regionIdx].init(keyword.getRecord(lineIdx), tableIdx);
@@ -1600,12 +1600,12 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     template <class TableType>
     void TableManager::initPvtwsaltTables(const Deck& deck,  std::vector<TableType>& pvtwtables ) {
 
-        size_t numTables = m_tabdims.getNumPVTTables();
+        std::size_t numTables = m_tabdims.getNumPVTTables();
         pvtwtables.resize(numTables);
 
         const auto& keyword = deck["PVTWSALT"].back();
-        size_t numEntries = keyword.size();
-        size_t regionIdx = 0;
+        std::size_t numEntries = keyword.size();
+        std::size_t regionIdx = 0;
         for (unsigned lineIdx = 0; lineIdx < numEntries; lineIdx += 2) {
             pvtwtables[regionIdx].init(keyword.getRecord(lineIdx), keyword.getRecord(lineIdx+1));
             ++regionIdx;
@@ -1616,11 +1616,11 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     template <class TableType>
     void TableManager::initBrineTables(const Deck& deck,  std::vector<TableType>& brinetables ) {
 
-        size_t numTables = m_tabdims.getNumPVTTables();
+        std::size_t numTables = m_tabdims.getNumPVTTables();
         brinetables.resize(numTables);
 
         const auto& keyword = deck["BDENSITY"].back();
-        size_t numEntries = keyword.size();
+        std::size_t numEntries = keyword.size();
         assert(numEntries == numTables);
         for (unsigned lineIdx = 0; lineIdx < numEntries; ++lineIdx) {
             brinetables[lineIdx].init(keyword.getRecord(lineIdx));
@@ -1631,7 +1631,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     void TableManager::initSimpleTableContainerWithJFunc(const Deck& deck,
                                                          const std::string& keywordName,
                                                          const std::string& tableName,
-                                                         size_t numTables) {
+                                                         std::size_t numTables) {
         if (!deck.hasKeyword(keywordName))
             return; // the table is not featured by the deck...
 
@@ -1644,7 +1644,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
         auto lastComplete = 0 * numTables;
         const auto& tableKeyword = deck[keywordName].back();
-        for (size_t tableIdx = 0; tableIdx < tableKeyword.size(); ++tableIdx) {
+        for (std::size_t tableIdx = 0; tableIdx < tableKeyword.size(); ++tableIdx) {
             const auto& dataItem = tableKeyword.getRecord( tableIdx ).getItem("DATA");
             if (dataItem.data_size() > 0) {
                 try {
@@ -1657,7 +1657,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
                     throw OpmInputError(err, tableKeyword.location());
                 }
             }
-            else if (tableIdx > static_cast<size_t>(0)) {
+            else if (tableIdx > static_cast<std::size_t>(0)) {
                 const auto& item = tableKeyword.getRecord(lastComplete).getItem("DATA");
                 container.addTable(tableIdx, std::make_shared<TableType>(item, useJFunc(), tableIdx));
             }
@@ -1674,7 +1674,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     void TableManager::initSimpleTableContainer(const Deck& deck,
                                                 const std::string& keywordName,
                                                 const std::string& tableName,
-                                                size_t numTables) {
+                                                std::size_t numTables) {
         if (!deck.hasKeyword(keywordName)) {
             return; // the table is not featured by the deck...
         }
@@ -1688,7 +1688,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
 
         auto lastComplete = 0 * numTables;
         const auto& tableKeyword = deck[keywordName].back();
-        for (size_t tableIdx = 0; tableIdx < tableKeyword.size(); ++tableIdx) {
+        for (std::size_t tableIdx = 0; tableIdx < tableKeyword.size(); ++tableIdx) {
             const auto& dataItem = tableKeyword.getRecord(tableIdx).getItem("DATA");
 
             if (dataItem.data_size() > 0) {
@@ -1703,7 +1703,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
                     throw OpmInputError(err, tableKeyword.location());
                 }
             }
-            else if (tableIdx > static_cast<size_t>(0)) {
+            else if (tableIdx > static_cast<std::size_t>(0)) {
                 const auto& item = tableKeyword.getRecord(lastComplete).getItem("DATA");
                 container.addTable(tableIdx, std::make_shared<TableType>(item, tableIdx));
             }
@@ -1719,7 +1719,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     template <class TableType>
     void TableManager::initSimpleTableContainer(const Deck& deck,
                                                 const std::string& keywordName,
-                                                size_t numTables) {
+                                                std::size_t numTables) {
         initSimpleTableContainer<TableType>(deck , keywordName , keywordName , numTables);
     }
 
@@ -1727,7 +1727,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
     template <class TableType>
     void TableManager::initSimpleTableContainerWithJFunc(const Deck& deck,
                                                          const std::string& keywordName,
-                                                         size_t numTables) {
+                                                         std::size_t numTables) {
         initSimpleTableContainerWithJFunc<TableType>(deck , keywordName , keywordName , numTables);
     }
 
@@ -1744,7 +1744,7 @@ std::optional<JFunc> make_jfunc(const Deck& deck) {
         }
 
         const auto& tableKeyword = deck[keywordName].back();
-        for (size_t tableIdx = 0; tableIdx < tableKeyword.size(); ++tableIdx) {
+        for (std::size_t tableIdx = 0; tableIdx < tableKeyword.size(); ++tableIdx) {
             const auto& dataItem = tableKeyword.getRecord( tableIdx ).getItem("DATA");
             if (dataItem.data_size() == 0) {
                 // for simple tables, an empty record indicates that the previous table

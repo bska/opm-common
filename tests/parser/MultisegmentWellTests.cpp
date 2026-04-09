@@ -19,6 +19,7 @@
 
 #define BOOST_TEST_MODULE WellConnectionsTests
 #include <boost/test/unit_test.hpp>
+#include <cstddef>
 
 #include <opm/common/utility/OpmInputError.hpp>
 
@@ -1620,7 +1621,7 @@ BOOST_AUTO_TEST_CASE(loadCOMPTRAJTESTSPE1_MSW) {
   };
   const std::array<int, 9> global_index{11, 111, 211, 212, 222, 223, 233, 234, 244};
   BOOST_CHECK_EQUAL(connections.size(), 9);
-  for (size_t i = 0 ; i < connections.size();  ++i ) {
+  for (std::size_t i = 0 ; i < connections.size();  ++i ) {
        BOOST_CHECK_CLOSE(connections[i].CF(), units.to_si(Opm::UnitSystem::measure::transmissibility, connection_factor[i]), 2e-2);
        BOOST_CHECK_EQUAL(connections[i].global_index(), global_index[i]);
   }
@@ -1629,7 +1630,7 @@ BOOST_AUTO_TEST_CASE(loadCOMPTRAJTESTSPE1_MSW) {
     8325.0, 8425.8, 8689.4, 8935.1, 9157.9, 9838.8, 10597.0, 11321.0, 11997.0, 12369.0
   };
   BOOST_CHECK_EQUAL(segments.size(), 10);
-  for (size_t i = 0; i < segments.size(); ++i) {
+  for (std::size_t i = 0; i < segments.size(); ++i) {
     BOOST_CHECK_EQUAL(segments[i].segmentNumber(), i + 1);
     BOOST_CHECK_EQUAL(segments[i].outletSegment(), i);
     BOOST_CHECK_CLOSE(segments[i].totalLength(), units.to_si(Opm::UnitSystem::measure::length, lengths[i]), 2e-2);

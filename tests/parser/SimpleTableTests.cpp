@@ -20,6 +20,7 @@
 #define BOOST_TEST_MODULE SimpleTableTests
 
 #include <boost/test/unit_test.hpp>
+#include <cstddef>
 
 
 #include <opm/input/eclipse/EclipseState/Tables/ColumnSchema.hpp>
@@ -80,7 +81,7 @@ BOOST_AUTO_TEST_CASE( CreateTest ) {
         auto exportCol = col.vectorCopy();
 
         BOOST_CHECK_EQUAL( col.size() , exportCol.size());
-        for (size_t i = 0; i < col.size(); i++)
+        for (std::size_t i = 0; i < col.size(); i++)
             BOOST_CHECK_EQUAL( col[i] , exportCol[i]);
     }
 }

@@ -19,11 +19,12 @@
 
 
 
+#include <cstddef>
 #include <opm/input/eclipse/EclipseState/Tables/TableIndex.hpp>
 
 namespace Opm {
 
-    TableIndex::TableIndex( size_t index1 , double weight1) :
+    TableIndex::TableIndex( std::size_t index1 , double weight1) :
         m_index1( index1 ),
         m_weight1( weight1 )
     {
@@ -38,11 +39,11 @@ namespace Opm {
     }
 
 
-    size_t TableIndex::getIndex1( ) const {
+    std::size_t TableIndex::getIndex1( ) const {
         return m_index1;
     }
 
-    size_t TableIndex::getIndex2( ) const {
+    std::size_t TableIndex::getIndex2( ) const {
         return m_index1 + 1;
     }
 

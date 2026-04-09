@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstddef>
 #include <opm/input/eclipse/Schedule/Group/GConSump.hpp>
 
 #include "../eval_uda.hpp"
@@ -73,7 +74,7 @@ void GConSump::add(const std::string& name, const UDAValue& consumption_rate,
 }
 
 
-size_t GConSump::size() const {
+std::size_t GConSump::size() const {
     return groups.size();
 }
 

@@ -34,6 +34,7 @@
 
 #define BOOST_TEST_MODULE EclMaterialLawManager
 #include <boost/test/unit_test.hpp>
+#include <cstddef>
 
 #include <opm/material/fluidmatrixinteractions/EclEpsGridProperties.hpp>
 #include <opm/material/fluidmatrixinteractions/EclMaterialLawManager.hpp>
@@ -649,7 +650,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(Fam1Fam2Hysteresis, Scalar, Types)
     const Opm::EclipseState eclState(deck);
 
     const auto& eclGrid = eclState.getInputGrid();
-    size_t n = eclGrid.getCartesianSize();
+    std::size_t n = eclGrid.getCartesianSize();
 
     MaterialLawManager fam1materialLawManager;
     fam1materialLawManager.initFromState(eclState);
@@ -760,7 +761,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(GasOil, Scalar, Types)
     const Opm::EclipseState fam1EclState(fam1Deck);
 
     const auto& eclGrid = fam1EclState.getInputGrid();
-    const size_t n = eclGrid.getCartesianSize();
+    const std::size_t n = eclGrid.getCartesianSize();
 
     MaterialLawManager fam1materialLawManager;
     fam1materialLawManager.initFromState(fam1EclState);
@@ -822,7 +823,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(GasWater, Scalar, Types)
     const Opm::EclipseState fam2EclState(fam2Deck);
 
     const auto& eclGrid = fam2EclState.getInputGrid();
-    const size_t n = eclGrid.getCartesianSize();
+    const std::size_t n = eclGrid.getCartesianSize();
 
     MaterialLawManager fam2materialLawManager;
     fam2materialLawManager.initFromState(fam2EclState);
@@ -887,7 +888,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(Let, Scalar, Types)
     const Opm::EclipseState letEclState(letDeck);
 
     const auto& eclGrid = letEclState.getInputGrid();
-    const size_t n = eclGrid.getCartesianSize();
+    const std::size_t n = eclGrid.getCartesianSize();
 
     MaterialLawManager letmaterialLawManager;
     letmaterialLawManager.initFromState(letEclState);

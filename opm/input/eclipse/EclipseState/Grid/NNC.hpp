@@ -34,7 +34,7 @@ namespace Opm
 class GridDims;
 
 struct NNCdata {
-    NNCdata(size_t c1, size_t c2, double t)
+    NNCdata(std::size_t c1, std::size_t c2, double t)
         : cell1(c1), cell2(c2), trans(t)
     {}
     NNCdata() = default;
@@ -61,8 +61,8 @@ struct NNCdata {
         return std::tie(this->cell1, this->cell2) < std::tie(other.cell1, other.cell2);
     }
 
-    size_t cell1{};
-    size_t cell2{};
+    std::size_t cell1{};
+    std::size_t cell2{};
     double trans{};
 };
 
@@ -109,7 +109,7 @@ public:
 
     static NNC serializationTestObject();
 
-    virtual bool addNNC(const size_t cell1, const size_t cell2, const double trans);
+    virtual bool addNNC(const std::size_t cell1, const std::size_t cell2, const double trans);
 
     /// \brief Merge additional NNCs into sorted NNCs
     virtual void merge(const std::vector<NNCdata>& nncs);
@@ -164,7 +164,7 @@ class NNCDataContainer
     NNCDataContainer() = default;
     virtual ~NNCDataContainer() = default;
 
-    virtual bool addNNC(const size_t cell1, const size_t cell2, const double trans);
+    virtual bool addNNC(const std::size_t cell1, const std::size_t cell2, const double trans);
     bool addNNC(const NNCdata nnc_data);
 
     const std::vector<NNCdata>& input() const { return nnc_container; }
@@ -187,7 +187,7 @@ public:
     NNCDataContainerDiffGrid() = default;
     ~NNCDataContainerDiffGrid() override = default;
 
-    bool addNNC(const size_t cell1, const size_t cell2,
+    bool addNNC(const std::size_t cell1, const std::size_t cell2,
                 const double trans) override;
 
     void swap_adj(std::size_t grid1, std::size_t grid2);

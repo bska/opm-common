@@ -21,6 +21,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/test_tools.hpp>
 #include <boost/version.hpp>
+#include <cstddef>
 
 #include <opm/common/utility/OpmInputError.hpp>
 
@@ -48,7 +49,7 @@ inline std::string pathprefix() {
 
 namespace {
 
-ParserKeyword createFixedSized(const std::string& kw , size_t size) {
+ParserKeyword createFixedSized(const std::string& kw , std::size_t size) {
     ParserKeyword pkw(kw, KeywordSize(size));
     return pkw;
 }
@@ -67,7 +68,7 @@ Parser createWWCTParser() {
     record.addItem(item);
     parserKeyword.addRecord( record );
 
-    auto summaryKeyword = createFixedSized("SUMMARY" , (size_t) 0);
+    auto summaryKeyword = createFixedSized("SUMMARY" , (std::size_t) 0);
 
     Parser parser;
     parser.addParserKeyword( std::move( parserKeyword ) );
@@ -155,7 +156,7 @@ static Parser createBPRParser() {
         bprRecord.addItem( ParserItem("K", ParserItem::itype::INT) );
         parserKeyword.addRecord( bprRecord );
     }
-    auto summaryKeyword = createFixedSized("SUMMARY" , (size_t) 0);
+    auto summaryKeyword = createFixedSized("SUMMARY" , (std::size_t) 0);
     Parser parser;
     parser.addParserKeyword( std::move( parserKeyword ) );
     parser.addParserKeyword( std::move( summaryKeyword ) );

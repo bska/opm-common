@@ -26,6 +26,7 @@
 #define BOOST_TEST_MODULE FaultTests
 
 #include <boost/test/unit_test.hpp>
+#include <cstddef>
 
 #include <opm/input/eclipse/EclipseState/Grid/FaultCollection.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/Fault.hpp>
@@ -53,16 +54,16 @@ BOOST_AUTO_TEST_CASE(CreateFace) {
     Opm::FaultFace face3(10,10,10,0, 2  , 0 , 0 , 1 , 1 , Opm::FaceDir::YPlus);
 
     {
-        const std::vector<size_t> trueValues1{0,1,2};
-        const std::vector<size_t> trueValues2{10,11,12};
-        const std::vector<size_t> trueValues3{100,101,102};
+        const std::vector<std::size_t> trueValues1{0,1,2};
+        const std::vector<std::size_t> trueValues2{10,11,12};
+        const std::vector<std::size_t> trueValues3{100,101,102};
         auto iter3 = face3.begin();
         auto iter2 = face2.begin();
-        size_t i = 0;
+        std::size_t i = 0;
         for (auto iter1 = face1.begin(); iter1 != face1.end(); ++iter1) {
-            size_t index1 = *iter1;
-            size_t index2 = *iter2;
-            size_t index3 = *iter3;
+            std::size_t index1 = *iter1;
+            std::size_t index2 = *iter2;
+            std::size_t index3 = *iter3;
 
             BOOST_CHECK_EQUAL( index1 , trueValues1[i] );
             BOOST_CHECK_EQUAL( index2 , trueValues2[i] );

@@ -23,6 +23,7 @@
 
 #include <opm/common/utility/platform_dependent/disable_warnings.h>
 #include <boost/test/unit_test.hpp>
+#include <cstdint>
 #include <opm/common/utility/platform_dependent/reenable_warnings.h>
 
 #include <stdexcept>
@@ -101,8 +102,8 @@ BOOST_AUTO_TEST_CASE(Test_Logger) {
 
 BOOST_AUTO_TEST_CASE(LoggerAddTypes_PowerOf2) {
     Logger logger;
-    int64_t not_power_of2 = 13;
-    int64_t power_of2 = 4096;
+    std::int64_t not_power_of2 = 13;
+    std::int64_t power_of2 = 4096;
 
     BOOST_CHECK_THROW( logger.addMessageType( not_power_of2 , "Prefix") , std::invalid_argument);
     BOOST_CHECK_THROW( logger.enabledMessageType( not_power_of2 ) , std::invalid_argument);
@@ -115,13 +116,13 @@ BOOST_AUTO_TEST_CASE(LoggerAddTypes_PowerOf2) {
 
 class TestLog: public LogBackend {
 public:
-    explicit TestLog( int64_t messageMask ) : LogBackend( messageMask )
+    explicit TestLog( std::int64_t messageMask ) : LogBackend( messageMask )
     {
         m_defaultMessages = 0;
         m_specialMessages = 0;
     }
 
-    void addMessageUnconditionally(int64_t messageType , const std::string& /* message */) override
+    void addMessageUnconditionally(std::int64_t messageType , const std::string& /* message */) override
     {
         if (messageType & Log::DefaultMessageTypes)
             m_defaultMessages +=1;
@@ -140,7 +141,7 @@ public:
 
 BOOST_AUTO_TEST_CASE(LoggerMasksTypes) {
     Logger logger;
-    int64_t power_of2 = 4096;
+    std::int64_t power_of2 = 4096;
 
     std::shared_ptr<TestLog> testLog = std::make_shared<TestLog>(Log::DefaultMessageTypes + power_of2);
     logger.addBackend("TEST" , testLog);
@@ -181,8 +182,8 @@ BOOST_AUTO_TEST_CASE( CounterLogTesting) {
     BOOST_CHECK_EQUAL(1U  , counter.numMessages( Log::MessageType::Note ));
 
     {
-        int64_t not_enabled = 4096;
-        int64_t not_power2  = 4095;
+        std::int64_t not_enabled = 4096;
+        std::int64_t not_power2  = 4095;
 
         BOOST_CHECK_EQUAL( 0U , counter.numMessages( not_enabled ));
         BOOST_CHECK_THROW( counter.numMessages( not_power2 ) , std::invalid_argument);

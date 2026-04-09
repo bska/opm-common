@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <string>
 #include <algorithm>
+#include <cstddef>
 
 #include <opm/input/eclipse/Deck/DeckOutput.hpp>
 #include <opm/input/eclipse/Deck/DeckItem.hpp>
@@ -63,7 +64,7 @@ namespace Opm {
         return result;
     }
 
-    size_t DeckRecord::size() const {
+    std::size_t DeckRecord::size() const {
         return m_items.size();
     }
 
@@ -77,7 +78,7 @@ namespace Opm {
         m_items.push_back( std::move( deckItem ) );
     }
 
-    DeckItem& DeckRecord::getItem( size_t index ) {
+    DeckItem& DeckRecord::getItem( std::size_t index ) {
         return this->m_items.at( index );
     }
 
@@ -101,7 +102,7 @@ namespace Opm {
             throw std::range_error("Not a data keyword ?");
     }
 
-    const DeckItem& DeckRecord::getItem( size_t index ) const {
+    const DeckItem& DeckRecord::getItem( std::size_t index ) const {
         return this->m_items.at( index );
     }
 
@@ -167,7 +168,7 @@ namespace Opm {
         if (this->size() != other.size())
             return false;
 
-        for (size_t index = 0; index < this->size(); index++) {
+        for (std::size_t index = 0; index < this->size(); index++) {
             const auto& this_item = this->getItem( index );
             const auto& other_item = other.getItem( index );
             if (!this_item.equal( other_item , cmp_default, cmp_numeric))

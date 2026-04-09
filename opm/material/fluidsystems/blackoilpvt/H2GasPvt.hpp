@@ -27,6 +27,7 @@
 #ifndef OPM_H2_GAS_PVT_HPP
 #define OPM_H2_GAS_PVT_HPP
 
+#include <cstddef>
 #include <opm/material/components/SimpleHuDuanH2O.hpp>
 #include <opm/material/components/BrineDynamic.hpp>
 #include <opm/material/components/H2.hpp>
@@ -66,7 +67,7 @@ public:
     */
     void initFromState(const EclipseState& eclState, const Schedule&);
 
-    void setNumRegions(size_t numRegions);
+    void setNumRegions(std::size_t numRegions);
 
     void setVapPars(const Scalar, const Scalar)
     {

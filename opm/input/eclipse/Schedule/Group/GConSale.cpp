@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstddef>
 #include <opm/input/eclipse/Deck/UDAValue.hpp>
 
 #include <opm/input/eclipse/Schedule/Group/GConSale.hpp>
@@ -85,7 +86,7 @@ void GConSale::add(const std::string& name, const UDAValue& sales_target, const 
     group.unit_system = unit_system;
 }
 
-size_t GConSale::size() const {
+std::size_t GConSale::size() const {
     return groups.size();
 }
 

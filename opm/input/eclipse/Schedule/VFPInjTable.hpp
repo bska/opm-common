@@ -23,6 +23,7 @@
 
 
 #include <array>
+#include <cstddef>
 #include <vector>
 #include <string>
 
@@ -95,9 +96,9 @@ public:
 
     bool operator==(const VFPInjTable& data) const;
 
-    std::array<size_t,2> shape() const;
+    std::array<std::size_t,2> shape() const;
 
-    double operator()(size_t thp_idx, size_t flo_idx) const;
+    double operator()(std::size_t thp_idx, std::size_t flo_idx) const;
 
     template<class Serializer>
     void serializeOp(Serializer& serializer)
@@ -125,7 +126,7 @@ private:
 
     void check();
 
-    double& operator()(size_t thp_idx, size_t flo_idx);
+    double& operator()(std::size_t thp_idx, std::size_t flo_idx);
 
     static FLO_TYPE getFloType(const std::string& flo_string);
 

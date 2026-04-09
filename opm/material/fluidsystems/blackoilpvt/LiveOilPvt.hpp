@@ -27,6 +27,7 @@
 #ifndef OPM_LIVE_OIL_PVT_HPP
 #define OPM_LIVE_OIL_PVT_HPP
 
+#include <cstddef>
 #include <opm/common/Exceptions.hpp>
 #include <opm/common/OpmLog/OpmLog.hpp>
 
@@ -65,7 +66,7 @@ private:
                           const SimpleTable& masterTable);
 
 public:
-    void setNumRegions(size_t numRegions);
+    void setNumRegions(std::size_t numRegions);
 
     void setVapPars(const Scalar, const Scalar par2)
     {

@@ -23,6 +23,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/test_tools.hpp>
 #include <boost/version.hpp>
+#include <cstddef>
 
 #include <opm/input/eclipse/Deck/Deck.hpp>
 #include <opm/input/eclipse/Deck/DeckKeyword.hpp>
@@ -96,7 +97,7 @@ BOOST_AUTO_TEST_CASE(ExportFromCPGridACTNUM) {
     std::vector<double> coord;
     std::vector<double> zcorn;
     std::vector<int> actnum;
-    size_t volume = grid.getNX()*grid.getNY()*grid.getNZ();
+    std::size_t volume = grid.getNX()*grid.getNY()*grid.getNZ();
 
     coord = grid.getCOORD();
     BOOST_CHECK_EQUAL( coord.size() , (grid.getNX() + 1) * (grid.getNY() + 1) * 6);
@@ -111,9 +112,9 @@ BOOST_AUTO_TEST_CASE(ExportFromCPGridACTNUM) {
         const std::vector<int>& deckActnum = deck["ACTNUM"].back().getIntData();
         const std::vector<double>& deckZCORN = deck["ZCORN"].back().getSIDoubleData();
 
-        for (size_t i = 0; i < volume; i++) {
+        for (std::size_t i = 0; i < volume; i++) {
             BOOST_CHECK_EQUAL( deckActnum[i] , actnum[i]);
-            for (size_t j=0; j < 8; j++)
+            for (std::size_t j=0; j < 8; j++)
                 BOOST_CHECK_CLOSE( zcorn[i*8 + j] , deckZCORN[i*8 + j] , 0.0001);
         }
     }

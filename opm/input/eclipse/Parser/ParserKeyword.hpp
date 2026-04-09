@@ -19,6 +19,7 @@
 #ifndef PARSER_KEYWORD_H
 #define PARSER_KEYWORD_H
 
+#include <cstddef>
 #include <iosfwd>
 #include <optional>
 #include <regex>
@@ -101,14 +102,14 @@ namespace Opm {
         bool hasDimension() const;
         void addRecord( ParserRecord );
         void addDataRecord( ParserRecord );
-        const ParserRecord& getRecord(size_t recordIndex) const;
-        ParserRecord& getRecord(size_t recordIndex);
+        const ParserRecord& getRecord(std::size_t recordIndex) const;
+        ParserRecord& getRecord(std::size_t recordIndex);
         std::vector< ParserRecord >::const_iterator begin() const;
         std::vector< ParserRecord >::const_iterator end() const;
         const std::string className() const;
         const std::string& getName() const;
         std::optional<std::size_t> min_size() const;
-        size_t getFixedSize() const;
+        std::size_t getFixedSize() const;
         bool hasFixedSize() const;
         bool isTableCollection() const;
         const std::string& getDescription() const;

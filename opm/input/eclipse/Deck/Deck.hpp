@@ -20,6 +20,7 @@
 #ifndef DECK_HPP
 #define DECK_HPP
 
+#include <cstddef>
 #include <opm/input/eclipse/Deck/DeckView.hpp>
 #include <opm/input/eclipse/Deck/DeckTree.hpp>
 #include <opm/input/eclipse/Deck/DeckKeyword.hpp>
@@ -124,7 +125,7 @@ namespace Opm {
             std::size_t count() const {
                 return count( Keyword::keywordName );
             }
-            size_t count(const std::string& keyword) const;
+            std::size_t count(const std::string& keyword) const;
 
             void remove_keywords(int from, int to) { keywordList.erase(keywordList.begin() +from, keywordList.begin() + to); };
 

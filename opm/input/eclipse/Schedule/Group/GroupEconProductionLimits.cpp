@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstddef>
 #include <opm/input/eclipse/Schedule/Group/GroupEconProductionLimits.hpp>
 
 #include <opm/input/eclipse/Deck/UDAValue.hpp>
@@ -107,7 +108,7 @@ GroupEconProductionLimits GroupEconProductionLimits::serializationTestObject()
     return gecon;
 }
 
-size_t GroupEconProductionLimits::size() const {
+std::size_t GroupEconProductionLimits::size() const {
     return this->m_groups.size();
 }
 

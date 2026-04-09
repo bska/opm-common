@@ -20,6 +20,7 @@
 #ifndef OPM_MESSAGEFORMATTER_HEADER_INCLUDED
 #define OPM_MESSAGEFORMATTER_HEADER_INCLUDED
 
+#include <cstdint>
 #include <opm/common/OpmLog/LogUtil.hpp>
 #include <string>
 
@@ -36,7 +37,7 @@ namespace Opm
         /// Should return a possibly modified/decorated version of the
         /// input string, the formatting applied depending on the
         /// message_flag.
-        virtual std::string format(const int64_t message_flag, const std::string& message) = 0;
+        virtual std::string format(const std::int64_t message_flag, const std::string& message) = 0;
     };
 
 
@@ -57,7 +58,7 @@ namespace Opm
         }
 
 
-        SimpleMessageFormatter(const int64_t prefix_flag, const bool use_color_coding)
+        SimpleMessageFormatter(const std::int64_t prefix_flag, const bool use_color_coding)
             : use_color_coding_(use_color_coding),
               prefix_flag_(prefix_flag)
         {
@@ -73,7 +74,7 @@ namespace Opm
         /// Returns a copy of the input string with a flag-dependant
         /// prefix (if use_prefix) and the entire message in a
         /// flag-dependent color (if use_color_coding).
-        virtual std::string format(const int64_t message_flag, const std::string& message) override
+        virtual std::string format(const std::int64_t message_flag, const std::string& message) override
         {
             std::string msg = message;
             if (message_flag & prefix_flag_) {
@@ -86,7 +87,7 @@ namespace Opm
         }
     private:
         bool use_color_coding_ = false;
-        int64_t prefix_flag_ = 0;
+        std::int64_t prefix_flag_ = 0;
     };
 
 

@@ -18,6 +18,7 @@
 #ifndef OPM_IO_ECLOUTPUT_HPP
 #define OPM_IO_ECLOUTPUT_HPP
 
+#include <cstdint>
 #include <fstream>
 #include <ios>
 #include <string>
@@ -88,7 +89,7 @@ public:
     friend class OutputStream::SummarySpecification;
 
 private:
-    void writeBinaryHeader(const std::string& arrName, int64_t size, eclArrType arrType, int element_size);
+    void writeBinaryHeader(const std::string& arrName, std::int64_t size, eclArrType arrType, int element_size);
 
     template <typename T>
     void writeBinaryArray(const std::vector<T>& data);

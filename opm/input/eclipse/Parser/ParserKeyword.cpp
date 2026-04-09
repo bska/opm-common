@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <fmt/format.h>
 #include <iostream>
 #include <sstream>
@@ -305,8 +306,8 @@ std::string KeywordSize::construct() const
 
     void ParserKeyword::parseRecords( const Json::JsonObject& recordsConfig) {
          if (recordsConfig.is_array()) {
-             size_t num_records = recordsConfig.size();
-             for (size_t i = 0; i < num_records; i++) {
+             std::size_t num_records = recordsConfig.size();
+             for (std::size_t i = 0; i < num_records; i++) {
                   const Json::JsonObject itemsConfig = recordsConfig.get_array_item(i);
                   addItems(itemsConfig);
              }
@@ -478,7 +479,7 @@ std::string KeywordSize::construct() const
         if (namesObject.size() > 0)
             m_deckNames.clear();
 
-        for (size_t nameIdx = 0; nameIdx < namesObject.size(); ++ nameIdx) {
+        for (std::size_t nameIdx = 0; nameIdx < namesObject.size(); ++ nameIdx) {
             const Json::JsonObject nameObject = namesObject.get_array_item(nameIdx);
 
             if (!nameObject.is_string())
@@ -498,7 +499,7 @@ std::string KeywordSize::construct() const
             throw std::invalid_argument("The 'sections' JSON item of keyword "+m_name+" needs to be a list");
 
         m_validSectionNames.clear();
-        for (size_t nameIdx = 0; nameIdx < namesObject.size(); ++ nameIdx) {
+        for (std::size_t nameIdx = 0; nameIdx < namesObject.size(); ++ nameIdx) {
             const Json::JsonObject nameObject = namesObject.get_array_item(nameIdx);
 
             if (!nameObject.is_string())
@@ -541,10 +542,10 @@ std::string KeywordSize::construct() const
         if( !itemsConfig.is_array() )
             throw std::invalid_argument("The 'items' JSON item missing must be an array in keyword "+getName()+".");
 
-        size_t num_items = itemsConfig.size();
+        std::size_t num_items = itemsConfig.size();
         ParserRecord record;
 
-        for (size_t i = 0; i < num_items; i++) {
+        for (std::size_t i = 0; i < num_items; i++) {
             const Json::JsonObject& itemConfig = itemsConfig.get_array_item(i);
             record.addItem( ParserItem( itemConfig ) );
         }
@@ -564,7 +565,7 @@ void set_dimensions( ParserItem& item,
         item.push_backDimension( dim.as_string() );
     }
     else if( dim.is_array() ) {
-        for (size_t idim = 0; idim < dim.size(); idim++)
+        for (std::size_t idim = 0; idim < dim.size(); idim++)
             item.push_backDimension( dim.get_array_item( idim ).as_string() );
     }
     else {
@@ -641,7 +642,7 @@ void set_dimensions( ParserItem& item,
     }
 
 
-    const ParserRecord& ParserKeyword::getRecord(size_t recordIndex) const {
+    const ParserRecord& ParserKeyword::getRecord(std::size_t recordIndex) const {
         if( this->m_records.empty() )
             throw std::invalid_argument( "Trying to get record from empty keyword" );
 
@@ -656,7 +657,7 @@ void set_dimensions( ParserItem& item,
         return this->m_records[ recordIndex ];
     }
 
-    ParserRecord& ParserKeyword::getRecord( size_t index ) {
+    ParserRecord& ParserKeyword::getRecord( std::size_t index ) {
         return const_cast< ParserRecord& >(
                  const_cast< const ParserKeyword& >( *this ).getRecord( index )
                 );
@@ -755,7 +756,7 @@ void set_dimensions( ParserItem& item,
             /* Note: this merely dumps all records sequentially into m_recordList.
                Each block of records is separated by an empty DeckRecord.
             */
-            size_t record_nr = 0;
+            std::size_t record_nr = 0;
             try {
                 for (auto& rawRecord : rawKeyword) {
                     if (rawRecord.size() == 0) {
@@ -775,7 +776,7 @@ void set_dimensions( ParserItem& item,
             }
         }
         else {
-            size_t record_nr = 0;
+            std::size_t record_nr = 0;
             try {
                 for( auto& rawRecord : rawKeyword ) {
                     if( m_records.size() == 0 && rawRecord.size() > 0 )
@@ -811,7 +812,7 @@ void set_dimensions( ParserItem& item,
         return this->keyword_size.min_size();
     }
 
-    size_t ParserKeyword::getFixedSize() const {
+    std::size_t ParserKeyword::getFixedSize() const {
         if (!hasFixedSize())
             throw std::logic_error("The parser keyword "+getName()+" does not have a fixed size!");
         const auto& max_size = this->keyword_size.max_size();

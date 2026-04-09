@@ -24,6 +24,7 @@ along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 #include <boost/test/unit_test.hpp>
 
 #include <boost/version.hpp>
+#include <cstddef>
 
 #include <opm/input/eclipse/Python/Python.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
@@ -111,7 +112,7 @@ BOOST_AUTO_TEST_CASE(GetPOROTOPBased) {
     const auto& poro  = fp.get_double( "PORO" );
     const auto& permx = fp.get_double( "PERMX" );
 
-    for (size_t i=0; i < poro.size(); i++) {
+    for (std::size_t i=0; i < poro.size(); i++) {
         BOOST_CHECK_EQUAL( 0.10 , poro[i]);
         BOOST_CHECK_EQUAL( 0.25 * Metric::Permeability , permx[i]);
     }
@@ -293,7 +294,7 @@ BOOST_AUTO_TEST_CASE(GetProperty) {
 
     const auto& satnum = state.fieldProps().get_global_int("SATNUM");
     BOOST_CHECK_EQUAL(1000U , satnum.size() );
-    for (size_t i=0; i < satnum.size(); i++)
+    for (std::size_t i=0; i < satnum.size(); i++)
         BOOST_CHECK_EQUAL( 2 , satnum[i]);
 }
 

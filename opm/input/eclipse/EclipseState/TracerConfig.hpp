@@ -20,6 +20,7 @@
 #ifndef OPM_TRACER_CONFIG_HPP
 #define OPM_TRACER_CONFIG_HPP
 
+#include <cstddef>
 #include <opm/input/eclipse/EclipseState/Phase.hpp>
 #include <opm/input/eclipse/EclipseState/Tables/TracerVdTable.hpp>
 
@@ -123,7 +124,7 @@ public:
 
     static TracerConfig serializationTestObject();
 
-    size_t size() const;
+    std::size_t size() const;
     bool empty() const;
 
     const std::vector<TracerEntry>::const_iterator begin() const;

@@ -20,6 +20,7 @@
 #ifndef OPM_PARSER_PVTGWO_TABLE_HPP
 #define	OPM_PARSER_PVTGWO_TABLE_HPP
 
+#include <cstddef>
 #include <opm/input/eclipse/EclipseState/Tables/PvtxTable.hpp>
 
 namespace Opm {
@@ -29,7 +30,7 @@ namespace Opm {
     class PvtgwoTable : public PvtxTable {
     public:
         PvtgwoTable() = default;
-        PvtgwoTable( const DeckKeyword& keyword, size_t tableIdx);
+        PvtgwoTable( const DeckKeyword& keyword, std::size_t tableIdx);
 
         static PvtgwoTable serializationTestObject();
 

@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstddef>
 #include <opm/input/eclipse/Parser/ParserRecord.hpp>
 
 #include <fmt/format.h>
@@ -49,7 +50,7 @@ namespace {
     {
     }
 
-    size_t ParserRecord::size() const {
+    std::size_t ParserRecord::size() const {
         return m_items.size();
     }
 
@@ -102,7 +103,7 @@ namespace {
 
 
 
-    const ParserItem& ParserRecord::get(size_t index) const {
+    const ParserItem& ParserRecord::get(std::size_t index) const {
         return this->m_items.at( index );
     }
 
@@ -146,7 +147,7 @@ namespace {
     bool ParserRecord::equal(const ParserRecord& other) const {
         bool equal_ = true;
         if (size() == other.size()) {
-           size_t itemIndex = 0;
+           std::size_t itemIndex = 0;
            while (true) {
                if (itemIndex == size())
                    break;

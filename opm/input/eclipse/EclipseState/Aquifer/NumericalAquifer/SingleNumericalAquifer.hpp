@@ -20,6 +20,7 @@
 #ifndef OPM_SINGLENUMERICALAQUIFER_HPP
 #define OPM_SINGLENUMERICALAQUIFER_HPP
 
+#include <cstddef>
 #include <opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquiferConnection.hpp>
 #include <opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquiferCell.hpp>
 
@@ -44,7 +45,7 @@ namespace Opm {
     class SingleNumericalAquifer
     {
     public:
-        explicit SingleNumericalAquifer(const size_t aqu_id);
+        explicit SingleNumericalAquifer(const std::size_t aqu_id);
         SingleNumericalAquifer() = default;
 
         void addAquiferCell(const NumericalAquiferCell& aqu_cell);
@@ -54,14 +55,14 @@ namespace Opm {
 
         // TODO: the following two can be made one function. Let us see
         // how we use them at the end
-        size_t numCells() const;
-        size_t id() const;
-        size_t numConnections() const;
-        const NumericalAquiferCell* getCellPrt(size_t index) const;
+        std::size_t numCells() const;
+        std::size_t id() const;
+        std::size_t numConnections() const;
+        const NumericalAquiferCell* getCellPrt(std::size_t index) const;
 
         void applyMinPV(const EclipseGrid& grid);
 
-        std::unordered_map<size_t, AquiferCellProps> aquiferCellProps() const;
+        std::unordered_map<std::size_t, AquiferCellProps> aquiferCellProps() const;
 
         std::vector<NNCdata> aquiferCellNNCs() const;
         std::vector<NNCdata> aquiferConnectionNNCs(const EclipseGrid &grid, const FieldPropsManager &fp) const;
@@ -82,7 +83,7 @@ namespace Opm {
             // Because if it is a map, the id will be there
             // Then adding aquifer cells will be much easier with the
             // default constructor
-            size_t id_{};
+            std::size_t id_{};
             std::vector<NumericalAquiferCell> cells_{};
             std::vector<NumericalAquiferConnection> connections_{};
         };

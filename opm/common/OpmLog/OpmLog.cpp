@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstdint>
 #include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/common/OpmLog/Logger.hpp>
 #include <opm/common/OpmLog/StreamLog.hpp>
@@ -73,13 +74,13 @@ namespace Opm {
     }
 
 
-    void OpmLog::addMessage(int64_t messageFlag , const std::string& message) {
+    void OpmLog::addMessage(std::int64_t messageFlag , const std::string& message) {
         if (m_logger)
             m_logger->addMessage( messageFlag , message );
     }
 
 
-    void OpmLog::addTaggedMessage(int64_t messageFlag, const std::string& tag, const std::string& message) {
+    void OpmLog::addTaggedMessage(std::int64_t messageFlag, const std::string& tag, const std::string& message) {
         if (m_logger)
             m_logger->addTaggedMessage( messageFlag, tag, message );
     }
@@ -175,7 +176,7 @@ namespace Opm {
 
 
 
-    bool OpmLog::enabledMessageType( int64_t messageType ) {
+    bool OpmLog::enabledMessageType( std::int64_t messageType ) {
         if (m_logger)
             return m_logger->enabledMessageType( messageType );
         else
@@ -205,7 +206,7 @@ namespace Opm {
     }
 
 
-    void OpmLog::addMessageType( int64_t messageType , const std::string& prefix) {
+    void OpmLog::addMessageType( std::int64_t messageType , const std::string& prefix) {
         auto logger = OpmLog::getLogger();
         logger->addMessageType( messageType , prefix );
     }

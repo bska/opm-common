@@ -23,6 +23,7 @@
 #define BOOST_TEST_NO_MAIN
 
 #include <boost/test/unit_test.hpp>
+#include <cstddef>
 
 #include <opm/common/OpmLog/KeywordLocation.hpp>
 
@@ -173,10 +174,10 @@ namespace {
         Opm::Serialization::MemPacker packer;
         Opm::Serializer ser(packer);
         ser.pack(in);
-        const size_t pos1 = ser.position();
+        const std::size_t pos1 = ser.position();
         T out{};
         ser.unpack(out);
-        const size_t pos2 = ser.position();
+        const std::size_t pos2 = ser.position();
 
         return std::make_tuple(out, pos1, pos2);
     }

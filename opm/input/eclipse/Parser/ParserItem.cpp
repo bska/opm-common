@@ -21,6 +21,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <cstddef>
 
 #include <opm/json/JsonObject.hpp>
 
@@ -142,7 +143,7 @@ ParserItem::ParserItem( const Json::JsonObject& json ) :
             this->push_backDimension( dim.as_string() );
         }
         else if( dim.is_array() ) {
-            for( size_t i = 0; i < dim.size(); ++i )
+            for( std::size_t i = 0; i < dim.size(); ++i )
                 this->push_backDimension( dim.get_array_item( i ).as_string() );
         }
         else {

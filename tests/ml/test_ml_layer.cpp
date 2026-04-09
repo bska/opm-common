@@ -22,6 +22,7 @@
 
 #define BOOST_TEST_MODULE MLLayerTest
 #include <boost/test/unit_test.hpp>
+#include <cstddef>
 
 #include <opm/ml/ml_model.hpp>
 
@@ -32,7 +33,7 @@ static void check_vector_close(const Tensor<T>& t, const std::vector<double>& ex
 {
     BOOST_REQUIRE_EQUAL((int)t.dims_.size(), 1);
     BOOST_REQUIRE_EQUAL(t.dims_[0], (int)expected.size());
-    for (size_t i = 0; i < expected.size(); ++i) {
+    for (std::size_t i = 0; i < expected.size(); ++i) {
         double g = t(i);
         double e = expected[i];
         BOOST_REQUIRE_CLOSE(g, e, rel_tol);

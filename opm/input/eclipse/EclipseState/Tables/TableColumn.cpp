@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <stdexcept>
 #include <algorithm>
+#include <cstddef>
 
 #include <opm/input/eclipse/EclipseState/Tables/ColumnSchema.hpp>
 #include <opm/input/eclipse/EclipseState/Tables/TableColumn.hpp>
@@ -51,12 +52,12 @@ namespace Opm {
     }
 
 
-    size_t TableColumn::size() const {
+    std::size_t TableColumn::size() const {
         return m_values.size();
     }
 
 //TODO: Print schema
-    void TableColumn::assertOrder(double value1 , double value2, size_t index,
+    void TableColumn::assertOrder(double value1 , double value2, std::size_t index,
                                   const std::string& tableName) const
     {
         if (!m_schema.validOrder( value1 , value2) )
@@ -67,9 +68,9 @@ namespace Opm {
         return m_name;
     }
 
-    void TableColumn::assertNext(const std::string& tableName, size_t index , double value) const
+    void TableColumn::assertNext(const std::string& tableName, std::size_t index , double value) const
     {
-        size_t nextIndex = index + 1;
+        std::size_t nextIndex = index + 1;
         if (nextIndex < m_values.size()) {
             if (!m_default[nextIndex]) {
                 double nextValue = m_values[nextIndex];
@@ -79,10 +80,10 @@ namespace Opm {
     }
 
 
-    void TableColumn::assertPrevious(const std::string& tableName, size_t index , double value) const
+    void TableColumn::assertPrevious(const std::string& tableName, std::size_t index , double value) const
     {
         if (index > 0) {
-            size_t prevIndex = index - 1;
+            std::size_t prevIndex = index - 1;
             if (!m_default[prevIndex]) {
                 double prevValue = m_values[prevIndex];
                 assertOrder( prevValue , value, index, tableName );
@@ -91,7 +92,7 @@ namespace Opm {
     }
 
 
-    void TableColumn::assertUpdate(const std::string& tableName, size_t index, double value) const
+    void TableColumn::assertUpdate(const std::string& tableName, std::size_t index, double value) const
     {
         assertNext( tableName, index , value );
         assertPrevious( tableName, index, value );
@@ -122,7 +123,7 @@ namespace Opm {
     }
 
 
-    void TableColumn::updateValue(size_t index, double value, const std::string& tableName )
+    void TableColumn::updateValue(std::size_t index, double value, const std::string& tableName )
     {
         assertUpdate(  tableName,  index , value );
         m_values[index] = value;
@@ -132,14 +133,14 @@ namespace Opm {
         }
     }
 
-    bool TableColumn::defaultApplied(size_t index) const {
+    bool TableColumn::defaultApplied(std::size_t index) const {
         if (index >= m_values.size())
             throw std::invalid_argument("Value: " + std::to_string( index ) + " out of range: [0," + std::to_string( m_values.size()) + ")");
 
         return m_default[index];
     }
 
-    double TableColumn::operator[](size_t index) const {
+    double TableColumn::operator[](std::size_t index) const {
         if (index >= m_values.size())
             throw std::invalid_argument("Value: " + std::to_string( index ) + " out of range: [0," + std::to_string( m_values.size()) + ")");
 
@@ -211,21 +212,21 @@ namespace Opm {
 
         if (argValue >= max()) {
             const auto max_iter = std::ranges::max_element(m_values);
-            const size_t max_index = max_iter - m_values.begin();
+            const std::size_t max_index = max_iter - m_values.begin();
             return TableIndex( max_index , 1.0 );
         }
 
         if (argValue <= min()) {
             const auto min_iter = std::ranges::min_element(m_values);
-            const size_t min_index = min_iter - m_values.begin();
+            const std::size_t min_index = min_iter - m_values.begin();
             return TableIndex( min_index , 1.0 );
         }
 
         {
             bool isDescending = m_schema.isDecreasing( );
-            size_t lowIntervalIdx = 0;
-            size_t intervalIdx = (size() - 1)/2;
-            size_t highIntervalIdx = size() - 1;
+            std::size_t lowIntervalIdx = 0;
+            std::size_t intervalIdx = (size() - 1)/2;
+            std::size_t highIntervalIdx = size() - 1;
             double weight1;
 
             while (lowIntervalIdx + 1 < highIntervalIdx) {
@@ -277,7 +278,7 @@ namespace Opm {
 
 
     double TableColumn::eval( const TableIndex& index) const {
-        size_t index1 = index.getIndex1();
+        std::size_t index1 = index.getIndex1();
         double weight1 = index.getWeight1( );
         double value = m_values[index1] * weight1;
         if (weight1 < 1.0) {
@@ -306,7 +307,7 @@ namespace Opm {
             if (size() != argColumn.size())
                 throw std::invalid_argument("Size mismatch with argument column");
 
-            for (size_t rowIdx = 0; rowIdx < size(); ++rowIdx) {
+            for (std::size_t rowIdx = 0; rowIdx < size(); ++rowIdx) {
                 if (defaultApplied( rowIdx )) {
                     // find first row which was not defaulted before the current one
                     int rowBeforeIdx = static_cast<int>(rowIdx);
@@ -330,8 +331,8 @@ namespace Opm {
                         rowAfterIdx = rowBeforeIdx;
 
                     {
-                        const size_t before = static_cast<size_t>(rowBeforeIdx);
-                        const size_t after  = static_cast<size_t>(rowAfterIdx);
+                        const std::size_t before = static_cast<std::size_t>(rowBeforeIdx);
+                        const std::size_t after  = static_cast<std::size_t>(rowAfterIdx);
 
                         // linear interpolation
                         double alpha = 0.0;

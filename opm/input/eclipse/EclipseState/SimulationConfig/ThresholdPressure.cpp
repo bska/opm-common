@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstddef>
 #include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/common/utility/shmatch.hpp>
 #include <opm/input/eclipse/Deck/DeckSection.hpp>
@@ -147,13 +148,13 @@ namespace Opm {
         // extract the multipliers from the deck keyword
         m_thresholdFaultTable.resize(faults.size(), -1.0);
         for (const auto& thpresft : gridSection.get<ParserKeywords::THPRESFT>()) {
-            for (size_t recordIdx = 0; recordIdx < thpresft.size(); ++ recordIdx) {
+            for (std::size_t recordIdx = 0; recordIdx < thpresft.size(); ++ recordIdx) {
                 const DeckRecord& record = thpresft.getRecord(recordIdx);
 
                 const std::string& faultName = record.getItem("FAULT_NAME").getTrimmedString(0);
                 double thpresValue = record.getItem("VALUE").getSIDouble(0);
 
-                for (size_t faultIdx = 0; faultIdx < faults.size(); faultIdx++) {
+                for (std::size_t faultIdx = 0; faultIdx < faults.size(); faultIdx++) {
                     auto& fault = faults.getFault(faultIdx);
                     if (!shmatch(faultName, fault.getName()))
                         continue;
@@ -231,11 +232,11 @@ namespace Opm {
         addPair( r1,r2, valuePair );
     }
 
-    size_t ThresholdPressure::size() const {
+    std::size_t ThresholdPressure::size() const {
         return m_pressureTable.size();
     }
 
-    size_t ThresholdPressure::ftSize() const {
+    std::size_t ThresholdPressure::ftSize() const {
         return m_thresholdFaultTable.size();
     }
 

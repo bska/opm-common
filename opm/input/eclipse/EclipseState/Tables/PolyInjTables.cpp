@@ -23,6 +23,7 @@
  * PLYMWINJ, SKPRWAT, SKPRPOLY
  */
 
+#include <cstddef>
 #include <opm/input/eclipse/Deck/DeckKeyword.hpp>
 
 #include <opm/input/eclipse/Parser/ParserKeywords/P.hpp>
@@ -100,7 +101,7 @@ namespace Opm{
         }
 
         m_throughputs = table.getRecord(1).getItem<PLYMWINJ::THROUGHPUT>().getSIDoubleData();
-        const size_t num_cols = m_throughputs.size();
+        const std::size_t num_cols = m_throughputs.size();
 
         if (table.size() != num_cols + 3) {
             const std::string msg = "PLYMWINJ table " + std::to_string(m_table_number)
@@ -109,9 +110,9 @@ namespace Opm{
         }
 
         m_velocities = table.getRecord(2).getItem<PLYMWINJ::VELOCITY>().getSIDoubleData();
-        const size_t num_rows = m_velocities.size();
+        const std::size_t num_rows = m_velocities.size();
 
-        for (size_t i = 3; i < table.size(); ++i) {
+        for (std::size_t i = 3; i < table.size(); ++i) {
             const DeckRecord& record_i = table.getRecord(i);
             const std::vector<double>& data_i = record_i.getItem<PLYMWINJ::MOLECULARWEIGHT>().getSIDoubleData();
             if (data_i.size() != num_rows) {
@@ -158,7 +159,7 @@ namespace Opm{
         }
 
         m_throughputs = table.getRecord(1).getItem<SKPRWAT::THROUGHPUT>().getSIDoubleData();
-        const size_t num_cols = m_throughputs.size();
+        const std::size_t num_cols = m_throughputs.size();
 
         if (table.size() != num_cols + 3) {
             const std::string msg = "SKPRWAT table " + std::to_string(m_table_number)
@@ -167,9 +168,9 @@ namespace Opm{
         }
 
         m_velocities = table.getRecord(2).getItem<SKPRWAT::VELOCITY>().getSIDoubleData();
-        const size_t num_rows = m_velocities.size();
+        const std::size_t num_rows = m_velocities.size();
 
-        for (size_t i = 3; i < table.size(); ++i) {
+        for (std::size_t i = 3; i < table.size(); ++i) {
             const DeckRecord& record_i = table.getRecord(i);
             const std::vector<double>& data_i = record_i.getItem<SKPRWAT::SKINPRESSURE>().getSIDoubleData();
             if (data_i.size() != num_rows) {
@@ -223,7 +224,7 @@ namespace Opm{
         }
 
         m_throughputs = table.getRecord(1).getItem<SKPRPOLY::THROUGHPUT>().getSIDoubleData();
-        const size_t num_cols = m_throughputs.size();
+        const std::size_t num_cols = m_throughputs.size();
 
         if (table.size() != num_cols + 3) {
             const std::string msg = "SKPRPOLY table " + std::to_string(m_table_number)
@@ -232,9 +233,9 @@ namespace Opm{
         }
 
         m_velocities = table.getRecord(2).getItem<SKPRPOLY::VELOCITY>().getSIDoubleData();
-        const size_t num_rows = m_velocities.size();
+        const std::size_t num_rows = m_velocities.size();
 
-        for (size_t i = 3; i < table.size(); ++i) {
+        for (std::size_t i = 3; i < table.size(); ++i) {
             const DeckRecord& record_i = table.getRecord(i);
             const std::vector<double>& data_i = record_i.getItem<SKPRPOLY::SKINPRESSURE>().getSIDoubleData();
             if (data_i.size() != num_rows) {

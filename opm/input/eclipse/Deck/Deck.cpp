@@ -23,6 +23,7 @@
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <iterator>
 #include <stdexcept>
 #include <utility>
@@ -211,7 +212,7 @@ const DeckView& Deck::global_view() const {
 
 
     void Deck::write( DeckOutput& output ) const {
-        size_t kw_index = 1;
+        std::size_t kw_index = 1;
         for (const auto& keyword: *this) {
             keyword.write( output );
             kw_index++;

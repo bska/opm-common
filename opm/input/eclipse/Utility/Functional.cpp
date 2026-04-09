@@ -16,6 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <cstddef>
 #include <opm/input/eclipse/Utility/Functional.hpp>
 
 namespace Opm {
@@ -25,7 +26,7 @@ namespace fun {
 
     iota::iota( int lst ) : iota( 0, lst ) {}
 
-    size_t iota::size() const {
+    std::size_t iota::size() const {
         return this->last - this->first;
     }
 

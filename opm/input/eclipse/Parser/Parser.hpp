@@ -20,6 +20,7 @@
 #ifndef OPM_PARSER_HPP
 #define OPM_PARSER_HPP
 
+#include <cstddef>
 #include <filesystem>
 #include <iosfwd>
 #include <list>
@@ -137,7 +138,7 @@ namespace Opm {
          *
          * This is an approximate number because regular expresions are disconsidered.
          */
-        size_t size() const;
+        std::size_t size() const;
 
         template <class T>
         void addKeyword() {

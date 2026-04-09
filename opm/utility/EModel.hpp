@@ -20,6 +20,7 @@
 #define EMODEL_HPP
 
 
+#include <cstddef>
 #include <opm/io/eclipse/EclFile.hpp>
 #include <opm/io/eclipse/ERst.hpp>
 
@@ -73,7 +74,7 @@ private:
     int nI, nJ, nK;
     int activeReportStep;
 
-    size_t nActive;
+    std::size_t nActive;
 
     bool activeFilter, celVolCalculated;
 

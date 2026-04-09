@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstddef>
 #include <cstdlib>
 
 #include <fstream>
@@ -41,9 +42,9 @@ int main(int argc, char ** argv) {
         std::getline( is , buffer );
         is.close();
 
-        size_t start = 0;
+        std::size_t start = 0;
         while (true) {
-            size_t end = buffer.find( ";" , start);
+            std::size_t end = buffer.find( ";" , start);
             if (end == std::string::npos) {
                 keyword_list.push_back( buffer.substr(start) );
                 break;

@@ -16,6 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <cstddef>
 #include <opm/input/eclipse/EclipseState/checkDeck.hpp>
 
 #include <opm/common/OpmLog/OpmLog.hpp>
@@ -30,12 +31,12 @@
 #include <opm/common/utility/String.hpp>
 
 namespace Opm {
-bool checkDeck( const Deck& deck, const Parser& parser, const ParseContext& parseContext, ErrorGuard& errorGuard, size_t enabledChecks) {
+bool checkDeck( const Deck& deck, const Parser& parser, const ParseContext& parseContext, ErrorGuard& errorGuard, std::size_t enabledChecks) {
     bool deckValid = true;
 
     // make sure that the deck does not contain unknown keywords
     if (enabledChecks & UnknownKeywords) {
-        size_t keywordIdx = 0;
+        std::size_t keywordIdx = 0;
         for (; keywordIdx < deck.size(); keywordIdx++) {
             const auto& keyword = deck[keywordIdx];
             if (!parser.isRecognizedKeyword( keyword.name() ) ) {

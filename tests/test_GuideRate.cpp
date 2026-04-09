@@ -20,6 +20,7 @@
 #define BOOST_TEST_MODULE test_GuideRate
 
 #include <boost/test/unit_test.hpp>
+#include <cstddef>
 
 #include <opm/input/eclipse/Schedule/Group/GuideRate.hpp>
 
@@ -201,7 +202,7 @@ BOOST_AUTO_TEST_CASE(P1_First)
     const auto wgpp = 5.0;
     const auto wwpp = 0.1;
     const auto stm  = 0.0;
-    const auto rpt  = size_t{1};
+    const auto rpt  = std::size_t{1};
 
     cse.gr.updateGuideRateExpiration(stm, rpt);
     cse.gr.compute("P1", rpt, stm, wopp, wgpp, wwpp);
@@ -244,7 +245,7 @@ BOOST_AUTO_TEST_CASE(Erase)
     const auto wgpp = 5.0;
     const auto wwpp = 0.1;
     const auto stm  = 0.0;
-    const auto rpt  = size_t{1};
+    const auto rpt  = std::size_t{1};
 
     cse.gr.updateGuideRateExpiration(stm, rpt);
     // NOTE: The default guide rate for the production well P1 is computed based on the GUIDERAT keyword,
@@ -279,7 +280,7 @@ BOOST_AUTO_TEST_CASE(P2_Second)
         const auto wgpp = 5.0;
         const auto wwpp = 0.1;
         const auto stm  = 0.0;
-        const auto rpt  = size_t{1};
+        const auto rpt  = std::size_t{1};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P2", rpt, stm, wopp, wgpp, wwpp);
@@ -290,7 +291,7 @@ BOOST_AUTO_TEST_CASE(P2_Second)
         const auto wgpp = 50.0;
         const auto wwpp = 1.0;
         const auto stm  = 10.0*Opm::unit::second; // Before recalculation delay
-        const auto rpt  = size_t{1};
+        const auto rpt  = std::size_t{1};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P2", rpt, stm, wopp, wgpp, wwpp);
@@ -330,7 +331,7 @@ BOOST_AUTO_TEST_CASE(P2_Second)
         const auto wgpp = 50.0;
         const auto wwpp = 1.0;
         const auto stm  = 10.0*Opm::unit::day; // After recalculation delay
-        const auto rpt  = size_t{3};
+        const auto rpt  = std::size_t{3};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P2", rpt, stm, wopp, wgpp, wwpp);
@@ -372,7 +373,7 @@ BOOST_AUTO_TEST_CASE(P_Third)
         const auto wgpp = 5.0;
         const auto wwpp = 0.1;
         const auto stm  = 0.0;
-        const auto rpt  = size_t{1};
+        const auto rpt  = std::size_t{1};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -383,7 +384,7 @@ BOOST_AUTO_TEST_CASE(P_Third)
         const auto wgpp = 50.0;
         const auto wwpp = 1.0;
         const auto stm  = 10.0*Opm::unit::day;
-        const auto rpt  = size_t{3};
+        const auto rpt  = std::size_t{3};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -394,7 +395,7 @@ BOOST_AUTO_TEST_CASE(P_Third)
         const auto wgpp = 100.0;
         const auto wwpp = 10.0;
         const auto stm  = 20.0*Opm::unit::day;
-        const auto rpt  = size_t{4};
+        const auto rpt  = std::size_t{4};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -442,7 +443,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df01)
         const auto wgpp = 5.0;
         const auto wwpp = 0.1;
         const auto stm  = 0.0;
-        const auto rpt  = size_t{1};
+        const auto rpt  = std::size_t{1};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -453,7 +454,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df01)
         const auto wgpp = 50.0;
         const auto wwpp = 1.0;
         const auto stm  = 10.0*Opm::unit::day;
-        const auto rpt  = size_t{3};
+        const auto rpt  = std::size_t{3};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -464,7 +465,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df01)
         const auto wgpp = 100.0;
         const auto wwpp = 10.0;
         const auto stm  = 20.0*Opm::unit::day;
-        const auto rpt  = size_t{4};
+        const auto rpt  = std::size_t{4};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -512,7 +513,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df09)
         const auto wgpp = 5.0;
         const auto wwpp = 0.1;
         const auto stm  = 0.0;
-        const auto rpt  = size_t{1};
+        const auto rpt  = std::size_t{1};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -523,7 +524,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df09)
         const auto wgpp = 50.0;
         const auto wwpp = 1.0;
         const auto stm  = 10.0*Opm::unit::day;
-        const auto rpt  = size_t{3};
+        const auto rpt  = std::size_t{3};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -534,7 +535,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df09)
         const auto wgpp = 100.0;
         const auto wwpp = 10.0;
         const auto stm  = 20.0*Opm::unit::day;
-        const auto rpt  = size_t{4};
+        const auto rpt  = std::size_t{4};
 
         cse.gr.updateGuideRateExpiration(stm, rpt);
         cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
@@ -684,7 +685,7 @@ BOOST_AUTO_TEST_CASE(POTN_has_and_get)
     const auto gas_pot = 3000.0;
     const auto wat_pot = 1000.0;
     const auto stm = 0.0; // simulation time
-    const auto rpt = size_t{1}; // report step
+    const auto rpt = std::size_t{1}; // report step
 
     // Before compute: group P should not have a guide rate
     BOOST_CHECK(!cse.gr.has("P"));
@@ -732,7 +733,7 @@ BOOST_AUTO_TEST_CASE(POTN_erase)
     const auto gas_pot = 3000.0;
     const auto wat_pot = 1000.0;
     const auto stm = 0.0; // simulation time
-    const auto rpt = size_t{1}; // report step
+    const auto rpt = std::size_t{1}; // report step
 
     cse.gr.updateGuideRateExpiration(stm, rpt);
     cse.gr.compute("P", rpt, stm, oil_pot, gas_pot, wat_pot);
@@ -752,7 +753,7 @@ BOOST_AUTO_TEST_CASE(POTN_updated_potentials)
     auto cse = case_potn_group();
 
     const auto stm1 = 0.0; // simulation time
-    const auto rpt = size_t{1}; // report step
+    const auto rpt = std::size_t{1}; // report step
 
     cse.gr.updateGuideRateExpiration(stm1, rpt);
     cse.gr.compute("P", rpt, stm1, /*oil_pot=*/6000.0, /*gas_pot=*/3000.0, /*wat_pot=*/1000.0);

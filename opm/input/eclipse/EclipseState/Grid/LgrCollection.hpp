@@ -16,6 +16,7 @@
 #ifndef OPM_PARSER_LGR_COLLECTION_HPP
 #define OPM_PARSER_LGR_COLLECTION_HPP
 
+#include <cstddef>
 #include <string>
 
 #include <opm/input/eclipse/EclipseState/Util/OrderedMap.hpp>
@@ -39,12 +40,12 @@ public:
 
    explicit LgrCollection(const Deck& deck);
 
-    size_t size() const;
+    std::size_t size() const;
     bool hasLgr(const std::string& lgrName) const;
     Carfin& getLgr(const std::string& lgrName);
     const Carfin& getLgr(const std::string& lgrName) const;
-    Carfin& getLgr(size_t lgrIndex);
-    const Carfin& getLgr(size_t lgrIndex) const;
+    Carfin& getLgr(std::size_t lgrIndex);
+    const Carfin& getLgr(std::size_t lgrIndex) const;
 
     void addLgr(const EclipseGrid& grid, const DeckRecord& lgrRecord);
 

@@ -17,6 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstddef>
 #include <opm/input/eclipse/EclipseState/Aquifer/AquiferFlux.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/A.hpp>
 
@@ -103,7 +104,7 @@ namespace Opm {
         return this->m_aquifers.count(id) > 0;
     }
 
-    size_t AquiferFlux::size() const {
+    std::size_t AquiferFlux::size() const {
         return this->m_aquifers.size();
     }
 

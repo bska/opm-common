@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <fmt/format.h>
 
@@ -140,8 +141,8 @@ VFPInjTable::VFPInjTable( const DeckKeyword& table, const UnitSystem& deck_unit_
     convertTHPToSI(m_thp_data, deck_unit_system);
 
     //Finally, read the actual table itself.
-    size_t nt = m_thp_data.size();
-    size_t nf = m_flo_data.size();
+    std::size_t nt = m_thp_data.size();
+    std::size_t nf = m_flo_data.size();
     m_data.resize(nt*nf);
     std::fill_n(m_data.data(), m_data.size(), std::nan("0"));
 
@@ -151,7 +152,7 @@ VFPInjTable::VFPInjTable( const DeckKeyword& table, const UnitSystem& deck_unit_
     }
 
     const double table_scaling_factor = deck_unit_system.parse("Pressure").getSIScaling();
-    for (size_t i=3; i<table.size(); ++i) {
+    for (std::size_t i=3; i<table.size(); ++i) {
         const auto& record = table.getRecord(i);
         //Get indices (subtract 1 to get 0-based index)
         int t = getNonEmptyItem<VFPINJ::THP_INDEX>(record).get< int >(0) - 1;
@@ -329,17 +330,17 @@ bool VFPInjTable::operator==(const VFPInjTable& data) const {
 }
 
 
-double VFPInjTable::operator()(size_t thp_idx, size_t flo_idx) const {
+double VFPInjTable::operator()(std::size_t thp_idx, std::size_t flo_idx) const {
     return m_data[thp_idx*m_flo_data.size() + flo_idx];
 }
 
 
-double& VFPInjTable::operator()(size_t thp_idx, size_t flo_idx) {
+double& VFPInjTable::operator()(std::size_t thp_idx, std::size_t flo_idx) {
     return m_data[thp_idx*m_flo_data.size() + flo_idx];
 }
 
 
-std::array<size_t,2> VFPInjTable::shape() const {
+std::array<std::size_t,2> VFPInjTable::shape() const {
     return {m_thp_data.size(), m_flo_data.size()};
 }
 

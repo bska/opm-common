@@ -39,12 +39,12 @@ public:
 
     static FaultCollection serializationTestObject();
 
-    size_t size() const;
+    std::size_t size() const;
     bool hasFault(const std::string& faultName) const;
     Fault& getFault(const std::string& faultName);
     const Fault& getFault(const std::string& faultName) const;
-    Fault& getFault(size_t faultIndex);
-    const Fault& getFault(size_t faultIndex) const;
+    Fault& getFault(std::size_t faultIndex);
+    const Fault& getFault(std::size_t faultIndex) const;
     std::vector<std::string> getFaults(const std::string& pattern) const;
 
     /// we construct the fault based on faultName.  To get the fault: getFault

@@ -48,6 +48,7 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <cstddef>
 
 //Test Killogh hysteresis Gas Oil System
 static const char* hysterDeckStringKilloughGasOil = R"(
@@ -1874,7 +1875,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(HysteresisKilloughOilWater, Scalar, Types)
     const Opm::EclipseState eclState(deck);
 
     const auto& eclGrid = eclState.getInputGrid();
-    size_t n = eclGrid.getCartesianSize();
+    std::size_t n = eclGrid.getCartesianSize();
 
     MaterialLawManager hysteresis;
     hysteresis.initFromState(eclState);
