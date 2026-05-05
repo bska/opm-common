@@ -147,8 +147,48 @@ namespace Opm { namespace EclIO { namespace OutputStream {
                        const std::vector<T>& data);
     };
 
+    /// Abstract base class for restart-like output stream managers.
+    ///
+    /// Provides a common write interface shared by both the Restart and
+    /// Store stream managers, enabling a single save pipeline to serve
+    /// both file formats.
+    class RestartBase
+    {
+    public:
+        virtual ~RestartBase() = default;
+
+        /// Generate a message string (keyword type 'MESS').
+        ///
+        /// \param[in] msg Message string (e.g., "STARTSOL").
+        virtual void message(const std::string& msg) = 0;
+
+        /// Write integer data.
+        virtual void write(const std::string&      kw,
+                           const std::vector<int>& data) = 0;
+
+        /// Write boolean data.
+        virtual void write(const std::string&       kw,
+                           const std::vector<bool>& data) = 0;
+
+        /// Write single-precision floating-point data.
+        virtual void write(const std::string&        kw,
+                           const std::vector<float>& data) = 0;
+
+        /// Write double-precision floating-point data.
+        virtual void write(const std::string&         kw,
+                           const std::vector<double>& data) = 0;
+
+        /// Write unpadded string data.
+        virtual void write(const std::string&              kw,
+                           const std::vector<std::string>& data) = 0;
+
+        /// Write padded character data (8 characters per string).
+        virtual void write(const std::string&                        kw,
+                           const std::vector<PaddedOutputString<8>>& data) = 0;
+    };
+
     /// File manager for restart output streams.
-    class Restart
+    class Restart : public RestartBase
     {
     public:
         /// Constructor.
@@ -173,7 +213,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
                          const Formatted& fmt,
                          const Unified&   unif);
 
-        ~Restart();
+        ~Restart() override;
 
         Restart(const Restart& rhs) = delete;
         Restart(Restart&& rhs);
@@ -185,7 +225,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
         /// output stream.
         ///
         /// \param[in] msg Message string (e.g., "STARTSOL").
-        void message(const std::string& msg);
+        void message(const std::string& msg) override;
 
         /// Write integer data to underlying output stream.
         ///
@@ -193,7 +233,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
         ///
         /// \param[in] data Output values.
         void write(const std::string&      kw,
-                   const std::vector<int>& data);
+                   const std::vector<int>& data) override;
 
         /// Write boolean data to underlying output stream.
         ///
@@ -201,7 +241,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
         ///
         /// \param[in] data Output values.
         void write(const std::string&       kw,
-                   const std::vector<bool>& data);
+                   const std::vector<bool>& data) override;
 
         /// Write single precision floating point data to underlying
         /// output stream.
@@ -210,7 +250,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
         ///
         /// \param[in] data Output values.
         void write(const std::string&        kw,
-                   const std::vector<float>& data);
+                   const std::vector<float>& data) override;
 
         /// Write double precision floating point data to underlying
         /// output stream.
@@ -219,7 +259,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
         ///
         /// \param[in] data Output values.
         void write(const std::string&         kw,
-                   const std::vector<double>& data);
+                   const std::vector<double>& data) override;
 
         /// Write unpadded string data to underlying output stream.
         ///
@@ -227,7 +267,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
         ///
         /// \param[in] data Output values.
         void write(const std::string&              kw,
-                   const std::vector<std::string>& data);
+                   const std::vector<std::string>& data) override;
 
         /// Write padded character data (8 characters per string)
         /// to underlying output stream.
@@ -236,7 +276,7 @@ namespace Opm { namespace EclIO { namespace OutputStream {
         ///
         /// \param[in] data Output values.
         void write(const std::string&                        kw,
-                   const std::vector<PaddedOutputString<8>>& data);
+                   const std::vector<PaddedOutputString<8>>& data) override;
 
     private:
         /// Restart output stream.
