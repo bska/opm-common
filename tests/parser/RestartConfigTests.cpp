@@ -36,6 +36,7 @@
 #include <opm/input/eclipse/Parser/Parser.hpp>
 
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -47,14 +48,21 @@ using namespace Opm;
 
 namespace {
 
-std::vector<std::string> filter_keywords(const std::map<std::string, int>& keywords) {
-    std::vector<std::string> kwlist;
-    for (const auto& [kw, value] : keywords) {
-        if (kw == "BASIC" || kw == "FREQ" || kw == "RESTART")
-            continue;
+template <typename Comparator>
+std::vector<std::string>
+filter_keywords(const std::map<std::string, int, Comparator>& keywords)
+{
+    auto kwlist = std::vector<std::string>{};
+    kwlist.reserve(keywords.size());
 
-        if (value == 0)
+    for (const auto& [kw, value] : keywords) {
+        if ((value == 0)    ||
+            (kw == "BASIC") ||
+            (kw == "FREQ")  ||
+            (kw == "RESTART"))
+        {
             continue;
+        }
 
         kwlist.push_back(kw);
     }
@@ -74,28 +82,28 @@ GRID
 
 DXV
   10*1 /
-
 DYV
   10*1 /
-
 DZV
   10*1 /
-
 DEPTHZ
   121*1 /
-
 PORO
   1000*0.25 /
 )" };
 }
 
-Schedule make_schedule(std::string sched_input, bool add_grid = true) {
-    if (add_grid)
-        sched_input = grid() + sched_input;
+Schedule make_schedule(std::string sched_input,
+                       const bool  add_grid = true)
+{
+    if (add_grid) {
+        sched_input.insert(0, grid());
+    }
 
-    auto deck = Parser{}.parseString( sched_input );
-    EclipseState es(deck);
-    return Schedule(deck, es);
+    const auto deck = Parser{}.parseString(sched_input);
+    const auto es   = EclipseState { deck };
+
+    return Schedule { deck, es };
 }
 
 } // namespace Anonymous
@@ -1505,41 +1513,43 @@ DATES
                              "Must NOT write restart for report step " << ts );
 }
 
-BOOST_AUTO_TEST_CASE(RESTART_SAVE) {
-    const std::string data = R"(
-
+BOOST_AUTO_TEST_CASE(RESTART_SAVE)
+{
+    const auto sched_input = std::string { R"(
 SCHEDULE
 DATES
- 22 MAY 1981 /
+ 22 MAY 1981 / --  1
 /
 DATES
- 23 MAY 1981 /
- 24 MAY 1981 /
- 23 MAY 1982 /
- 24 MAY 1982 /
- 24 MAY 1983 /
- 25 MAY 1984 /
- 26 MAY 1984 /
- 26 MAY 1985 /
- 27 MAY 1985 /
- 1 JAN 1986 /
+ 23 MAY 1981 / --  2
+ 24 MAY 1981 / --  3
+ 23 MAY 1982 / --  4
+ 24 MAY 1982 / --  5
+ 24 MAY 1983 / --  6
+ 25 MAY 1984 / --  7
+ 26 MAY 1984 / --  8
+ 26 MAY 1985 / --  9
+ 27 MAY 1985 / -- 10
+  1 JAN 1986 / -- 11
 /
 SAVE
 TSTEP
- 1 /
-)";
-    auto sched = make_schedule(data);
-    for (std::size_t ts = 1; ts < 11; ++ts)
-        BOOST_CHECK_MESSAGE( !sched.write_rst_file(ts),
-                             "Must NOT write restart for report step " << ts);
+ 1 / -- 12
+)" };
 
-    BOOST_CHECK_MESSAGE( sched.write_rst_file(11),
-                         "Must write restart for report step 11");
+    const auto sched = make_schedule(sched_input);
 
-    BOOST_CHECK_MESSAGE( !sched.write_rst_file( 12 ),
-                         "Must NOT write restart for report step 12");
+    for (std::size_t ts = 1; ts < 11; ++ts) {
+        BOOST_CHECK_MESSAGE(!sched.write_rst_file(ts),
+                            "Must NOT write restart for report step " << ts);
+    }
+
+    BOOST_CHECK_MESSAGE(sched.write_rst_file(11),
+                        "Must write restart for report step 11");
+
+    BOOST_CHECK_MESSAGE(!sched.write_rst_file(12),
+                        "Must NOT write restart for report step 12");
 }
-
 
 BOOST_AUTO_TEST_CASE(RPTSCHED_INTEGER2) {
 
@@ -1644,7 +1654,8 @@ END
     // SEQNUM = 0
     {
         const auto expect = std::map {
-            std::pair { std::string("FIP"), 1 },
+            { std::pair { std::string("FIP"), 1 } },
+            std::less<>{}
         };
 
         BOOST_CHECK_MESSAGE(sched.write_rst_file(0), "Must write initial restart file");
