@@ -31,6 +31,7 @@
 
 namespace Opm { namespace EclIO { namespace OutputStream {
     class Restart;
+    class Store;
 }}}
 
 namespace Opm { namespace EclIO {
@@ -80,6 +81,7 @@ public:
     std::vector<EclEntry> listOfRstArrays(int reportStepNumber, const std::string& lgr_name);
 
     friend class OutputStream::Restart;
+    friend class OutputStream::Store;
 
 private:
     int nReports;
