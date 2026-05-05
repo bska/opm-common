@@ -38,6 +38,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -50,14 +51,21 @@ using namespace Opm;
 
 namespace {
 
-std::vector<std::string> filter_keywords(const std::map<std::string, int>& keywords) {
-    std::vector<std::string> kwlist;
-    for (const auto& [kw, value] : keywords) {
-        if (kw == "BASIC" || kw == "FREQ" || kw == "RESTART")
-            continue;
+template <typename Comparator>
+std::vector<std::string>
+filter_keywords(const std::map<std::string, int, Comparator>& keywords)
+{
+    auto kwlist = std::vector<std::string>{};
+    kwlist.reserve(keywords.size());
 
-        if (value == 0)
+    for (const auto& [kw, value] : keywords) {
+        if ((value == 0)    ||
+            (kw == "BASIC") ||
+            (kw == "FREQ")  ||
+            (kw == "RESTART"))
+        {
             continue;
+        }
 
         kwlist.push_back(kw);
     }
@@ -77,28 +85,28 @@ GRID
 
 DXV
   10*1 /
-
 DYV
   10*1 /
-
 DZV
   10*1 /
-
 DEPTHZ
   121*1 /
-
 PORO
   1000*0.25 /
 )" };
 }
 
-Schedule make_schedule(std::string sched_input, bool add_grid = true) {
-    if (add_grid)
-        sched_input = grid() + sched_input;
+Schedule make_schedule(std::string sched_input,
+                       const bool  add_grid = true)
+{
+    if (add_grid) {
+        sched_input.insert(0, grid());
+    }
 
-    auto deck = Parser{}.parseString( sched_input );
-    EclipseState es(deck);
-    return Schedule(deck, es);
+    const auto deck = Parser{}.parseString(sched_input);
+    const auto es   = EclipseState { deck };
+
+    return Schedule { deck, es };
 }
 
 } // namespace Anonymous
@@ -851,7 +859,7 @@ DATES             -- 3
     // BASIC=0 in SCHEDULE clears the mnemonics requested in SOLUTION.
     const auto kw_list = filter_keywords( sched1.rst_keywords(2) );
     BOOST_CHECK_MESSAGE(kw_list.empty(), "BASIC=0 must clear earlier RPTRST mnemonics");
-    BOOST_CHECK(! sched1[1].rst_config().norst.has_value());
+    BOOST_CHECK_EQUAL(sched1[1].rst_config().norstValue(), 0);
 
     ctx.update(ParseContext::RPT_UNKNOWN_MNEMONIC, InputErrorAction::THROW_EXCEPTION);
     BOOST_CHECK_THROW( Schedule( deck2, es2, ctx, errors, {} ), std::exception );
@@ -1429,14 +1437,13 @@ DATES
     const auto kw_list1 = filter_keywords(sched.rst_keywords(1));
     BOOST_CHECK_EQUAL_COLLECTIONS(expected1.begin(), expected1.end(),
                                   kw_list1.begin(), kw_list1.end());
-    BOOST_CHECK_EQUAL(sched[0].rst_config().norst.value_or(0), 1);
+    BOOST_CHECK_EQUAL(sched[0].rst_config().norstValue(), 1);
 
     BOOST_CHECK(filter_keywords(sched.rst_keywords(3)).empty());
 
     const auto& rst = sched[2].rst_config();
-    BOOST_CHECK(!rst.norst.has_value());
-    BOOST_CHECK(!rst.freq.has_value());
-    BOOST_CHECK_EQUAL(rst.basic.value_or(-1), 2);
+    BOOST_CHECK_EQUAL(rst.norstValue(), 0);
+    BOOST_CHECK_EQUAL(rst.basicValue(), 2);
 }
 
 BOOST_AUTO_TEST_CASE(SOLUTION_RPTRST_Mnemonics_Persist) {
@@ -1463,7 +1470,7 @@ DATES
                                       kw_list.begin(), kw_list.end());
     }
 
-    BOOST_CHECK_EQUAL(sched[1].rst_config().norst.value_or(0), 1);
+    BOOST_CHECK_EQUAL(sched[1].rst_config().norstValue(), 1);
 }
 
 BOOST_AUTO_TEST_CASE(SOLUTION_RPTRST_Mnemonics_Persist_With_RPTSOL) {
@@ -1653,41 +1660,43 @@ DATES
                              "Must NOT write restart for report step " << ts );
 }
 
-BOOST_AUTO_TEST_CASE(RESTART_SAVE) {
-    const std::string data = R"(
-
+BOOST_AUTO_TEST_CASE(RESTART_SAVE)
+{
+    const auto sched_input = std::string { R"(
 SCHEDULE
 DATES
- 22 MAY 1981 /
+ 22 MAY 1981 / --  1
 /
 DATES
- 23 MAY 1981 /
- 24 MAY 1981 /
- 23 MAY 1982 /
- 24 MAY 1982 /
- 24 MAY 1983 /
- 25 MAY 1984 /
- 26 MAY 1984 /
- 26 MAY 1985 /
- 27 MAY 1985 /
- 1 JAN 1986 /
+ 23 MAY 1981 / --  2
+ 24 MAY 1981 / --  3
+ 23 MAY 1982 / --  4
+ 24 MAY 1982 / --  5
+ 24 MAY 1983 / --  6
+ 25 MAY 1984 / --  7
+ 26 MAY 1984 / --  8
+ 26 MAY 1985 / --  9
+ 27 MAY 1985 / -- 10
+  1 JAN 1986 / -- 11
 /
 SAVE
 TSTEP
- 1 /
-)";
-    auto sched = make_schedule(data);
-    for (std::size_t ts = 1; ts < 11; ++ts)
-        BOOST_CHECK_MESSAGE( !sched.write_rst_file(ts),
-                             "Must NOT write restart for report step " << ts);
+ 1 / -- 12
+)" };
 
-    BOOST_CHECK_MESSAGE( sched.write_rst_file(11),
-                         "Must write restart for report step 11");
+    const auto sched = make_schedule(sched_input);
 
-    BOOST_CHECK_MESSAGE( !sched.write_rst_file( 12 ),
-                         "Must NOT write restart for report step 12");
+    for (std::size_t ts = 1; ts < 11; ++ts) {
+        BOOST_CHECK_MESSAGE(!sched.write_rst_file(ts),
+                            "Must NOT write restart for report step " << ts);
+    }
+
+    BOOST_CHECK_MESSAGE(sched.write_rst_file(11),
+                        "Must write restart for report step 11");
+
+    BOOST_CHECK_MESSAGE(!sched.write_rst_file(12),
+                        "Must NOT write restart for report step 12");
 }
-
 
 BOOST_AUTO_TEST_CASE(RPTSCHED_INTEGER2) {
 
@@ -1801,7 +1810,8 @@ END
     // SEQNUM = 0
     {
         const auto expect = std::map {
-            std::pair { std::string("FIP"), 1 },
+            { std::pair { std::string("FIP"), 1 } },
+            std::less<>{}
         };
 
         BOOST_CHECK_MESSAGE(sched.write_rst_file(0), "Must write initial restart file");
@@ -1839,16 +1849,19 @@ RPTSOL
     context.update(ParseContext::RPT_UNKNOWN_MNEMONIC, InputErrorAction::THROW_EXCEPTION);
     auto errors = ErrorGuard{};
     const auto config = RSTConfig{SOLUTIONSection{deck}, context, true, errors};
-    const auto expected = std::map<std::string, int> {
+    const auto expected = std::map<std::string, int, std::less<>> {
         {"DENG", 1}, {"DENO", 1}, {"DENW", 1}, {"FIP", 2},
         {"PRESSURE", 1}, {"SGAS", 1}, {"SOIL", 1}, {"SWAT", 1},
         {"VGAS", 1}, {"VOIL", 1}, {"VWAT", 1},
         {"XMF", 2}, {"YMF", 1}, {"ZMF", 0},
     };
 
-    BOOST_CHECK(config.write_rst_file.value_or(false));
-    BOOST_CHECK(config.keywords == expected);
-    BOOST_CHECK(RSTConfig::first(config).keywords.empty());
+    BOOST_CHECK_MESSAGE(config.writeSaveOrStoreFile(),
+                        R"(Must write restart file from SOLUTION section specification.)");
+    BOOST_CHECK_MESSAGE(config.reportMnemonics() == expected,
+                        R"(SOLUTION section restart config does not have expected set of mnemonics.)");
+    BOOST_CHECK_MESSAGE(config.makeFirstStepConfig().reportMnemonics().empty(),
+                        R"(First step's restart file mnemonic set must be empty.)");
 }
 
 BOOST_AUTO_TEST_CASE(RPTSOL_CompositionalMnemonicValidation)
@@ -1889,7 +1902,10 @@ BOOST_AUTO_TEST_CASE(RPTSOL_CompositionalOnlyRestartVocabulary)
         BOOST_TEST_CONTEXT(mnemonic) {
             const auto deck = rptsol(mnemonic);
             const auto config = RSTConfig{SOLUTIONSection{deck}, context, true, errors};
-            BOOST_CHECK_EQUAL(config.keywords.at(mnemonic), 2);
+            BOOST_REQUIRE_MESSAGE(config.getMnemonic(mnemonic).has_value(),
+                                  R"(SOLUTION section mnemonic ")" << mnemonic
+                                  << R"(" must exist.)");
+            BOOST_CHECK_EQUAL(config.getMnemonic(mnemonic).value(), 2);
             BOOST_CHECK_THROW((RSTConfig{SOLUTIONSection{deck}, context, false, errors}),
                               OpmInputError);
         }
@@ -1920,9 +1936,8 @@ RPTRST
         BOOST_TEST_CONTEXT("compositional=" << compositional) {
             const auto config = RSTConfig{SOLUTIONSection{controls}, context,
                                           compositional, errors};
-            BOOST_CHECK_EQUAL(config.basic.value_or(-1), 2);
-            BOOST_CHECK_EQUAL(config.freq.value_or(-1), 3);
-            BOOST_CHECK(config.keywords.empty());
+            BOOST_CHECK_EQUAL(config.basicValue(), 2);
+            BOOST_CHECK(config.reportMnemonics().empty());
         }
     }
 
@@ -1933,7 +1948,9 @@ RPTRST
     BOOST_CHECK_THROW((RSTConfig{SOLUTIONSection{properties}, context, false, errors}),
                       OpmInputError);
     const auto config = RSTConfig{SOLUTIONSection{properties}, context, true, errors};
-    BOOST_CHECK_EQUAL(config.keywords.at("PRESSURE"), 2);
+    BOOST_REQUIRE_MESSAGE(config.getMnemonic("PRESSURE").has_value(),
+                          R"(SOLUTION section property config must have "PRESSURE" mnemonic.)");
+    BOOST_CHECK_EQUAL(config.getMnemonic("PRESSURE").value(), 2);
 }
 
 BOOST_AUTO_TEST_CASE(RPTSCHED_RejectsCompositionalRestartProperties)
@@ -1964,14 +1981,17 @@ RPTSOL
     auto errors = ErrorGuard{};
     const auto context = ParseContext{};
     const auto config = RSTConfig{SOLUTIONSection{deck}, context, true, errors};
-    const auto expected = std::map<std::string, int> {
+    const auto expected = std::map<std::string, int, std::less<>> {
         {"FIP", 3}, {"PRES", 1}, {"RS", 5}, {"RV", 6},
         {"SGAS", 4}, {"SOIL", 2}, {"SWAT", 3},
     };
 
-    BOOST_CHECK(config.write_rst_file.value_or(false));
-    BOOST_CHECK(config.keywords == expected);
-    BOOST_CHECK(RSTConfig::first(config).keywords.empty());
+    BOOST_CHECK_MESSAGE(config.writeSaveOrStoreFile(),
+                        R"(SOLUTION section integer control BASIC=1 should generate a restart file.)");
+    BOOST_CHECK_MESSAGE(config.reportMnemonics() == expected,
+                        R"(SOLUTION section integer control does not produce expected set of mnemonics)");
+    BOOST_CHECK_MESSAGE(config.makeFirstStepConfig().reportMnemonics().empty(),
+                        R"(First report step's set of restart file mnemonics must be empty.)");
 }
 
 BOOST_AUTO_TEST_CASE(RPTRST_TRACT) {
@@ -1991,7 +2011,7 @@ DATES             -- 1
     BOOST_CHECK(  sched.write_rst_file( 0 ) );
     BOOST_CHECK( !sched.write_rst_file( 1 ) );
 
-    const auto expected = std::map<std::string, int> {
+    const auto expected = std::map<std::string, int, std::less<>> {
         { "TRACT",  1 },
         { "TRACT-", 1 },
     };
@@ -2012,7 +2032,7 @@ DATES
 /
 )");
 
-    const auto expected = std::map<std::string, int> {
+    const auto expected = std::map<std::string, int, std::less<>> {
         { "SOLVMFG", 1 },
         { "SOLVMFO", 1 },
     };
