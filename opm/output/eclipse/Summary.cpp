@@ -6519,17 +6519,18 @@ void Opm::out::Summary::SummaryImplementation::write(const bool is_final_summary
 
     this->createSMSpecIfNecessary();
 
-    // We are forcing a final write at the end of the last report step to get all changes
-    // to the SMSPEC file (WGNAMES, KEYWORDS) that might have changed due ACTIONX at an
-    // intermediate timestep.
-    // Because of adaptive time stepping there could have been previous writes for the same
-    // report step that missed information.
-    if (const auto& last = this->lastUnwritten(); (this->prevOutputStepID_ < last.outputStep
-                                                   || is_final_summary)) {
+    if (const auto& last = this->lastUnwritten();
+        (this->prevOutputStepID_ < last.outputStep) || is_final_summary)
+    {
+        // Is_final_summary forces an SMSPEC file write at the end of the
+        // run's last report step.  An action triggered in the last report
+        // step might for instance have introduced new wells or connections,
+        // and we need to capture those.
+
         this->smspec_->write(this->outputParameters_.summarySpecification(),
                              is_final_summary, last.outputStep,
-                             sched_.get()[last.reportStep].get<RSTConfig>().get()
-                             .basic.value_or(0));
+                             this->sched_.get()[last.reportStep]
+                             .rst_config().basicValue());
     }
 
     for (auto i = 0*this->numUnwritten_; i < this->numUnwritten_; ++i) {
