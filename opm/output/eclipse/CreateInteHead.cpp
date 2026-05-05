@@ -763,8 +763,6 @@ createInteHead(const EclipseState& es,
     const auto wellArrayDims = getWellArrayDims(tz);
     const auto connArrayDims = getConnArrayDims(tz);
 
-    const int norst_value = sched[lookup_step].rst_config().norst.value_or(0);
-
     const auto ih = InteHEAD{}
         .dimensions         (grid.getNXYZ())
         .numActive          (static_cast<int>(grid.getNumActive()))
@@ -801,7 +799,7 @@ createInteHead(const EclipseState& es,
         .networkDimensions  (getNetworkDims(sched, lookup_step, rspec))
         .netBalanceData     (getNetworkBalanceParameters(sched, report_step))
         .rockOpts           (getRockOpts(es.getSimulationConfig().rock_config(), rdim))
-        .rptrstOpts         (norst_value)
+        .rptrstOpts         (sched[lookup_step].rst_config().norstValue())
         .tracerCounts       (rspec.tracers())
         ;
 
