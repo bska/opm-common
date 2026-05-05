@@ -425,6 +425,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/output/eclipse/LoadRestart.cpp
   opm/output/eclipse/LogiHEAD.cpp
   opm/output/eclipse/RestartIO.cpp
+  opm/output/eclipse/StoreIO.cpp
   opm/output/eclipse/Inplace.cpp
   opm/output/eclipse/Summary.cpp
   opm/output/eclipse/Tables.cpp
@@ -552,6 +553,7 @@ list(APPEND TEST_SOURCE_FILES
   tests/test_NORST.cpp
   tests/test_RestartLGR.cpp
   tests/test_restartwellinfo.cpp
+  tests/test_StoreIO.cpp
   tests/test_RFT.cpp
   tests/test_RootFinders.cpp
   tests/test_RPTConfig.cpp
@@ -1527,6 +1529,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/output/eclipse/RestartIO.hpp
   opm/output/eclipse/RestartOutputManager.hpp
   opm/output/eclipse/RestartValue.hpp
+  opm/output/eclipse/StoreIO.hpp
   opm/output/eclipse/Summary.hpp
   opm/output/eclipse/Tables.hpp
   opm/output/eclipse/UDQDims.hpp

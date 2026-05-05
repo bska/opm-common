@@ -920,7 +920,7 @@ void Opm::EclipseIO::Impl::writeRestartFile(const Action::State& action_state,
         this->es_, this->grid_, this->schedule_
     }
     .permitExtendedArrays(!this->es_.get().cfg().io().getEclCompatibleRST())
-    .limitRestartOutput(this->schedule_.get()[report_step].rst_config().norst.value_or(0));
+    .limitRestartOutput(this->schedule_.get()[report_step].rst_config().norstValue());
 
     auto dynState = RestartIO::RestartOutputManager::DynamicStateValues {
         .solution = std::span<const RestartValue>{ &value, 1 },
