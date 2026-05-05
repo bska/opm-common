@@ -20,7 +20,11 @@
 #ifndef OPM_WRITE_RESTART_HELPERS_HPP
 #define OPM_WRITE_RESTART_HELPERS_HPP
 
+#include <opm/output/eclipse/AggregateAquiferData.hpp>
+#include <opm/output/eclipse/RestartValue.hpp>
+
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 // Forward declarations
@@ -32,14 +36,27 @@ namespace Opm {
     class EclipseState;
     class Schedule;
     class ScheduleState;
+    class SummaryState;
+    class UDQState;
     class Well;
+    class WellTestState;
     class UnitSystem;
     class UDQActive;
     class Actdims;
 
 } // Opm
 
+namespace Opm::Action { class State; }
+
+namespace Opm::EclIO::OutputStream { class RestartBase; }
+
 namespace Opm::RestartIO::Helpers {
+
+    /// Validate solution vector sizes against the active grid.
+    /// Throws std::logic_error or std::runtime_error on mismatch.
+    void checkSaveArguments(const EclipseState& es,
+                            const RestartValue& value,
+                            const EclipseGrid&  grid);
 
     std::vector<double>
     createDoubHead(const EclipseState& es,
@@ -107,6 +124,59 @@ namespace Opm::RestartIO::Helpers {
     std::vector<int>
     createActionRSTDims(const Schedule&     sched,
                         const std::size_t   simStep);
+
+    /// Shared single-grid save pipeline used by both RestartIO and StoreIO.
+    ///
+    /// Caller is responsible for prior validation (checkSaveArguments) and
+    /// for unit conversion (value.convertFromSI).
+    ///
+    /// \param[in,out] stream    Writable restart-like output stream.
+    ///
+    /// \param[in] report_step   One-based report step number.
+    ///
+    /// \param[in] sim_step      Zero-based simulation step (= max(report_step-1,0)).
+    ///
+    /// \param[in] seconds_elapsed Elapsed simulation time in seconds.
+    ///
+    /// \param[in] value         Restart value (already converted to user units).
+    ///
+    /// \param[in] es            Static eclipse state (grid, unit system, ...).
+    ///
+    /// \param[in] grid          Active grid.
+    ///
+    /// \param[in] schedule      Dynamic simulation schedule.
+    ///
+    /// \param[in] action_state  Current action state.
+    ///
+    /// \param[in] wtest_state   Current well-test state.
+    ///
+    /// \param[in] sumState      Summary-state accumulator.
+    ///
+    /// \param[in] udqState      UDQ state.
+    ///
+    /// \param[in,out] aquiferData  Aggregate aquifer data helper (may be empty).
+    ///
+    /// \param[in] ecl_compatible_rst Whether to apply ECL output restrictions.
+    ///
+    /// \param[in] write_double  Whether to write solution data as double precision.
+    ///
+    /// \return INTEHEAD vector written to stream.
+    std::vector<int>
+    saveSingleGrid(EclIO::OutputStream::RestartBase&             stream,
+                   int                                           report_step,
+                   int                                           sim_step,
+                   double                                        seconds_elapsed,
+                   const RestartValue&                           value,
+                   const EclipseState&                           es,
+                   const EclipseGrid&                            grid,
+                   const Schedule&                               schedule,
+                   const Action::State&                          action_state,
+                   const WellTestState&                          wtest_state,
+                   const SummaryState&                           sumState,
+                   const UDQState&                               udqState,
+                   std::optional<AggregateAquiferData>&          aquiferData,
+                   bool                                          ecl_compatible_rst,
+                   bool                                          write_double);
 
 } // Opm::RestartIO::Helpers
 

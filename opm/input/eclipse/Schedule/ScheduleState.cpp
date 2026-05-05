@@ -94,38 +94,36 @@ ScheduleState::WellListChangeTracker::serializationTestObject()
 
 // ---------------------------------------------------------------------------
 
-void ScheduleState::updateSAVE(bool save) {
-    this->m_save_step = save;
-}
-
-bool ScheduleState::save() const {
-    return this->m_save_step;
-}
-
 ScheduleState::ScheduleState(const time_point& t1)
-    : m_start_time(t1)
-    , m_first_in_month(true)
-    , m_first_in_year(true)
+    : m_start_time     { t1 }
+    , m_first_in_month { true }
+    , m_first_in_year  { true }
 {
-    auto ts1 = TimeStampUTC(TimeService::to_time_t(this->m_start_time));
-    this->m_month_num = ts1.month() - 1;
+    this->m_month_num = TimeStampUTC {
+        TimeService::to_time_t(this->m_start_time)
+    }.month() - 1;
 }
 
-ScheduleState::ScheduleState(const time_point& start_time, const time_point& end_time)
-    : ScheduleState(start_time)
+ScheduleState::ScheduleState(const time_point& start_time,
+                             const time_point& end_time)
+    : ScheduleState { start_time }
 {
     this->m_end_time = end_time;
 }
 
 void ScheduleState::update_date(const time_point& prev_time)
 {
-    auto [year_diff, month_diff] = date_diff(this->m_start_time, prev_time);
-    this->m_year_num += year_diff;
-    this->m_first_in_month = (month_diff > 0);
-    this->m_first_in_year = (year_diff > 0);
+    const auto& [year_diff, month_diff] =
+        date_diff(this->m_start_time, prev_time);
 
-    auto ts1 = TimeStampUTC(TimeService::to_time_t(this->m_start_time));
-    this->m_month_num = ts1.month() - 1;
+    this->m_year_num += year_diff;
+
+    this->m_month_num = TimeStampUTC {
+        TimeService::to_time_t(this->m_start_time)
+    }.month() - 1;
+
+    this->m_first_in_month = month_diff > 0;
+    this->m_first_in_year  = year_diff  > 0;
 }
 
 ScheduleState::ScheduleState(const ScheduleState& src, const time_point& start_time)
@@ -138,37 +136,29 @@ ScheduleState::ScheduleState(const ScheduleState& src, const time_point& start_t
     this->m_wellgroup_events.reset();
     this->m_geo_keywords.clear();
     this->target_wellpi.clear();
-    this->m_save_step = false;
 
-    {
-        auto next_rft = this->rft_config().next();
-
-        if (next_rft.has_value()) {
-            this->rft_config.update(std::move(*next_rft));
-        }
+    if (auto next_rft = this->rft_config().next(); next_rft.has_value()) {
+        this->rft_config.update(std::move(*next_rft));
     }
 
-    {
-        this->update_date(src.m_start_time);
+    this->update_date(src.m_start_time);
 
-        if (this->rst_config().save) {
-            auto new_rst = this->rst_config();
-            new_rst.save = false;
-            this->rst_config.update(std::move(new_rst));
-        }
+    if (auto rstcfg = this->rst_config(); rstcfg.clearSaveStore()) {
+        this->rst_config.update(std::move(rstcfg));
     }
 
     if (this->next_tstep.has_value()) {
         if (!this->next_tstep->every_report()) {
-            this->next_tstep = std::nullopt;
+            this->next_tstep.reset();
         }
-        // Need to signal an event also for the persistance to take effect
+
+        // Need to signal an event also for the persistence to take effect
         this->events().addEvent(ScheduleEvents::TUNING_CHANGE);
     }
 
     // TSINIT from TUNING should only apply to one report step, but TUNING
-    // was copied from last ScheduleState. If that has TSINIT set then
-    // the first time step would be limited if a TUNING_CHANGE event happens
+    // was copied from last ScheduleState.  If that has TSINIT set then the
+    // first time step would be limited if a TUNING_CHANGE event happens
     // e.g. because of above or because of NEXTSTEP in ACTIONX
     this->m_tuning.TSINIT.reset();
 
@@ -352,55 +342,54 @@ void ScheduleState::rptonly(const bool only)
     this->m_rptonly = only;
 }
 
-bool ScheduleState::operator==(const ScheduleState& other) const {
-
-    return this->m_start_time == other.m_start_time
-        && this->m_sim_step == other.m_sim_step
-        && this->m_month_num == other.m_month_num
-        && this->m_save_step == other.m_save_step
-        && this->m_first_in_month == other.m_first_in_month
-        && this->m_first_in_year == other.m_first_in_year
-        && this->m_year_num == other.m_year_num
-        && this->target_wellpi == other.target_wellpi
-        && this->m_tuning == other.m_tuning
-        && this->m_tuning_dp == other.m_tuning_dp
-        && this->m_end_time == other.m_end_time
-        && this->m_events == other.m_events
-        && this->m_wellgroup_events == other.m_wellgroup_events
-        && this->m_geo_keywords == other.m_geo_keywords
-        && this->m_message_limits == other.m_message_limits
-        && this->m_whistctl_mode == other.m_whistctl_mode
-        && this->m_nupcol == other.m_nupcol
-        && this->network.get() == other.network.get()
-        && this->network_balance.get() == other.network_balance.get()
-        && this->wtest_config.get() == other.wtest_config.get()
-        && this->well_order.get() == other.well_order.get()
-        && this->group_order.get() == other.group_order.get()
-        && this->gconsale.get() == other.gconsale.get()
-        && this->gconsump.get() == other.gconsump.get()
-        && this->gsatprod.get() == other.gsatprod.get()
-        && this->wlist_manager.get() == other.wlist_manager.get()
-        && this->rpt_config.get() == other.rpt_config.get()
-        && this->actions.get() == other.actions.get()
-        && this->udq_active.get() == other.udq_active.get()
-        && this->glo.get() == other.glo.get()
-        && this->guide_rate.get() == other.guide_rate.get()
-        && this->rft_config.get() == other.rft_config.get()
-        && this->udq.get() == other.udq.get()
-        && this->oilvap() == other.oilvap()
-        && this->bhp_defaults.get() == other.bhp_defaults.get()
-        && this->source.get() == other.source.get()
-        && this->wcycle() == other.wcycle()
-        && this->wlist_tracker() == other.wlist_tracker()
-        && this->wells == other.wells
-        && this->satelliteInjection == other.satelliteInjection
-        && this->inj_streams == other.inj_streams
-        && this->groups == other.groups
-        && this->vfpprod == other.vfpprod
-        && this->vfpinj == other.vfpinj
-        && this->m_sumthin == other.m_sumthin
-        && this->next_tstep == other.next_tstep
-        && this->m_rptonly == other.m_rptonly
+bool ScheduleState::operator==(const ScheduleState& other) const
+{
+    return (this->m_start_time == other.m_start_time)
+        && (this->m_sim_step == other.m_sim_step)
+        && (this->m_month_num == other.m_month_num)
+        && (this->m_first_in_month == other.m_first_in_month)
+        && (this->m_first_in_year == other.m_first_in_year)
+        && (this->m_year_num == other.m_year_num)
+        && (this->target_wellpi == other.target_wellpi)
+        && (this->m_tuning == other.m_tuning)
+        && (this->m_tuning_dp == other.m_tuning_dp)
+        && (this->m_end_time == other.m_end_time)
+        && (this->m_events == other.m_events)
+        && (this->m_wellgroup_events == other.m_wellgroup_events)
+        && (this->m_geo_keywords == other.m_geo_keywords)
+        && (this->m_message_limits == other.m_message_limits)
+        && (this->m_whistctl_mode == other.m_whistctl_mode)
+        && (this->m_nupcol == other.m_nupcol)
+        && (this->network() == other.network())
+        && (this->network_balance() == other.network_balance())
+        && (this->wtest_config() == other.wtest_config())
+        && (this->well_order() == other.well_order())
+        && (this->group_order() == other.group_order())
+        && (this->gconsale() == other.gconsale())
+        && (this->gconsump() == other.gconsump())
+        && (this->gsatprod() == other.gsatprod())
+        && (this->wlist_manager() == other.wlist_manager())
+        && (this->rpt_config() == other.rpt_config())
+        && (this->actions() == other.actions())
+        && (this->udq_active() == other.udq_active())
+        && (this->glo() == other.glo())
+        && (this->guide_rate() == other.guide_rate())
+        && (this->rft_config() == other.rft_config())
+        && (this->udq() == other.udq())
+        && (this->oilvap() == other.oilvap())
+        && (this->bhp_defaults() == other.bhp_defaults())
+        && (this->source() == other.source())
+        && (this->wcycle() == other.wcycle())
+        && (this->wlist_tracker() == other.wlist_tracker())
+        && (this->wells == other.wells)
+        && (this->satelliteInjection == other.satelliteInjection)
+        && (this->inj_streams == other.inj_streams)
+        && (this->groups == other.groups)
+        && (this->vfpprod == other.vfpprod)
+        && (this->vfpinj == other.vfpinj)
+        && (this->m_sumthin == other.m_sumthin)
+        && (this->next_tstep == other.next_tstep)
+        && (this->m_rptonly == other.m_rptonly)
         ;
 }
 
@@ -515,48 +504,26 @@ const WellGroupEvents& ScheduleState::wellgroup_events() const {
 }
 
 
-/*
-  Observe that the decision to write a restart file will typically be a
-  combination of the RST configuration from the previous report step, and the
-  first_in_year++ attributes of this report step. That is the reason the
-  function takes a RSTConfig argument - instead of using the rst_config member.
+// Observe that the decision to write a restart file will typically be a
+// combination of the RST configuration from the previous report step, and
+// the first_in_year++ attributes of this report step.  That is the reason
+// the function takes a RSTConfig argument instead of using the rst_config
+// member.
 
-*/
-
-bool ScheduleState::rst_file(const RSTConfig&  rst,
-                             const time_point& previous_restart_output_time) const
+std::optional<RSTConfig::FileType>
+ScheduleState::restartFileType(const RSTConfig&  rst,
+                               const time_point& previous_restart_output_time) const
 {
-    if (rst.save)
-        return true;
+    const auto thisStep = RSTConfig::ReportStepDescriptor {
+        .dateDiff = [this, &previous_restart_output_time]()
+        { return date_diff(this->m_start_time, previous_restart_output_time); },
+        .simStep      = this->sim_step(),
+        .firstInYear  = this->m_first_in_year,
+        .firstInMonth = this->m_first_in_month
+    };
 
-    if (rst.write_rst_file.has_value())
-        return rst.write_rst_file.value();
-
-    const auto freq = rst.freq.value_or(1);
-    const auto basic = rst.basic.value_or(0);
-
-    if (basic == 0)
-        return false;
-
-    if (basic == 3)
-        return (this->sim_step() % freq) == 0;
-
-    const auto [year_diff, month_diff] =
-        date_diff(this->m_start_time, previous_restart_output_time);
-
-    if (basic == 4) {
-        return this->first_in_year()
-            && (year_diff >= static_cast<std::size_t>(freq));
-    }
-
-    if (basic == 5) {
-        return this->first_in_month()
-            && (month_diff >= static_cast<std::size_t>(freq));
-    }
-
-    throw std::logic_error(fmt::format("Unsupported BASIC={} value", basic));
+    return rst.resultFileType(thisStep);
 }
-
 
 bool ScheduleState::has_gpmaint() const
 {

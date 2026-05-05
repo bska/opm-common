@@ -30,6 +30,7 @@
 
 namespace Opm::EclIO::OutputStream {
     class Restart;
+    class Store;
     class SummarySpecification;
 } // namespace Opm::EclIO::OutputStream
 
@@ -103,6 +104,7 @@ public:
     void set_ix() { ix_standard = true; }
 
     friend class OutputStream::Restart;
+    friend class OutputStream::Store;
     friend class OutputStream::SummarySpecification;
 
 private:
