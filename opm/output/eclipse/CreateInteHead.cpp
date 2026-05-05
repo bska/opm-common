@@ -787,8 +787,6 @@ createInteHead(const EclipseState& es,
     const auto wellArrayDims = getWellArrayDims(tz);
     const auto connArrayDims = getConnArrayDims(tz);
 
-    const int norst_value = sched[lookup_step].rst_config().norst.value_or(0);
-
     // NGRP is a per-grid actual-group count: the global header carries
     // the model's group count, a local grid's header the count of groups
     // of the wells inside that grid (minimum one).
@@ -837,7 +835,7 @@ createInteHead(const EclipseState& es,
         .networkDimensions  (getNetworkDims(sched, lookup_step, rspec))
         .netBalanceData     (getNetworkBalanceParameters(sched, report_step))
         .rockOpts           (getRockOpts(es.getSimulationConfig().rock_config(), rdim))
-        .rptrstOpts         (norst_value)
+        .rptrstOpts         (sched[lookup_step].rst_config().norstValue())
         .tracerCounts       (rspec.tracers())
         ;
 
