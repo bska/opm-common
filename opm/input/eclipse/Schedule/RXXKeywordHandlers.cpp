@@ -67,11 +67,26 @@ void handleRPTRST(HandlerContext& handlerContext)
     handlerContext.state().rst_config.update(std::move(rst_config));
 }
 
-// We do not really handle the SAVE keyword, we just interpret it as: Write a
-// normal restart file at this report step.
+// We do not really handle the SAVE keyword, we just interpret it as: Write
+// a normal restart file at this report step.
 void handleSAVE(HandlerContext& handlerContext)
 {
-    handlerContext.state().updateSAVE(true);
+    auto rstcfg = handlerContext.state().rst_config();
+
+    rstcfg.recordSaveEvent();
+
+    handlerContext.state().rst_config.update(std::move(rstcfg));
+}
+
+// We do not really handle the SAVE keyword, we just interpret it as: Write
+// a normal restart file at this report step.
+void handleSTORE(HandlerContext& handlerContext)
+{
+    auto rstcfg = handlerContext.state().rst_config();
+
+    rstcfg.recordStoreEvent();
+
+    handlerContext.state().rst_config.update(std::move(rstcfg));
 }
 
 void handleWRFT(HandlerContext& handlerContext)
@@ -149,6 +164,7 @@ getRXXHandlers()
         { "RPTRST"  , &handleRPTRST   },
         { "RPTSCHED", &handleRPTSCHED },
         { "SAVE"    , &handleSAVE     },
+        { "STORE"   , &handleSTORE    },
         { "WRFT"    , &handleWRFT     },
         { "WRFTPLT" , &handleWRFTPLT  },
     };
