@@ -429,6 +429,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/output/eclipse/Tables.cpp
   opm/output/eclipse/UDQDims.cpp
   opm/output/eclipse/RegionCache.cpp
+  opm/output/eclipse/RestartOutputManager.cpp
   opm/output/eclipse/RestartValue.cpp
   opm/output/eclipse/WriteInit.cpp
   opm/output/eclipse/WriteRFT.cpp
@@ -1522,6 +1523,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/output/eclipse/LogiHEAD.hpp
   opm/output/eclipse/RegionCache.hpp
   opm/output/eclipse/RestartIO.hpp
+  opm/output/eclipse/RestartOutputManager.hpp
   opm/output/eclipse/RestartValue.hpp
   opm/output/eclipse/Summary.hpp
   opm/output/eclipse/Tables.hpp

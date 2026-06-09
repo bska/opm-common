@@ -27,11 +27,16 @@
 
 #include <opm/common/OpmLog/OpmLog.hpp>
 
+#include <opm/common/utility/String.hpp>
 #include <opm/common/utility/TimeService.hpp>
+
+#include <opm/io/eclipse/ESmry.hpp>
+#include <opm/io/eclipse/OutputStream.hpp>
 
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/EclipseGrid.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/NNC.hpp>
+#include <opm/input/eclipse/EclipseState/EclipseConfig.hpp>
 #include <opm/input/eclipse/EclipseState/IOConfig/IOConfig.hpp>
 #include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
 
@@ -44,15 +49,11 @@
 
 #include <opm/output/eclipse/AggregateAquiferData.hpp>
 #include <opm/output/eclipse/RestartIO.hpp>
+#include <opm/output/eclipse/RestartOutputManager.hpp>
 #include <opm/output/eclipse/RestartValue.hpp>
 #include <opm/output/eclipse/Summary.hpp>
 #include <opm/output/eclipse/WriteInit.hpp>
 #include <opm/output/eclipse/WriteRFT.hpp>
-
-#include <opm/io/eclipse/ESmry.hpp>
-#include <opm/io/eclipse/OutputStream.hpp>
-
-#include <opm/common/utility/String.hpp>
 
 #include <opm/input/eclipse/Deck/DeckKeyword.hpp>
 
@@ -68,6 +69,7 @@
 #include <map>
 #include <memory>     // unique_ptr
 #include <optional>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <utility>    // move
@@ -893,9 +895,11 @@ void Opm::EclipseIO::Impl::writeRestartFile(const Action::State& action_state,
                                             const int            report_step,
                                             std::optional<int>   time_step,
                                             const double         secs_elapsed,
-                                            const bool           write_double,
+                                            [[maybe_unused]] const bool           write_double,
                                             RestartValue&&       value)
 {
+    // Recall: OutputStream::Restart constructor writes SEQNUM if needed.
+
     EclIO::OutputStream::Restart rstFile {
         EclIO::OutputStream::ResultSet { this->outputDir_, this->baseName_ },
         this->reportIndex(report_step, time_step),
@@ -903,11 +907,32 @@ void Opm::EclipseIO::Impl::writeRestartFile(const Action::State& action_state,
         EclIO::OutputStream::Unified   { this->es_.get().cfg().io().getUNIFOUT() }
     };
 
+#define WANT_ORIGINAL_RESTART_OUTPUT 0
+
+#if WANT_ORIGINAL_RESTART_OUTPUT
     RestartIO::save(rstFile, report_step, secs_elapsed,
                     std::move(value),
                     this->es_, this->grid_, this->schedule_,
                     action_state, wtest_state, st,
                     udq_state, this->aquiferData_, write_double);
+#else
+    const auto mgr = RestartIO::RestartOutputManager {
+        this->es_, this->grid_, this->schedule_
+    }
+    .permitExtendedArrays(!this->es_.get().cfg().io().getEclCompatibleRST())
+    .limitRestartOutput(this->schedule_.get()[report_step].rst_config().norst.value_or(0));
+
+    auto dynState = RestartIO::RestartOutputManager::DynamicStateValues {
+        .solution = std::span<const RestartValue>{ &value, 1 },
+        .actionState = action_state,
+        .wellTestState = wtest_state,
+        .summaryState = st,
+        .udqState = udq_state,
+        .aquiferData = this->aquiferData_
+    };
+
+    mgr.writeRestartStep(report_step, secs_elapsed, dynState, rstFile);
+#endif
 }
 
 void Opm::EclipseIO::Impl::writeRestartFile(const Action::State&        action_state,
