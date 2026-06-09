@@ -95,13 +95,13 @@ BOOST_AUTO_TEST_CASE (String_Shortening)
 
 BOOST_AUTO_TEST_CASE (Trim) {
     const auto s1 = PadString<4>{"X"};
-    BOOST_CHECK_EQUAL(Opm::trim_copy(s1), std::string{"X"});
+    BOOST_CHECK_EQUAL(Opm::trim_copy(s1), "X");
 
     const auto s2 = PadString<4>{"ABCD"};
-    BOOST_CHECK_EQUAL(Opm::trim_copy(s2), std::string{"ABCD"});
+    BOOST_CHECK_EQUAL(Opm::trim_copy(s2), "ABCD");
 
     const auto s3 = PadString<4>{""};
-    BOOST_CHECK_EQUAL(Opm::trim_copy(s3), std::string{""});
+    BOOST_CHECK_MESSAGE(Opm::trim_copy(s3).empty(), "Trimmed empty string should be empty");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
