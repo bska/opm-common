@@ -24,9 +24,9 @@
 #include <array>
 #include <cstring>
 #include <cstddef>
-#include <string>
+#include <string_view>
 
-namespace Opm { namespace EclIO {
+namespace Opm::EclIO {
 
     /// Null-terminated, left adjusted, space padded array of N characters.
     ///
@@ -44,10 +44,10 @@ namespace Opm { namespace EclIO {
             this->clear();
         }
 
-        explicit PaddedOutputString(const std::string& s)
-            : PaddedOutputString()
+        explicit PaddedOutputString(std::string_view s)
+            : PaddedOutputString{}
         {
-            this->copy_in(s.c_str(), s.size());
+            this->copy_in(s.data(), s.size());
         }
 
         ~PaddedOutputString() = default;
@@ -58,8 +58,8 @@ namespace Opm { namespace EclIO {
         PaddedOutputString& operator=(const PaddedOutputString& rhs) = default;
         PaddedOutputString& operator=(PaddedOutputString&& rhs) = default;
 
-        /// Assign from \code std::string \endcode.
-        PaddedOutputString& operator=(const std::string& s)
+        /// Assign from \code std::string_view \endcode.
+        PaddedOutputString& operator=(std::string_view s)
         {
             this->clear();
             this->copy_in(s.data(), s.size());
@@ -99,5 +99,6 @@ namespace Opm { namespace EclIO {
         }
     };
 
-}} // Opm::EclIO
+} // Opm::EclIO
+
 #endif // OPM_PADDEDOUTPUTSTRING_HEADER_HPP
