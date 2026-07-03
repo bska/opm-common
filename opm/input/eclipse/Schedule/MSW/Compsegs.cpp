@@ -393,8 +393,7 @@ The use of negative center depth in item 9 is not supported. Well: {})", well_na
                 : Opm::Connection::Direction::X;
 
             if (! record.getItem<Kw::END_IJK>().hasValue(0)) { // only one compsegs
-                const auto& cell = grid.get_cell(I, J, K);
-                if (cell.is_active()) {
+                if (grid.get_cell(I, J, K).is_active()) {
                     // Thermal length (COMPSEGS item 10); left unset when
                     // defaulted, then filled in process_compsegs_records().
                     const auto thermal_length = record.getItem<Kw::THERMAL_LENGTH>().hasValue(0)

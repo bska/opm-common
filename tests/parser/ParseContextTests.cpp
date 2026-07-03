@@ -381,6 +381,27 @@ BOOST_AUTO_TEST_CASE(TestNew) {
 }
 
 
+BOOST_AUTO_TEST_CASE(TestRenamedKey) {
+    ParseContext parseContext;
+
+    // SCHEDULE_ICD_MISSING_SEGMENT was renamed to SCHEDULE_MISSING_SEGMENT
+    // after release 2026.04.  The original name must remain usable in user
+    // configurations for a transition period.
+    BOOST_CHECK_NO_THROW( parseContext.updateKey("SCHEDULE_ICD_MISSING_SEGMENT", InputErrorAction::IGNORE) );
+    BOOST_CHECK_EQUAL( parseContext.get(ParseContext::SCHEDULE_MISSING_SEGMENT), InputErrorAction::IGNORE );
+
+    // Also through the string-based update() used for e.g. environment
+    // variables and command line options.
+    parseContext.update("SCHEDULE_ICD_MISSING_SEGMENT", InputErrorAction::EXIT1);
+    BOOST_CHECK_EQUAL( parseContext.get(ParseContext::SCHEDULE_MISSING_SEGMENT), InputErrorAction::EXIT1 );
+
+    // The original name is only translated, not registered as a category
+    // of its own.
+    BOOST_CHECK_EQUAL( false, parseContext.hasKey("SCHEDULE_ICD_MISSING_SEGMENT") );
+    BOOST_CHECK_THROW( parseContext.get("SCHEDULE_ICD_MISSING_SEGMENT"), std::invalid_argument );
+}
+
+
 BOOST_AUTO_TEST_CASE( test_constructor_with_values) {
     ParseContext parseContext( {{ParseContext::PARSE_RANDOM_SLASH , InputErrorAction::IGNORE},
                 {"UNSUPPORTED_*" , InputErrorAction::WARN},

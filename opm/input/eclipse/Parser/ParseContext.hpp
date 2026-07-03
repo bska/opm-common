@@ -196,7 +196,9 @@ namespace Opm {
         /// Reset action for particular context category.
         ///
         /// Throws an exception of type \code std::invalid_argument \endcode
-        /// if the context category is unknown.
+        /// if the context category is unknown.  If \p key is the original
+        /// name of a renamed category, the action is applied to the
+        /// category's current name and a deprecation warning is issued.
         ///
         /// \param[in] key Context category.
         ///
@@ -590,6 +592,11 @@ namespace Opm {
         /// Typically generates a warning and drops the device.  Note,
         /// however, that there are likely to be other issues in the input
         /// deck when this situation occurs.
+        ///
+        /// \note This category was named SCHEDULE_ICD_MISSING_SEGMENT up to
+        /// and including release 2026.04.  The original name is still
+        /// accepted by the update functions for a transition period, but
+        /// will be removed in a future release.
         const static std::string SCHEDULE_MISSING_SEGMENT;
 
         /// A multisegment-well keyword (e.g. WSEGHEAT) is applied to a well
