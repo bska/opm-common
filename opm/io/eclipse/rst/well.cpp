@@ -71,7 +71,6 @@ namespace {
         return static_cast<float>(unit_system.to_si(dimension, coeff_a));
     }
 
-    constexpr int def_pvt_table = 0;
 } // Anonymous namespace
 
 namespace VI = ::Opm::RestartIO::Helpers::VectorItems;
