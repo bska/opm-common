@@ -43,6 +43,7 @@ namespace Opm { namespace RestartIO { namespace Helpers { namespace VectorItems 
             item9    =  8, // Unknown
             Status   = 10, // Well status
             VFPTab   = 11, // ID (one-based) of well's current VFP table.
+            PVTTab   = 12, // PVT table (one-based) for wellbore fluid properties
 
             EconWorkoverProcedure = 14, // Economic limit workover procedure (WECON(7)).
                                         //   0 => No action taken ("NONE"),
