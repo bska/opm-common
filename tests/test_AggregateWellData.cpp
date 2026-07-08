@@ -141,7 +141,7 @@ DIMENS
 WELLDIMS
  6  20  1  6  /
 TABDIMS
- 1  1  15  15  2  15  /
+ 1  2  15  15  2  15  /
 FIELD
 EQLDIMS
  1  /
@@ -228,18 +228,21 @@ SOF3
 --    REF. PRES. REF. FVF  COMPRESSIBILITY  REF VISCOSITY  VISCOSIBILITY
 PVTW
        4014.7     1.029        3.13D-6           0.31            0 /
+       /
 
 -- ROCK COMPRESSIBILITY
 --
 --    REF. PRES   COMPRESSIBILITY
 ROCK
         14.7          3.0D-6          /
+        /
 
 -- SURFACE DENSITIES OF RESERVOIR FLUIDS
 --
 --        OIL   WATER   GAS
 DENSITY
          49.1   64.79  0.06054  /
+         /
 
 -- PVT PROPERTIES OF DRY GAS (NO VAPOURISED OIL)
 -- WE WOULD USE PVTG TO SPECIFY THE PROPERTIES OF WET GAS
@@ -256,6 +259,7 @@ PVDG
    4014.7   0.811   0.0268
    5014.7   0.649   0.0309
    9014.7   0.386   0.047   /
+   /
 
 -- PVT PROPERTIES OF LIVE OIL (WITH DISSOLVED GAS)
 -- WE WOULD USE PVDO TO SPECIFY THE PROPERTIES OF DEAD OIL
@@ -280,6 +284,7 @@ PVTO
            9014.7 1.579  0.74    /
     1.618  5014.7 1.827  0.449
            9014.7 1.726  0.605   /
+/
 /
 
 
@@ -316,7 +321,7 @@ DATES             -- 1
 /
 WELSPECS
       'OP_1'       'OP'   9   9 1*     'OIL' 1*      1*  1*   1*  1*   1*  1*  /
-      'OP_2'       'OP'   9   9 1*     'OIL' 1*      1*  1*   1*  1*   1*  1*  /
+      'OP_2'       'OP'   9   9 1*     'OIL' 1*      1*  1*   1*  2    1*  1*  /
 /
 COMPDAT
       'OP_1'  9  9   1   1 'OPEN' 1*   32.948   0.311  3047.839 1*  1*  'X'  22.100 /
@@ -905,6 +910,7 @@ BOOST_AUTO_TEST_CASE (Declared_Well_Data)
         BOOST_CHECK_EQUAL(iwell[start + Ix::NConn] , 2); // OP_1 #Compl
         BOOST_CHECK_EQUAL(iwell[start + Ix::WType] , 1); // OP_1 -> Producer
         BOOST_CHECK_EQUAL(iwell[start + Ix::VFPTab], 0); // VFP defaulted -> 0
+        BOOST_CHECK_EQUAL(iwell[start + Ix::PVTTab], 1); // PVT defaulted -> 1 (lowest completion)
         BOOST_CHECK_EQUAL(iwell[start + Ix::WTestConfigReason], Opm::WTest::EclConfigReason::PHYSICAL * Opm::WTest::EclConfigReason::GCON * Opm::WTest::EclConfigReason::THPLimit);
         BOOST_CHECK_EQUAL(iwell[start + Ix::WTestRemaining], 3 + 1 - 1);  // Total + 1 - #attempt
         BOOST_CHECK_EQUAL(iwell[start + Ix::WTestCloseReason], Opm::WTest::EclCloseReason::PHYSICAL);
@@ -929,6 +935,7 @@ BOOST_AUTO_TEST_CASE (Declared_Well_Data)
         BOOST_CHECK_EQUAL(iwell[start + Ix::NConn] , 1); // OP_2 #Compl
         BOOST_CHECK_EQUAL(iwell[start + Ix::WType] , 4); // OP_2 -> Gas Inj.
         BOOST_CHECK_EQUAL(iwell[start + Ix::VFPTab], 0); // VFP defaulted -> 0
+        BOOST_CHECK_EQUAL(iwell[start + Ix::PVTTab], 2); // PVT tab (WELSPECS item 11) --> 2 (explicitly set)
 
         // Completion order
         BOOST_CHECK_EQUAL(iwell[start + Ix::CompOrd], 0); // Track ordering (default)

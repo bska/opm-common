@@ -610,6 +610,7 @@ namespace {
 
             iWell[Ix::WType]  = well.wellType().ecl_wtype();
             iWell[Ix::VFPTab] = wellVFPTab(well, st);
+            iWell[Ix::PVTTab] = well.pvt_table_number();
             iWell[Ix::XFlow]  = well.getAllowCrossFlow() ? 1 : 0;
 
             iWell[Ix::PreferredPhase] = preferredPhase(well);

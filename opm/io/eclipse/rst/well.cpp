@@ -71,7 +71,6 @@ namespace {
         return static_cast<float>(unit_system.to_si(dimension, coeff_a));
     }
 
-    constexpr int def_pvt_table = 0;
 } // Anonymous namespace
 
 namespace VI = ::Opm::RestartIO::Helpers::VectorItems;
@@ -103,7 +102,7 @@ Opm::RestartIO::RstWell::RstWell(const UnitSystem&  unit_system,
     hist_requested_control(                                          iwel[VI::IWell::HistReqWCtrl]),
     msw_index(                                                       iwel[VI::IWell::MsWID]),
     completion_ordering(                                             iwel[VI::IWell::CompOrd]),
-    pvt_table(                                                       def_pvt_table),
+    pvt_table(                                                       iwel[VI::IWell::PVTTab]),
     msw_pressure_drop_model(                                         iwel[VI::IWell::MSW_PlossMod]),
     wtest_config_reasons(                                            iwel[VI::IWell::WTestConfigReason]),
     wtest_close_reason(                                              iwel[VI::IWell::WTestCloseReason]),
