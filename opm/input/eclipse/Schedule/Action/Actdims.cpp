@@ -19,6 +19,8 @@
 
 #include <opm/input/eclipse/Schedule/Action/Actdims.hpp>
 
+#include <opm/common/utility/OpmInputError.hpp>
+
 #include <opm/input/eclipse/Deck/Deck.hpp>
 
 #include <opm/input/eclipse/Parser/ParserKeywords/A.hpp>
@@ -51,13 +53,10 @@ Actdims::Actdims(const Deck& deck)
     if (const auto max_actions = record.getItem<ParserKeywords::ACTDIMS::MAX_ACTION>().get<int>(0);
         max_actions < 0)
     {
-        throw std::runtime_error {
-            "Maximum number of actions in ACTDIMS must be non-negative."
-        };
-    }
-    else if (max_actions > 10'000) {
-        throw std::runtime_error {
-            "Value for MAX_ACTION in ACTDIMS exceeds maximum permissible value 10000."
+        throw OpmInputError {
+            fmt::format("Item 1, maximum number of actions "
+                        "({}) must be non-negative.", max_actions),
+            keyword.location()
         };
     }
     else {
@@ -67,15 +66,10 @@ Actdims::Actdims(const Deck& deck)
     if (const auto max_lines = record.getItem<ParserKeywords::ACTDIMS::MAX_ACTION_LINES>().get<int>(0);
         max_lines < 0)
     {
-        throw std::runtime_error {
-            "Maximum number of keyword lines in "
-            "ACTDIMS must be non-negative."
-        };
-    }
-    else if (max_lines > 10'000) {
-        throw std::runtime_error {
-            "Maximum number of keyword lines in "
-            "ACTDIMS exceeds maximum permissible value 10000."
+        throw OpmInputError {
+            fmt::format("Item 2, maximum number of keyword lines "
+                        "({}) must be non-negative.", max_lines),
+            keyword.location()
         };
     }
     else {
@@ -85,15 +79,17 @@ Actdims::Actdims(const Deck& deck)
     if (const auto max_chars = record.getItem<ParserKeywords::ACTDIMS::MAX_ACTION_LINE_CHARACTERS>().get<int>(0);
         max_chars <= 0)
     {
-        throw std::runtime_error {
-            "Maximum number of characters per keyword line "
-            "in ACTDIMS must be positive."
+        throw OpmInputError {
+            fmt::format("Item 3, maximum number of characters per keyword line "
+                        "({}) must be positive.", max_chars),
+            keyword.location()
         };
     }
     else if (max_chars > 128) {
-        throw std::runtime_error {
-            "Maximum number of characters per keyword line in "
-            "ACTDIMS exceeds maximum permissible value 128."
+        throw OpmInputError {
+            fmt::format("Item 3, maximum number of characters per keyword line "
+                        "({}) exceeds maximum permissible value 128.", max_chars),
+            keyword.location()
         };
     }
     else {
@@ -103,13 +99,10 @@ Actdims::Actdims(const Deck& deck)
     if (const auto max_conditions = record.getItem<ParserKeywords::ACTDIMS::MAX_ACTION_COND>().get<int>(0);
         max_conditions <= 0)
     {
-        throw std::runtime_error {
-            "Maximum number of conditions in ACTDIMS must be positive."
-        };
-    }
-    else if (max_conditions > 10'000) {
-        throw std::runtime_error {
-            "Maximum number of conditions in ACTDIMS exceeds maximum permissible value 10000."
+        throw OpmInputError {
+            fmt::format("Item 4, maximum number of conditions "
+                        "({}) must be positive.", max_conditions),
+            keyword.location()
         };
     }
     else {
