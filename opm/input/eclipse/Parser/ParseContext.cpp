@@ -31,6 +31,32 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <map>
+#include <string>
+
+namespace {
+
+    // Original names of renamed context categories, mapped to the
+    // categories' current names.  Enables existing user configurations to
+    // keep working across a rename for a transition period of at least one
+    // or two release cycles, after which the corresponding entry should be
+    // removed.
+    const std::map<std::string, std::string>& renamedKeys()
+    {
+        static const auto renamed = std::map<std::string, std::string> {
+            // Renamed after release 2026.04.
+            { "SCHEDULE_ICD_MISSING_SEGMENT", "SCHEDULE_MISSING_SEGMENT" },
+        };
+
+        return renamed;
+    }
+
+    bool isRenamedKey(const std::string& key)
+    {
+        return renamedKeys().find(key) != renamedKeys().end();
+    }
+
+} // Anonymous namespace
 
 namespace Opm {
 
@@ -130,7 +156,8 @@ namespace Opm {
         this->addKey(SCHEDULE_COMPDAT_ZERO_PERM, InputErrorAction::WARN);
         this->addKey(SCHEDULE_NO_CONNECTION_MATCH, InputErrorAction::WARN);
 
-        this->addKey(SCHEDULE_ICD_MISSING_SEGMENT, InputErrorAction::WARN);
+        this->addKey(SCHEDULE_MISSING_SEGMENT, InputErrorAction::WARN);
+        this->addKey(SCHEDULE_MSW_KEYWORD_ON_NON_MSW_WELL, InputErrorAction::THROW_EXCEPTION);
         this->addKey(SCHEDULE_ICD_INCOMPATIBLE_PDROP_MODEL, InputErrorAction::THROW_EXCEPTION);
 
         addKey(SCHEDULE_INVALID_NAME, InputErrorAction::THROW_EXCEPTION);
@@ -258,9 +285,23 @@ namespace Opm {
         const auto actionPos = this->m_errorContexts.find(key);
 
         if (actionPos == this->m_errorContexts.end()) {
-            throw std::invalid_argument {
-                "The errormode key: " + key + " has not been registered"
-            };
+            const auto renamePos = renamedKeys().find(key);
+
+            if (renamePos == renamedKeys().end()) {
+                throw std::invalid_argument {
+                    "The errormode key: " + key + " has not been registered"
+                };
+            }
+
+            // 'key' is the original name of a renamed category.  Apply the
+            // action to the category's current name, but remind the user to
+            // update their configuration.
+            OpmLog::warning("The error handling category '" + key
+                            + "' has been renamed to '" + renamePos->second
+                            + "'.  Support for the original name will be "
+                            "removed in a future release.");
+
+            this->updateKey(renamePos->second, action);
         }
         else {
             actionPos->second = action;
@@ -304,7 +345,7 @@ namespace Opm {
             const auto wildcard_pos = input_key.find("*");
 
             if (wildcard_pos == std::string::npos) {
-                if (hasKey(input_key)) {
+                if (hasKey(input_key) || isRenamedKey(input_key)) {
                     updateKey(input_key, action);
                 }
             }
@@ -417,7 +458,8 @@ namespace Opm {
     const std::string ParseContext::SCHEDULE_COMPDAT_ZERO_PERM = "SCHEDULE_COMPDAT_ZERO_PERM";
     const std::string ParseContext::SCHEDULE_NO_CONNECTION_MATCH = "SCHEDULE_NO_CONNECTION_MATCH";
 
-    const std::string ParseContext::SCHEDULE_ICD_MISSING_SEGMENT = "SCHEDULE_ICD_MISSING_SEGMENT";
+    const std::string ParseContext::SCHEDULE_MISSING_SEGMENT = "SCHEDULE_MISSING_SEGMENT";
+    const std::string ParseContext::SCHEDULE_MSW_KEYWORD_ON_NON_MSW_WELL = "SCHEDULE_MSW_KEYWORD_ON_NON_MSW_WELL";
     const std::string ParseContext::SCHEDULE_ICD_INCOMPATIBLE_PDROP_MODEL = "SCHEDULE_ICD_INCOMPATIBLE_PDROP_MODEL";
 
 }

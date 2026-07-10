@@ -196,7 +196,9 @@ namespace Opm {
         /// Reset action for particular context category.
         ///
         /// Throws an exception of type \code std::invalid_argument \endcode
-        /// if the context category is unknown.
+        /// if the context category is unknown.  If \p key is the original
+        /// name of a renamed category, the action is applied to the
+        /// category's current name and a deprecation warning is issued.
         ///
         /// \param[in] key Context category.
         ///
@@ -584,13 +586,25 @@ namespace Opm {
         /// connection in the targeted well.
         const static std::string SCHEDULE_NO_CONNECTION_MATCH;
 
-        /// ICD keyword (WSEGAICD, WSEGSICD, WSEGVALV) references a missing
-        /// well segment.
+        /// A multisegment-well keyword (e.g. WSEGAICD, WSEGSICD, WSEGVALV,
+        /// WSEGHEAT) references a missing well segment.
         ///
         /// Typically generates a warning and drops the device.  Note,
         /// however, that there are likely to be other issues in the input
         /// deck when this situation occurs.
-        const static std::string SCHEDULE_ICD_MISSING_SEGMENT;
+        ///
+        /// \note This category was named SCHEDULE_ICD_MISSING_SEGMENT up to
+        /// and including release 2026.04.  The original name is still
+        /// accepted by the update functions for a transition period, but
+        /// will be removed in a future release.
+        const static std::string SCHEDULE_MISSING_SEGMENT;
+
+        /// A multisegment-well keyword (e.g. WSEGHEAT) is applied to a well
+        /// that is not a multisegment well.
+        ///
+        /// This is an unambiguous input error, so by default it throws and
+        /// terminates the run.
+        const static std::string SCHEDULE_MSW_KEYWORD_ON_NON_MSW_WELL;
 
         /// ICD keyword (WSEGAICD, WSEGSICD, WSEGVALV) is not compatible
         /// with the pressure drop model chosen for a particular MSW.
