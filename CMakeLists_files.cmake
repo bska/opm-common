@@ -515,6 +515,7 @@ list(APPEND TEST_SOURCE_FILES
   tests/test_data_InterRegFlowMap.cpp
   tests/test_data_regionsetvariabledescriptor.cpp
   tests/test_data_regionvariablemapping.cpp
+  tests/test_data_regionvariableview.cpp
   tests/test_DatumDepth.cpp
   tests/test_DoubHEAD.cpp
   tests/test_EclipseIO.cpp
@@ -1504,6 +1505,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/output/data/InterRegFlow.hpp
   opm/output/data/InterRegFlowMap.hpp
   opm/output/data/RegionVariableMapping.hpp
+  opm/output/data/RegionVariableView.hpp
   opm/output/data/RegionsetVariableDescriptor.hpp
   opm/output/data/Solution.hpp
   opm/output/data/Wells.hpp
