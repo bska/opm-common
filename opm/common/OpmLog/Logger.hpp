@@ -53,7 +53,7 @@ public:
         if (pair == m_backends.end())
             throw std::invalid_argument("Invalid backend name: " + name);
         else
-            return std::static_pointer_cast<BackendType>(m_backends.find(name)->second);
+            return std::static_pointer_cast<BackendType>(pair->second);
     }
 
     template <class BackendType>

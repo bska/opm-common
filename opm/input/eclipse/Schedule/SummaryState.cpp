@@ -300,7 +300,7 @@ namespace Opm
 
     bool SummaryState::has(const std::string& key) const
     {
-        return (this->values.find(key) != this->values.end()) || is_udq(key);
+        return this->values.contains(key) || is_udq(key);
     }
 
     bool SummaryState::has_well_var(const std::string& well,
@@ -312,7 +312,7 @@ namespace Opm
 
     bool SummaryState::has_well_var(const std::string& var) const
     {
-        return (this->well_values.count(var) != 0) || is_well_udq(var);
+        return this->well_values.contains(var) || is_well_udq(var);
     }
 
     bool SummaryState::has_group_var(const std::string& group,
@@ -323,7 +323,7 @@ namespace Opm
 
     bool SummaryState::has_group_var(const std::string& var) const
     {
-        return (this->group_values.count(var) != 0) || is_group_udq(var);
+        return this->group_values.contains(var) || is_group_udq(var);
     }
 
     bool SummaryState::has_conn_var(const std::string& well,
@@ -342,7 +342,7 @@ namespace Opm
             return false;
         }
 
-        return wellPos->second.find(global_index) != wellPos->second.end();
+        return wellPos->second.contains(global_index);
     }
 
     bool SummaryState::has_segment_var(const std::string& well,
@@ -361,7 +361,7 @@ namespace Opm
             return false;
         }
 
-        return (wellPos->second.find(segment) != wellPos->second.end())
+        return wellPos->second.contains(segment)
             || is_segment_udq(var);
     }
 
@@ -381,7 +381,7 @@ namespace Opm
             return false;
         }
 
-        return regSetPos->second.find(region) != regSetPos->second.end();
+        return regSetPos->second.contains(region);
     }
 
     void SummaryState::update(const std::string& key, double value)

@@ -64,10 +64,7 @@ namespace Opm {
     }
 
     bool Logger::hasBackend(const std::string& name) {
-        if (m_backends.find( name ) == m_backends.end())
-            return false;
-        else
-            return true;
+        return m_backends.contains(name);
     }
 
     void Logger::removeAllBackends() {
