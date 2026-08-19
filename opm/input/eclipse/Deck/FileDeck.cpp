@@ -361,7 +361,7 @@ FileDeck::Index FileDeck::stop() const
 
 bool FileDeck::DumpContext::has_file(const std::string& fname) const
 {
-    return this->file_map_.find(fname) != this->file_map_.end();
+    return this->file_map_.contains(fname);
 }
 
 std::ofstream* FileDeck::DumpContext::get_stream(const std::string& deck_name)
@@ -524,7 +524,7 @@ void FileDeck::dump_shared(std::ostream& stream,
         const auto& block = this->blocks[block_index];
 
         if ((block_index == 0) ||
-            (this->modified_files.count(block.fname) > 0) ||
+            this->modified_files.contains(block.fname) ||
             this->deck_tree.has_include(block.fname))
         {
             DeckOutput out(stream, 10);
@@ -563,7 +563,7 @@ void FileDeck::rst_solution(const std::string& rst_base,
     ++index;
 
     while (true) {
-        if (::rst_keep_in_solution.count((*this)[index].name()) == 0) {
+        if (!::rst_keep_in_solution.contains((*this)[index].name())) {
             this->erase(index);
             --summary_index;
         }
@@ -637,7 +637,7 @@ void FileDeck::skip(const int report_step)
     while (index < end_pos) {
         const auto& keyword = (*this)[index];
 
-        if (rst_keep_in_schedule.count(keyword.name()) == 0) {
+        if (!rst_keep_in_schedule.contains(keyword.name())) {
             auto next_index = index + 1;
             this->erase(index);
 
