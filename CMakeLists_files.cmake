@@ -591,6 +591,7 @@ list(APPEND TEST_SOURCE_FILES
   tests/test_Summary_Group.cpp
   tests/test_Summary_GSatProd.cpp
   tests/test_Tables.cpp
+  tests/test_TimedTaskScheduler.cpp
   tests/test_TimeService.cpp
   tests/test_uniformtablelinear.cpp
   tests/test_Uns2CPG.cpp
@@ -944,6 +945,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/common/utility/String.hpp
   opm/common/utility/SymmTensor.hpp
   opm/common/utility/ThreadSafeMapBuilder.hpp
+  opm/common/utility/TimedTaskScheduler.hpp
   opm/common/utility/TimeService.hpp
   opm/common/utility/VectorWithDefaultAllocator.hpp
   opm/common/utility/Visitor.hpp
