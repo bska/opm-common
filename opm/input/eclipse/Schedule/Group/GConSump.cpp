@@ -52,8 +52,8 @@ const GConSump::GCONSUMPGroupProp GConSump::get(const std::string& name, const S
 
     GCONSUMPGroupProp prop;
     const GConSump::GCONSUMPGroup& group = this->get(name);
-    prop.consumption_rate = UDA::eval_group_uda(group.consumption_rate, name, st, group.udq_undefined);
-    prop.import_rate = UDA::eval_group_uda(group.import_rate, name, st, group.udq_undefined);
+    prop.consumption_rate = UDA::eval_group_uda(group.consumption_rate, name, st);
+    prop.import_rate = UDA::eval_group_uda(group.import_rate, name, st);
     prop.network_node = group.network_node;
     return prop;
 }

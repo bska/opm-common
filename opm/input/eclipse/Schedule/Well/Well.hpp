@@ -235,7 +235,7 @@ public:
         void resetDefaultHistoricalBHPLimit();
         void resetBHPLimit();
         void setBHPLimit(const double limit);
-        InjectionControls controls(const UnitSystem& unit_system, const SummaryState& st, double udq_default) const;
+        InjectionControls controls(const UnitSystem& unit_system, const SummaryState& st) const;
         bool updateUDQActive(const UDQConfig& udq_config, UDQActive& active) const;
         bool updateUDQActive(const UDQConfig& udq_config, const WELTARGCMode cmode, UDQActive& active) const;
         void update_uda(const UDQConfig& udq_config, UDQActive& udq_active, UDAControl control, const UDAValue& value);
@@ -352,7 +352,7 @@ public:
         void handleWELTARG( WELTARGCMode cmode, const UDAValue& new_arg, double SiFactorP);
         void resetDefaultBHPLimit();
         void clearControls();
-        ProductionControls controls(const SummaryState& st, double udq_default) const;
+        ProductionControls controls(const SummaryState& st) const;
         bool updateUDQActive(const UDQConfig& udq_config, UDQActive& active) const;
         bool updateUDQActive(const UDQConfig& udq_config, const WELTARGCMode cmode, UDQActive& active) const;
         void update_uda(const UDQConfig& udq_config, UDQActive& udq_active, UDAControl control, const UDAValue& value);

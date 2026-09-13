@@ -997,15 +997,15 @@ Group::productionControls(const SummaryState& st) const
     pc.cmode = this->production_properties.cmode;
     pc.group_limit_action = this->production_properties.group_limit_action;
 
-    pc.oil_target = UDA::eval_group_uda(this->production_properties.oil_target, this->m_name, st, this->udq_undefined);
-    pc.water_target = UDA::eval_group_uda(this->production_properties.water_target, this->m_name, st, this->udq_undefined);
-    pc.gas_target = UDA::eval_group_uda(this->production_properties.gas_target, this->m_name, st, this->udq_undefined);
-    pc.liquid_target = UDA::eval_group_uda(this->production_properties.liquid_target, this->m_name, st, this->udq_undefined);
+    pc.oil_target = UDA::eval_group_uda(this->production_properties.oil_target, this->m_name, st);
+    pc.water_target = UDA::eval_group_uda(this->production_properties.water_target, this->m_name, st);
+    pc.gas_target = UDA::eval_group_uda(this->production_properties.gas_target, this->m_name, st);
+    pc.liquid_target = UDA::eval_group_uda(this->production_properties.liquid_target, this->m_name, st);
 
     pc.guide_rate = this->production_properties.guide_rate;
     pc.guide_rate_def = this->production_properties.guide_rate_def;
 
-    pc.resv_target = UDA::eval_group_uda(this->production_properties.resv_target, this->m_name, st, this->udq_undefined);
+    pc.resv_target = UDA::eval_group_uda(this->production_properties.resv_target, this->m_name, st);
 
     return pc;
 }
@@ -1021,10 +1021,10 @@ Group::injectionControls(const Phase phase, const SummaryState& st) const
 
     ic.injection_controls = inj.injection_controls;
 
-    ic.surface_max_rate = UDA::eval_group_uda_rate(inj.surface_max_rate, this->m_name, st, this->udq_undefined, ic.phase, this->unit_system);
-    ic.resv_max_rate = UDA::eval_group_uda(inj.resv_max_rate, this->m_name, st, this->udq_undefined);
-    ic.target_reinj_fraction = UDA::eval_group_uda(inj.target_reinj_fraction, this->m_name, st, this->udq_undefined);
-    ic.target_void_fraction = UDA::eval_group_uda(inj.target_void_fraction, this->m_name, st, this->udq_undefined);
+    ic.surface_max_rate = UDA::eval_group_uda_rate(inj.surface_max_rate, this->m_name, st, ic.phase, this->unit_system);
+    ic.resv_max_rate = UDA::eval_group_uda(inj.resv_max_rate, this->m_name, st);
+    ic.target_reinj_fraction = UDA::eval_group_uda(inj.target_reinj_fraction, this->m_name, st);
+    ic.target_void_fraction = UDA::eval_group_uda(inj.target_void_fraction, this->m_name, st);
 
     ic.reinj_group = inj.reinj_group.value_or(this->m_name);
     ic.voidage_group = inj.voidage_group.value_or(this->m_name);

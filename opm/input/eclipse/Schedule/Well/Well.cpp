@@ -1465,7 +1465,7 @@ const WELDRAW& Well::getWELDRAW() const
 
 double Well::weldrawMaxDrawdown(const SummaryState& st) const
 {
-    return this->weldraw->maxDrawdown(this->wname, st, this->udq_undefined);
+    return this->weldraw->maxDrawdown(this->wname, st);
 }
 
 const WellEconProductionLimits& Well::getEconLimits() const
@@ -2207,7 +2207,7 @@ bool Well::wellNameInWellNamePattern(const std::string& wellName,
 Well::ProductionControls Well::productionControls(const SummaryState& st) const
 {
     if (this->isProducer()) {
-        return this->production->controls(st, this->udq_undefined);
+        return this->production->controls(st);
     }
 
     throw std::logic_error("Trying to get production data from an injector");
@@ -2216,7 +2216,7 @@ Well::ProductionControls Well::productionControls(const SummaryState& st) const
 Well::InjectionControls Well::injectionControls(const SummaryState& st) const
 {
     if (!this->isProducer()) {
-        return this->injection->controls(*this->unit_system, st, this->udq_undefined);
+        return this->injection->controls(*this->unit_system, st);
     }
 
     throw std::logic_error("Trying to get injection data from a producer");
@@ -2225,7 +2225,7 @@ Well::InjectionControls Well::injectionControls(const SummaryState& st) const
 double Well::alq_value(const SummaryState& st) const
 {
     if (this->wtype.producer()) {
-        auto controls = this->production->controls(st, this->udq_undefined);
+        auto controls = this->production->controls(st);
         return controls.alq_value;
     }
 
@@ -2459,5 +2459,5 @@ void Opm::Well::setFilterConc(const UDAValue& conc)
 double Opm::Well::evalFilterConc(const SummaryState& summary_sate) const
 {
     return UDA::eval_well_uda(this->m_filter_concentration,
-                              this->name(), summary_sate, 0.0);
+                              this->name(), summary_sate);
 }

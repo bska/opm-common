@@ -993,7 +993,7 @@ BOOST_AUTO_TEST_CASE(Historic_Period)
         prop.handleWCONHIST(std::nullopt, 0, 101325.0, Opm::UnitSystem::newMETRIC(),
                             deck.get<Opm::ParserKeywords::WCONHIST>().back().getRecord(0));
 
-        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined }, state.header.udq_undefined);
+        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined });
         BOOST_CHECK_MESSAGE(ctrl.cmode == Opm::WellProducerCMode::RESV,
                             "Well loaded from restart file must be controlled by "
                             "observed reservoir voidage rate (RESV) after WCONHIST");
@@ -1014,7 +1014,7 @@ BOOST_AUTO_TEST_CASE(Historic_Period)
         prop.handleWCONHIST(std::nullopt, 0, 101325.0, Opm::UnitSystem::newMETRIC(),
                             deck.get<Opm::ParserKeywords::WCONHIST>().back().getRecord(0));
 
-        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined }, state.header.udq_undefined);
+        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined });
         BOOST_CHECK_MESSAGE(ctrl.cmode == Opm::WellProducerCMode::ORAT,
                             "Well loaded from restart file must be controlled by "
                             "observed surface oil flow rate (ORAT) after WCONHIST");
@@ -1066,7 +1066,7 @@ BOOST_AUTO_TEST_CASE(Historic_Period_WHistCtl)
         prop.handleWCONHIST(std::nullopt, 0, 101325.0, Opm::UnitSystem::newMETRIC(),
                             deck.get<Opm::ParserKeywords::WCONHIST>().back().getRecord(0));
 
-        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined }, state.header.udq_undefined);
+        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined });
         BOOST_CHECK_MESSAGE(ctrl.cmode == Opm::WellProducerCMode::ORAT,
                             "Well loaded from restart file must be controlled by "
                             "observed surface oil flow rate (ORAT) after WCONHIST");
@@ -1087,7 +1087,7 @@ BOOST_AUTO_TEST_CASE(Historic_Period_WHistCtl)
         prop.handleWCONHIST(std::nullopt, 0, 101325.0, Opm::UnitSystem::newMETRIC(),
                             deck.get<Opm::ParserKeywords::WCONHIST>().back().getRecord(0));
 
-        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined }, state.header.udq_undefined);
+        const auto ctrl = prop.controls(Opm::SummaryState { Opm::TimeService::now(), state.header.udq_undefined });
         BOOST_CHECK_MESSAGE(ctrl.cmode == Opm::WellProducerCMode::RESV,
                             "Well loaded from restart file must be controlled by "
                             "observed reservoir voidage rate (RESV) after WCONHIST");

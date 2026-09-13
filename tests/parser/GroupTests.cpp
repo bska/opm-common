@@ -862,7 +862,7 @@ GCONSUMP
         BOOST_CHECK(gecon.has_group("G1"));
         BOOST_CHECK(gecon.has_group("G2"));
         {
-            const GroupEconProductionLimits::GEconGroupProp group = gecon.get_group_prop(schedule, st, "G1");
+            const GroupEconProductionLimits::GEconGroupProp group = gecon.get_group_prop(st, "G1");
             BOOST_CHECK(group.minOilRate().has_value() == false);
             BOOST_CHECK(group.minGasRate().has_value() == true);
             if (group.minGasRate()) {
@@ -876,7 +876,7 @@ GCONSUMP
             BOOST_CHECK_EQUAL(group.maxOpenWells(), 0);
         }
         {
-            const GroupEconProductionLimits::GEconGroupProp group = gecon.get_group_prop(schedule, st, "G2");
+            const GroupEconProductionLimits::GEconGroupProp group = gecon.get_group_prop(st, "G2");
             BOOST_CHECK(group.minOilRate().has_value() == true);
             if (group.minOilRate()) {
                 BOOST_CHECK_EQUAL(group.minOilRate().value(), 100000.0 * metric_to_si);
@@ -933,7 +933,7 @@ GECON
     const double wgr_to_si = 5.614583333333335e-03; // STB/MSCF -> SM3/SM3
 
     const auto& gecon = schedule[0].gecon.get();
-    const GroupEconProductionLimits::GEconGroupProp group = gecon.get_group_prop(schedule, st, "G1");
+    const GroupEconProductionLimits::GEconGroupProp group = gecon.get_group_prop(st, "G1");
     BOOST_CHECK(group.maxWaterCut().has_value());
     BOOST_CHECK_CLOSE(group.maxWaterCut().value(), 0.7, 1.0e-10);
     BOOST_CHECK(group.maxGasOilRatio().has_value());
