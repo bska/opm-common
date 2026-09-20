@@ -20,6 +20,8 @@
 #ifndef OPM_SUMMARY_CONFIG_HPP
 #define OPM_SUMMARY_CONFIG_HPP
 
+#include <opm/input/eclipse/EclipseState/SummaryConfig/EnumeratedSimulationObjects.hpp>
+
 #include <opm/io/eclipse/SummaryNode.hpp>
 
 #include <opm/common/OpmLog/KeywordLocation.hpp>
@@ -32,6 +34,7 @@
 #include <limits>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -364,6 +367,29 @@ namespace Opm {
 
         /// Constructor.
         ///
+        /// Parses the SUMMARY section of the run's model description and
+        /// configures the initial collection of summary vectors using a
+        /// pre-built snapshot of the simulation objects.  This avoids
+        /// direct dependencies on the heavy Schedule, FieldPropsManager,
+        /// and AquiferConfig types at construction time.
+        ///
+        /// \param[in] deck Run's model description.
+        ///
+        /// \param[in] eso Pre-enumerated simulation objects (wells, groups,
+        /// connections, aquifers, region arrays, UDQ definitions, and grid
+        /// dimensions).  Must have been committed before passing here.
+        ///
+        /// \param[in] parseContext Error handling controls.
+        ///
+        /// \param[in,out] errors Collection of parse errors encountered
+        /// thus far.  Behaviour controlled by \p parseContext.
+        SummaryConfig(const Deck&                        deck,
+                      const EnumeratedSimulationObjects& eso,
+                      const ParseContext&                parseContext,
+                      ErrorGuard&                        errors);
+
+        /// Constructor.
+        ///
         /// Trampoline for expiring ErrorGuard objects.  This constructor
         /// should arguably not exist.
         ///
@@ -506,9 +532,25 @@ namespace Opm {
         /// \return Vector definitions for the vectors in \p extraKeys that
         /// did not already exist.
         keyword_list
-        registerRequisiteUDQorActionSummaryKeys(const std::vector<std::string>& extraKeys,
-                                                const EclipseState&             es,
-                                                const Schedule&                 sched);
+        registerRequisiteUDQorActionSummaryKeys(std::span<const std::string> extraKeys,
+                                                const EclipseState&          es,
+                                                const Schedule&              sched);
+
+        /// Form definitions from vectors used in UDQs and ACTIONX.
+        ///
+        /// \param[in] extraKeys Vector names used in defining expressions
+        /// for UDQs or in ACTIONX condition blocks.
+        ///
+        /// \param[in] declaredMaxRegionID Maximum region ID declared in the deck.
+        ///
+        /// \param[in] eso Run's enumerated dynamic objects such as wells and groups.
+        ///
+        /// \return Vector definitions for the vectors in \p extraKeys that
+        /// did not already exist.
+        keyword_list
+        registerRequisiteSummaryKeys(std::span<const std::string>       extraKeys,
+                                     const std::size_t                  declaredMaxRegionID,
+                                     const EnumeratedSimulationObjects& eso);
 
         /// Query existence of summary vector name.
         ///
