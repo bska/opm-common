@@ -234,6 +234,16 @@ SummaryConfig createSummary(const std::string&  input,
     };
 }
 
+SummaryConfig createSummaryFromESO(const std::string&                 input,
+                                   const EnumeratedSimulationObjects& eso,
+                                   const bool                         fullDeck = false,
+                                   const ParseContext& parseContext = ParseContext{})
+{
+    const auto deck = fullDeck ? createDeck(input) : createDeck_no_wells(input);
+    auto errors = ErrorGuard{};
+    return SummaryConfig{ deck, eso, parseContext, errors };
+}
+
 } // Anonymous namespace
 
 BOOST_AUTO_TEST_CASE(wells_all) {
@@ -277,6 +287,127 @@ BOOST_AUTO_TEST_CASE(wells_missingI) {
     EclipseState state( deck );
     Schedule schedule(deck, state, parseContext, errors, python );
     BOOST_CHECK_NO_THROW(SummaryConfig(deck, schedule, state.fieldProps(), state.aquifer(), parseContext, errors));
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_well_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addWell("W_B");
+    eso.addWell("W_A");
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("WWCT\n/\n", eso);
+    const auto names = sorted_names(summary);
+    const auto wells = std::vector<std::string>{"W_A", "W_B"};
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(wells.begin(), wells.end(),
+                                  names.begin(), names.end());
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_group_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addGroup("FIELD");
+    eso.addGroup("G1");
+    eso.addGroup("G2");
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("GWPR\n/\n", eso);
+    const auto names = sorted_names(summary);
+    const auto groups = std::vector<std::string>{"G1", "G2"};
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(groups.begin(), groups.end(),
+                                  names.begin(), names.end());
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_connection_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addWell("W1");
+    eso.addWellConnection("W1", 0);
+    eso.addWellConnection("W1", 5);
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("CWIR\n'W1' /\n/\n", eso);
+
+    BOOST_CHECK(summary.hasSummaryKey("CWIR:W1:1"));
+    BOOST_CHECK(summary.hasSummaryKey("CWIR:W1:6"));
+    BOOST_CHECK_EQUAL(summary.keywords("CWIR").size(), 2U);
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_segment_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addWell("W1");
+    eso.addWell("W2");
+    eso.addWellSegment("W1", 1);
+    eso.addWellSegment("W1", 2);
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("SGFR\n/\n", eso);
+
+    BOOST_CHECK(summary.hasSummaryKey("SGFR:W1:1"));
+    BOOST_CHECK(summary.hasSummaryKey("SGFR:W1:2"));
+    BOOST_CHECK(!summary.hasSummaryKey("SGFR:W2:1"));
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_region_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addRegionArray("FIPNUM", { 1, 3, 3, 1 });
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("ROIP\n/\n", eso);
+
+    BOOST_CHECK(summary.hasSummaryKey("ROIP:1"));
+    BOOST_CHECK(summary.hasSummaryKey("ROIP:3"));
+    BOOST_CHECK(!summary.hasSummaryKey("ROIP:2"));
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_aquifer_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addAnalyticAquifer(10);
+    eso.addAnalyticAquifer(20);
+    eso.addNumericAquifer(30);
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("AAQR\n/\nANQR\n/\n", eso, true);
+
+    BOOST_CHECK(summary.hasSummaryKey("AAQR:10"));
+    BOOST_CHECK(summary.hasSummaryKey("AAQR:20"));
+    BOOST_CHECK(summary.hasSummaryKey("ANQR:30"));
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_local_well_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addWell("WELL1", "LGR1");
+    eso.addWell("WELL2", "LGR2");
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("LWBHP\n'LGR1' 'WELL1' /\n/\n", eso);
+    const auto nodes = summary.keywords("LWBHP");
+
+    BOOST_REQUIRE_EQUAL(nodes.size(), 1U);
+    BOOST_CHECK_EQUAL(nodes[0].namedEntity(), "WELL1");
+    BOOST_REQUIRE(nodes[0].lgr_name().has_value());
+    BOOST_CHECK_EQUAL(*nodes[0].lgr_name(), "LGR1");
+}
+
+BOOST_AUTO_TEST_CASE(eso_ctor_local_block_keywords)
+{
+    EnumeratedSimulationObjects eso;
+    eso.addGrid("LGR1", GridDims(3, 3, 1));
+    eso.commit();
+
+    const auto summary = createSummaryFromESO("LBPR\n'LGR1' 2 2 1 /\n/\n", eso);
+    const auto nodes = summary.keywords("LBPR");
+
+    BOOST_REQUIRE_EQUAL(nodes.size(), 1U);
+    BOOST_REQUIRE(nodes[0].lgr_name().has_value());
+    BOOST_CHECK_EQUAL(*nodes[0].lgr_name(), "LGR1");
+    BOOST_CHECK_EQUAL(nodes[0].number(), 5);
 }
 
 
