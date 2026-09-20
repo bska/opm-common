@@ -147,6 +147,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/input/eclipse/EclipseState/SimulationConfig/RockConfig.cpp
   opm/input/eclipse/EclipseState/SimulationConfig/SimulationConfig.cpp
   opm/input/eclipse/EclipseState/SimulationConfig/ThresholdPressure.cpp
+  opm/input/eclipse/EclipseState/SummaryConfig/EnumeratedSimulationObjects.cpp
   opm/input/eclipse/EclipseState/SummaryConfig/RegionVariableSupport.cpp
   opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.cpp
   opm/input/eclipse/EclipseState/Tables/Aqudims.cpp
@@ -585,6 +586,7 @@ list(APPEND TEST_SOURCE_FILES
   tests/test_sparsevector.cpp
   tests/test_sparsetable.cpp
   tests/test_Summary.cpp
+  tests/test_EnumeratedSimulationObjects.cpp
   tests/test_SummaryNode.cpp
   tests/test_SummaryConfigNode.cpp
   tests/test_SummaryDynamicConnectionVectors.cpp
@@ -1039,6 +1041,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/input/eclipse/EclipseState/SimulationConfig/RockConfig.hpp
   opm/input/eclipse/EclipseState/SimulationConfig/SimulationConfig.hpp
   opm/input/eclipse/EclipseState/SimulationConfig/ThresholdPressure.hpp
+  opm/input/eclipse/EclipseState/SummaryConfig/EnumeratedSimulationObjects.hpp
   opm/input/eclipse/EclipseState/SummaryConfig/RegionVariableSupport.hpp
   opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp
   opm/input/eclipse/EclipseState/Tables/Aqudims.hpp

@@ -19,6 +19,8 @@
 
 #include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
 
+#include <opm/input/eclipse/EclipseState/SummaryConfig/EnumeratedSimulationObjects.hpp>
+
 #include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/common/utility/OpmInputError.hpp>
 #include <opm/common/utility/shmatch.hpp>
@@ -62,6 +64,7 @@
 #include <memory>
 #include <regex>
 #include <set>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -696,48 +699,6 @@ namespace {
         return is_in_set(nodekw, keyword);
     }
 
-    bool need_node_names(const SUMMARYSection& sect)
-    {
-        // We need the the node names if there is any node-related summary
-        // keywords in the input deck's SUMMARY section.  The reason is that
-        // we need to be able to fill out all node names in the case of a
-        // keyword that does not specify any nodes (e.g., "GPR /"), and to
-        // check for missing nodes if a keyword is erroneously specified.
-
-        return std::any_of(sect.begin(), sect.end(),
-            [](const DeckKeyword& keyword)
-        {
-            return is_node_keyword(keyword.name());
-        });
-    }
-
-    std::vector<std::string> collect_node_names(const Schedule& sched, const bool add_wells = false)
-    {
-        auto node_names = std::vector<std::string>{};
-        auto names = std::unordered_set<std::string>{};
-
-        const auto nstep = sched.size() - 1;
-        for (auto step = 0*nstep; step < nstep; ++step) {
-            const auto& nodes = sched[step].network.get().node_names();
-            names.insert(nodes.begin(), nodes.end());
-            if (!add_wells) continue;
-
-            // Possibly insert wells belonging to groups in the network to be able to report network-computed THPs
-            for (const auto& node : nodes) {
-                if (!sched.hasGroup(node, step)) continue;
-                const auto& group = sched.getGroup(node, step);
-                for (const std::string& wellname : group.wells()) {
-                    names.insert(wellname);
-                }
-            }
-        }
-
-        node_names.assign(names.begin(), names.end());
-        std::ranges::sort(node_names);
-
-        return node_names;
-    }
-
     SummaryConfigNode::Category
     distinguish_group_from_node(const std::string& keyword)
     {
@@ -893,12 +854,11 @@ std::array<int, 3> getijk(const DeckRecord& record)
     };
 }
 
-void keywordCL(SummaryConfig::keyword_list& list,
-               const ParseContext&          parseContext,
-               ErrorGuard&                  errors,
-               const DeckKeyword&           keyword,
-               const Schedule&              schedule,
-               const CellIndexMapper&       gridDims)
+void keywordCL(SummaryConfig::keyword_list&       list,
+               const ParseContext&                parseContext,
+               ErrorGuard&                        errors,
+               const DeckKeyword&                 keyword,
+               const EnumeratedSimulationObjects& eso)
 {
     auto node = SummaryConfigNode {
         keyword.name(), SummaryConfigNode::Category::Completion, keyword.location()
@@ -908,7 +868,7 @@ void keywordCL(SummaryConfig::keyword_list& list,
 
     for (const auto& record : keyword) {
         const auto& pattern = record.getItem(0).get<std::string>(0);
-        auto well_names = schedule.wellNames(pattern, schedule.size() - 1);
+        auto well_names = eso.wellNames(pattern);
 
         if (well_names.empty()) {
             handleMissingWell(parseContext, errors, keyword.location(), pattern);
@@ -916,18 +876,15 @@ void keywordCL(SummaryConfig::keyword_list& list,
 
         const auto ijk_defaulted = record.getItem(1).defaultApplied(0);
         for (const auto& wname : well_names) {
-            const auto& well = schedule.getWellatEnd(wname);
-            const auto& all_connections = well.getConnections();
-
             node.namedEntity(wname);
             if (ijk_defaulted) {
-                std::ranges::transform(all_connections, std::back_inserter(list),
-                                       [&node](const auto& conn)
-                                       { return node.number(1 + conn.global_index()); });
+                for (const auto& gi : eso.connectionsForWell(wname)) {
+                    list.push_back(node.number(1 + static_cast<int>(gi)));
+                }
             }
             else {
                 const auto ijk = getijk(record);
-                const auto globalDims = gridDims("");
+                const auto globalDims = eso.gridDims("");
                 const auto ci = static_cast<std::size_t>(ijk[0]);
                 const auto cj = static_cast<std::size_t>(ijk[1]);
                 const auto ck = static_cast<std::size_t>(ijk[2]);
@@ -946,12 +903,10 @@ void keywordCL(SummaryConfig::keyword_list& list,
                     continue;
                 }
 
-                const auto global_index =
-                    globalDims.getGlobalIndex(ci, cj, ck);
+                const auto global_index = globalDims.getGlobalIndex(ci, cj, ck);
 
-                if (all_connections.hasGlobalIndex(global_index)) {
-                    const auto& conn = all_connections.getFromGlobalIndex(global_index);
-                    list.push_back(node.number(1 + conn.global_index()));
+                if (eso.wellHasGlobalConnection(wname, global_index)) {
+                    list.push_back(node.number(1 + static_cast<int>(global_index)));
                 }
                 else {
                     std::string msg = fmt::format("Problem with keyword {{keyword}}\n"
@@ -967,15 +922,15 @@ void keywordCL(SummaryConfig::keyword_list& list,
     }
 }
 
-void keywordWL(SummaryConfig::keyword_list& list,
-               const ParseContext&          parseContext,
-               ErrorGuard&                  errors,
-               const DeckKeyword&           keyword,
-               const Schedule&              schedule)
+void keywordWL(SummaryConfig::keyword_list&       list,
+               const ParseContext&                parseContext,
+               ErrorGuard&                        errors,
+               const DeckKeyword&                 keyword,
+               const EnumeratedSimulationObjects& eso)
 {
     for (const auto& record : keyword) {
         const auto& pattern = record.getItem(0).get<std::string>(0);
-        const auto well_names = schedule.wellNames(pattern, schedule.size() - 1);
+        const auto well_names = eso.wellNames(pattern);
 
         if (well_names.empty()) {
             handleMissingWell(parseContext, errors, keyword.location(), pattern);
@@ -997,7 +952,7 @@ void keywordWL(SummaryConfig::keyword_list& list,
         .number(completion);
 
         for (const auto& wname : well_names) {
-            if (schedule.getWellatEnd(wname).hasCompletion(completion)) {
+            if (eso.wellHasCompletion(wname, completion)) {
                 list.push_back(node.namedEntity(wname));
             }
             else {
@@ -1012,11 +967,11 @@ void keywordWL(SummaryConfig::keyword_list& list,
     }
 }
 
-void keywordLW(SummaryConfig::keyword_list& list,
-               const ParseContext&          parseContext,
-               ErrorGuard&                  errors,
-               const DeckKeyword&           keyword,
-               const Schedule&              schedule)
+void keywordLW(SummaryConfig::keyword_list&       list,
+               const ParseContext&                parseContext,
+               ErrorGuard&                        errors,
+               const DeckKeyword&                 keyword,
+               const EnumeratedSimulationObjects& eso)
 {
     auto param = SummaryConfigNode {
         keyword.name(), SummaryConfigNode::Category::Well, keyword.location()
@@ -1031,15 +986,14 @@ void keywordLW(SummaryConfig::keyword_list& list,
             ? std::string { "*" }
             : record.getItem(1).getTrimmedString(0);
 
-        const auto candidates = schedule.wellNames(well_pattern, schedule.size() - 1);
+        const auto candidates = eso.wellNames(well_pattern);
 
         if (candidates.empty()) {
             handleMissingWell(parseContext, errors, keyword.location(), well_pattern);
         }
 
         for (const auto& wname : candidates) {
-            const auto& well = schedule.getWellatEnd(wname);
-            if (well.get_lgr_well_tag() != lgr_name) {
+            if (eso.lgrTagForWell(wname) != lgr_name) {
                 continue;
             }
             list.push_back(param.namedEntity(wname).lgr_name(lgr_name));
@@ -1047,10 +1001,10 @@ void keywordLW(SummaryConfig::keyword_list& list,
     }
 }
 
-void keywordW(SummaryConfig::keyword_list& list,
-              const std::string& keyword,
-              KeywordLocation loc,
-              const Schedule& schedule)
+void keywordW(SummaryConfig::keyword_list&       list,
+              const std::string&                 keyword,
+              KeywordLocation                    loc,
+              const EnumeratedSimulationObjects& eso)
 {
     auto param = SummaryConfigNode {
         keyword, SummaryConfigNode::Category::Well , std::move(loc)
@@ -1058,17 +1012,17 @@ void keywordW(SummaryConfig::keyword_list& list,
     .parameterType(parseKeywordType(keyword))
     .isUserDefined(is_udq(keyword));
 
-    keywordW(list, schedule.wellNames(), param);
+    keywordW(list, eso.wellNames(), param);
 }
 
-void keywordW(SummaryConfig::keyword_list& list,
-              const ParseContext&          parseContext,
-              ErrorGuard&                  errors,
-              const DeckKeyword&           keyword,
-              const Schedule&              schedule)
+void keywordW(SummaryConfig::keyword_list&       list,
+              const ParseContext&                parseContext,
+              ErrorGuard&                        errors,
+              const DeckKeyword&                 keyword,
+              const EnumeratedSimulationObjects& eso)
 {
     if (is_well_completion(keyword.name())) {
-        keywordWL(list, parseContext, errors, keyword, schedule);
+        keywordWL(list, parseContext, errors, keyword, eso);
         return;
     }
 
@@ -1080,7 +1034,7 @@ void keywordW(SummaryConfig::keyword_list& list,
 
     if (!keyword.empty() && keyword.getDataRecord().getDataItem().hasValue(0)) {
         for (const auto& pattern : keyword.getStringData()) {
-            const auto well_names = schedule.wellNames(pattern);
+            const auto well_names = eso.wellNames(pattern);
 
             if (well_names.empty()) {
                 handleMissingWell(parseContext, errors, keyword.location(), pattern);
@@ -1090,14 +1044,14 @@ void keywordW(SummaryConfig::keyword_list& list,
         }
     }
     else {
-        keywordW(list, schedule.wellNames(), param);
+        keywordW(list, eso.wellNames(), param);
     }
 }
 
-void keywordG(SummaryConfig::keyword_list& list,
-              const std::string&           keyword,
-              const KeywordLocation&       loc,
-              const Schedule&              schedule)
+void keywordG(SummaryConfig::keyword_list&       list,
+              const std::string&                 keyword,
+              const KeywordLocation&             loc,
+              const EnumeratedSimulationObjects& eso)
 {
     auto param = SummaryConfigNode {
         keyword, SummaryConfigNode::Category::Group, loc
@@ -1105,18 +1059,18 @@ void keywordG(SummaryConfig::keyword_list& list,
     .parameterType(parseKeywordType(keyword))
     .isUserDefined(is_udq(keyword));
 
-    for (const auto& group : schedule.groupNames() ) {
+    for (const auto& group : eso.groupNames()) {
         if (group == "FIELD") { continue; }
 
         list.push_back(param.namedEntity(group));
     }
 }
 
-void keywordG(SummaryConfig::keyword_list& list,
-              const ParseContext&          parseContext,
-              ErrorGuard&                  errors,
-              const DeckKeyword&           keyword,
-              const Schedule&              schedule,
+void keywordG(SummaryConfig::keyword_list&       list,
+              const ParseContext&                parseContext,
+              ErrorGuard&                        errors,
+              const DeckKeyword&                 keyword,
+              const EnumeratedSimulationObjects& eso,
               const bool excludeFieldFromGroupKw = true)
 {
     if (keyword.name() == "GMWSET") {
@@ -1132,7 +1086,7 @@ void keywordG(SummaryConfig::keyword_list& list,
     if (keyword.empty() ||
         ! keyword.getDataRecord().getDataItem().hasValue(0))
     {
-        for (const auto& group : schedule.groupNames()) {
+        for (const auto& group : eso.groupNames()) {
             if (excludeFieldFromGroupKw && (group == "FIELD")) {
                 continue;
             }
@@ -1146,7 +1100,7 @@ void keywordG(SummaryConfig::keyword_list& list,
     const auto& item = keyword.getDataRecord().getDataItem();
 
     for (const auto& group : item.getData<std::string>()) {
-        if (schedule.back().groups.has(group)) {
+        if (eso.hasGroup(group)) {
             list.push_back(param.namedEntity(group));
         }
         else {
@@ -1155,45 +1109,40 @@ void keywordG(SummaryConfig::keyword_list& list,
     }
 }
 
-void keyword_node(SummaryConfig::keyword_list& list,
-                  const std::vector<std::string>& node_names,
-                  const ParseContext& parseContext,
-                  ErrorGuard& errors,
-                  const DeckKeyword& keyword)
+void keyword_node(const DeckKeyword&                 keyword,
+                  const EnumeratedSimulationObjects& eso,
+                  const ParseContext&                parseContext,
+                  ErrorGuard&                        errors,
+                  SummaryConfig::keyword_list&       list)
 {
-    if (node_names.empty()) {
-        const auto msg = std::string {
-            "The network node keyword {keyword} is not "
-            "supported in runs without networks\n"
-            "In {file} line {line}"
-        };
-
-        parseContext.handleError(ParseContext::SUMMARY_UNHANDLED_KEYWORD,
-                                 msg, keyword.location(), errors);
-        return;
-    }
-
     auto param = SummaryConfigNode {
         keyword.name(), SummaryConfigNode::Category::Node, keyword.location()
     }
     .parameterType(parseKeywordType(keyword.name()))
     .isUserDefined(is_udq(keyword.name()));
 
-    if (keyword.empty() ||
-        !keyword.getDataRecord().getDataItem().hasValue(0))
-    {
-        std::ranges::transform(node_names, std::back_inserter(list),
+    if (keyword.empty() || !keyword.getDataRecord().getDataItem().hasValue(0)) {
+        std::ranges::transform(eso.networkNodeNames(),
+                               std::back_inserter(list),
                                [&param](const auto& node_name)
                                { return param.namedEntity(node_name); });
+
+        if (is_node_keyword_with_wells(keyword.name())) {
+            std::ranges::transform(eso.networkGroupWellNames(),
+                                   std::back_inserter(list),
+                                   [&param](const auto& node_name)
+                                   { return param.namedEntity(node_name); });
+        }
+
         return;
     }
 
     const auto& item = keyword.getDataRecord().getDataItem();
 
     for (const auto& node_name : item.getData<std::string>()) {
-        const auto pos = std::ranges::find(node_names, node_name);
+        const auto pos = std::ranges::find(eso.networkNodeNames(), node_name);
 
-        if (pos != node_names.end()) {
+        if (pos != eso.networkNodeNames().end()) {
             list.push_back(param.namedEntity(node_name));
         }
         else {
@@ -1240,9 +1189,9 @@ void keywordF(SummaryConfig::keyword_list& list,
     keywordF(list, keyword.name(), keyword.location());
 }
 
-void keywordLB(SummaryConfig::keyword_list& list,
-               const DeckKeyword&           keyword,
-               const CellIndexMapper&       gridDims)
+void keywordLB(SummaryConfig::keyword_list&       list,
+               const DeckKeyword&                 keyword,
+               const EnumeratedSimulationObjects& eso)
 {
     auto param = SummaryConfigNode {
         keyword.name(), SummaryConfigNode::Category::Block, keyword.location()
@@ -1268,7 +1217,7 @@ void keywordLB(SummaryConfig::keyword_list& list,
             const auto i = static_cast<std::size_t>(ijk_1based[0] - 1);
             const auto j = static_cast<std::size_t>(ijk_1based[1] - 1);
             const auto k = static_cast<std::size_t>(ijk_1based[2] - 1);
-            const auto dims = gridDims(lgr_name);
+            const auto dims = eso.gridDims(lgr_name);
             if (dims.getNX() > 0) {
                 node.number(1 + static_cast<int>(dims.getGlobalIndex(i, j, k)));
             }
@@ -1280,9 +1229,9 @@ void keywordLB(SummaryConfig::keyword_list& list,
     }
 }
 
-void keywordB(SummaryConfig::keyword_list& list,
-              const DeckKeyword&           keyword,
-              const CellIndexMapper&       gridDims)
+void keywordB(SummaryConfig::keyword_list&       list,
+              const DeckKeyword&                 keyword,
+              const EnumeratedSimulationObjects& eso)
 {
     auto param = SummaryConfigNode {
         keyword.name(), SummaryConfigNode::Category::Block, keyword.location()
@@ -1292,7 +1241,7 @@ void keywordB(SummaryConfig::keyword_list& list,
 
     for (const auto& record : keyword) {
         const auto ijk = getijk(record);
-        const auto dims = gridDims("");
+        const auto dims = eso.gridDims("");
         const auto i = static_cast<std::size_t>(ijk[0]);
         const auto j = static_cast<std::size_t>(ijk[1]);
         const auto k = static_cast<std::size_t>(ijk[2]);
@@ -1322,18 +1271,18 @@ void keywordB(SummaryConfig::keyword_list& list,
 }
 
 std::optional<std::string>
-establishRegionContext(const DeckKeyword&       keyword,
-                       const FieldPropsManager& field_props,
-                       const ParseContext&      parseContext,
-                       ErrorGuard&              errors,
-                       SummaryConfigContext&    context)
+establishRegionContext(const DeckKeyword&                 keyword,
+                       const EnumeratedSimulationObjects& eso,
+                       const ParseContext&                parseContext,
+                       ErrorGuard&                        errors,
+                       SummaryConfigContext&              context)
 {
     auto region_name = std::string { "FIPNUM" };
 
     if (keyword.name().size() > 5) {
         region_name = "FIP" + keyword.name().substr(5, 3);
 
-        if (! field_props.has_int(region_name)) {
+        if (! eso.hasRegionArray(region_name)) {
             const auto msg_fmt =
                 fmt::format("Problem with summary keyword {{keyword}}\n"
                             "In {{file}} line {{line}}\n"
@@ -1346,7 +1295,7 @@ establishRegionContext(const DeckKeyword&       keyword,
         }
     }
 
-    context.analyseRegionSet(region_name, field_props.get_global_int(region_name));
+    context.analyseRegionSet(region_name, eso.regionArray(region_name));
 
     return { region_name };
 }
@@ -1364,12 +1313,12 @@ void keywordR2R_unsupported(const DeckKeyword&  keyword,
                              msg_fmt, keyword.location(), errors);
 }
 
-void keywordR2R(const DeckKeyword&           keyword,
-                const FieldPropsManager&     field_props,
-                const ParseContext&          parseContext,
-                ErrorGuard&                  errors,
-                SummaryConfigContext&        context,
-                SummaryConfig::keyword_list& list)
+void keywordR2R(const DeckKeyword&                 keyword,
+                const EnumeratedSimulationObjects& eso,
+                const ParseContext&                parseContext,
+                ErrorGuard&                        errors,
+                SummaryConfigContext&              context,
+                SummaryConfig::keyword_list&       list)
 {
     if (is_unsupported_region_to_region(keyword.name())) {
         keywordR2R_unsupported(keyword, parseContext, errors);
@@ -1383,7 +1332,7 @@ void keywordR2R(const DeckKeyword&           keyword,
         };
     }
 
-    const auto region_name = establishRegionContext(keyword, field_props,
+    const auto region_name = establishRegionContext(keyword, eso,
                                                     parseContext, errors,
                                                     context);
 
@@ -1446,21 +1395,21 @@ void keywordR2R(const DeckKeyword&           keyword,
                              msg_fmt, keyword.location(), errors);
 }
 
-void keywordR(SummaryConfig::keyword_list& list,
-              SummaryConfigContext&        context,
-              const DeckKeyword&           deck_keyword,
-              const FieldPropsManager&     field_props,
-              const ParseContext&          parseContext,
-              ErrorGuard&                  errors)
+void keywordR(SummaryConfig::keyword_list&       list,
+              SummaryConfigContext&              context,
+              const DeckKeyword&                 deck_keyword,
+              const EnumeratedSimulationObjects& eso,
+              const ParseContext&                parseContext,
+              ErrorGuard&                        errors)
 {
     const auto keyword = deck_keyword.name();
     if (is_region_to_region(keyword)) {
-        keywordR2R(deck_keyword, field_props, parseContext, errors, context, list);
+        keywordR2R(deck_keyword, eso, parseContext, errors, context, list);
         return;
     }
 
     const auto region_name =
-        establishRegionContext(deck_keyword, field_props,
+        establishRegionContext(deck_keyword, eso,
                                parseContext, errors,
                                context);
 
@@ -1563,17 +1512,17 @@ void handleConnectionCell(const bool                   isGeomechWithFracturingRu
     }
 }
 
-void connKeywordDefaultedConns(const bool                      isGeomechWithFracturingRun,
-                               const SummaryConfigNode&        param0,
-                               const Schedule&                 schedule,
-                               const std::vector<std::string>& wellNames,
-                               KnownWellConnections&           keywordWellConns,
-                               SummaryConfig::keyword_list&    list,
-                               SummaryConfig::keyword_list&    extraFracturingVectors)
+void connKeywordDefaultedConns(const bool                         isGeomechWithFracturingRun,
+                               const SummaryConfigNode&           param0,
+                               const EnumeratedSimulationObjects& eso,
+                               const std::vector<std::string>&    wellNames,
+                               KnownWellConnections&              keywordWellConns,
+                               SummaryConfig::keyword_list&       list,
+                               SummaryConfig::keyword_list&       extraFracturingVectors)
 {
     auto param = param0;
 
-    const auto& possibleFutureConns = schedule.getPossibleFutureConnections();
+    const auto& possibleFutureConns = eso.possibleFutureConnections();
 
     for (const auto& wellName : wellNames) {
         param.namedEntity(wellName);
@@ -1590,20 +1539,19 @@ void connKeywordDefaultedConns(const bool                      isGeomechWithFrac
                                                          knownConns, list, extraFracturingVectors); });
         }
 
-        std::ranges::for_each(schedule.getWellatEnd(wellName).getConnections(),
-                              [isGeomechWithFracturingRun, &knownConns, &param, &list, &extraFracturingVectors]
-                              (const Connection& conn)
-                              { handleConnectionCell(isGeomechWithFracturingRun, conn.global_index(), param,
-                                                     knownConns, list, extraFracturingVectors); });
+        for (const auto gi : eso.connectionsForWell(wellName)) {
+            handleConnectionCell(isGeomechWithFracturingRun,
+                                 gi, param, knownConns, list, extraFracturingVectors);
+        }
     }
 }
 
-void connKeywordSpecifiedConn(const SummaryConfigNode&        param0,
-                              const int                       global_index,
-                              const Schedule&                 schedule,
-                              const std::vector<std::string>& wellNames,
-                              KnownWellConnections&           keywordWellConns,
-                              SummaryConfig::keyword_list&    list)
+void connKeywordSpecifiedConn(const SummaryConfigNode&           param0,
+                              const int                          global_index,
+                              const EnumeratedSimulationObjects& eso,
+                              const std::vector<std::string>&    wellNames,
+                              KnownWellConnections&              keywordWellConns,
+                              SummaryConfig::keyword_list&       list)
 {
     auto param = param0;
 
@@ -1613,14 +1561,15 @@ void connKeywordSpecifiedConn(const SummaryConfigNode&        param0,
     const auto isGeomechWithFracturingRun = false;
     auto extraFracturingVectors = SummaryConfig::keyword_list{};
 
-    const auto& possibleFutureConns = schedule.getPossibleFutureConnections();
+    const auto& possibleFutureConns = eso.possibleFutureConnections();
 
     for (const auto& wellName : wellNames) {
         const auto wellPos = possibleFutureConns.find(wellName);
 
         if (((wellPos != possibleFutureConns.end()) &&
              (wellPos->second.find(global_index) != wellPos->second.end())) ||
-            schedule.back().wells(wellName).getConnections().hasGlobalIndex(global_index))
+            eso.wellHasGlobalConnection(wellName,
+                                        static_cast<std::size_t>(global_index)))
         {
             param.namedEntity(wellName);
 
@@ -1631,12 +1580,11 @@ void connKeywordSpecifiedConn(const SummaryConfigNode&        param0,
     }
 }
 
-void keywordLC(SummaryConfig::keyword_list& list,
-               const ParseContext&          parseContext,
-               ErrorGuard&                  errors,
-               const DeckKeyword&           keyword,
-               const Schedule&              schedule,
-               const CellIndexMapper&       gridDims)
+void keywordLC(SummaryConfig::keyword_list&       list,
+               const ParseContext&                parseContext,
+               ErrorGuard&                        errors,
+               const DeckKeyword&                 keyword,
+               const EnumeratedSimulationObjects& eso)
 {
     auto param = SummaryConfigNode {
         keyword.name(), SummaryConfigNode::Category::Connection, keyword.location()
@@ -1651,7 +1599,7 @@ void keywordLC(SummaryConfig::keyword_list& list,
             ? std::string { "*" }
             : record.getItem(1).getTrimmedString(0);
 
-        const auto candidates = schedule.wellNames(well_pattern, schedule.size() - 1);
+        const auto candidates = eso.wellNames(well_pattern);
 
         if (candidates.empty()) {
             handleMissingWell(parseContext, errors, keyword.location(), well_pattern);
@@ -1666,15 +1614,14 @@ void keywordLC(SummaryConfig::keyword_list& list,
             const auto i = static_cast<std::size_t>(record.getItem(2).get<int>(0) - 1);
             const auto j = static_cast<std::size_t>(record.getItem(3).get<int>(0) - 1);
             const auto k = static_cast<std::size_t>(record.getItem(4).get<int>(0) - 1);
-            const auto dims = gridDims(lgr_name);
+            const auto dims = eso.gridDims(lgr_name);
             if (dims.getNX() > 0) {
                 cell_index = 1 + static_cast<int>(dims.getGlobalIndex(i, j, k));
             }
         }
 
         for (const auto& wname : candidates) {
-            const auto& well = schedule.getWellatEnd(wname);
-            if (well.get_lgr_well_tag() != lgr_name) {
+            if (eso.lgrTagForWell(wname) != lgr_name) {
                 continue;
             }
             auto node = param.namedEntity(wname).lgr_name(lgr_name);
@@ -1686,20 +1633,17 @@ void keywordLC(SummaryConfig::keyword_list& list,
     }
 }
 
-void connectionKeyword(const bool                   isGeomechWithFracturingRun,
-                       const DeckKeyword&           keyword,
-                       const Schedule&              schedule,
-                       const CellIndexMapper&       gridDims,
-                       const ParseContext&          parseContext,
-                       ErrorGuard&                  errors,
-                       SummaryConfigContext&        context,
-                       SummaryConfig::keyword_list& list,
-                       SummaryConfig::keyword_list& extraFracturingVectors)
+void connectionKeyword(const bool                         isGeomechWithFracturingRun,
+                       const DeckKeyword&                 keyword,
+                       const EnumeratedSimulationObjects& eso,
+                       const ParseContext&                parseContext,
+                       ErrorGuard&                        errors,
+                       SummaryConfigContext&              context,
+                       SummaryConfig::keyword_list&       list,
+                       SummaryConfig::keyword_list&       extraFracturingVectors)
 {
     if (is_connection_completion(keyword.name())) {
-        keywordCL(list, parseContext, errors,
-                  keyword, schedule, gridDims);
-
+        keywordCL(list, parseContext, errors, keyword, eso);
         return;
     }
 
@@ -1715,8 +1659,8 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
         const auto& wellitem = record.getItem(0);
 
         const auto well_names = wellitem.defaultApplied(0)
-            ? schedule.wellNames()
-            : schedule.wellNames(wellitem.getTrimmedString(0));
+            ? eso.wellNames()
+            : eso.wellNames(wellitem.getTrimmedString(0));
 
         if (well_names.empty()) {
             handleMissingWell(parseContext, errors, keyword.location(),
@@ -1725,7 +1669,7 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
 
         if (record.getItem(1).defaultApplied(0)) {
             // (I,J,K) coordinate tuple defaulted.  Match all connections.
-            connKeywordDefaultedConns(isGeomechWithFracturingRun, param, schedule, well_names,
+            connKeywordDefaultedConns(isGeomechWithFracturingRun, param, eso, well_names,
                                       uniqueVectors, list, extraFracturingVectors);
         }
         else {
@@ -1736,7 +1680,7 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
             const auto cj  = static_cast<std::size_t>(ijk[1]);
             const auto ck  = static_cast<std::size_t>(ijk[2]);
 
-            const auto globalDims = gridDims("");
+            const auto globalDims = eso.gridDims("");
 
             if ((globalDims.getNX() > 0)  &&
                 (ci < globalDims.getNX()) &&
@@ -1744,8 +1688,8 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
                 (ck < globalDims.getNZ()))
             {
                 connKeywordSpecifiedConn(param,
-                                         globalDims.getGlobalIndex(ci, cj, ck),
-                                         schedule, well_names, uniqueVectors, list);
+                                         static_cast<int>(globalDims.getGlobalIndex(ci, cj, ck)),
+                                         eso, well_names, uniqueVectors, list);
             }
         }
     }
@@ -1780,18 +1724,14 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
             || is_in_set({ "STFR", "STFC" }, kw.substr(0, 4));
     }
 
-    int maxNumWellSegments(const Well& well)
-    {
-        return well.isMultiSegment()
-            ? well.getSegments().size() : 0;
-    }
-
     void makeSegmentNodes(const int                    segID,
                           const DeckKeyword&           keyword,
-                          const Well&                  well,
+                          const std::string&           wellName,
+                          const bool                   isMSW,
+                          const int                    nSegments,
                           SummaryConfig::keyword_list& list)
     {
-        if (!well.isMultiSegment()) {
+        if (!isMSW) {
             // Not an MSW.  Don't create summary vectors for segments.
             return;
         }
@@ -1799,16 +1739,14 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
         auto param = SummaryConfigNode {
             keyword.name(), SummaryConfigNode::Category::Segment, keyword.location()
         }
-        .namedEntity(well.name())
+        .namedEntity(wellName)
         .parameterType(parseKeywordType(keyword.name()))
         .isUserDefined(is_udq(keyword.name()));
 
         if (segID < 1) {
             // Segment number defaulted.  Allocate a summary vector for each
             // segment.
-            const auto nSeg = maxNumWellSegments(well);
-
-            for (auto segNumber = 0*nSeg; segNumber < nSeg; ++segNumber) {
+            for (auto segNumber = 0; segNumber < nSegments; ++segNumber) {
                 list.push_back(param.number(segNumber + 1));
             }
         }
@@ -1819,9 +1757,9 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
         }
     }
 
-    void keywordSNoRecords(const DeckKeyword&           keyword,
-                           const Schedule&              schedule,
-                           SummaryConfig::keyword_list& list)
+    void keywordSNoRecords(const DeckKeyword&                 keyword,
+                           const EnumeratedSimulationObjects& eso,
+                           SummaryConfig::keyword_list&       list)
     {
         // No keyword records.  Allocate summary vectors for all
         // segments in all wells at all times.
@@ -1833,16 +1771,18 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
 
         const auto segID = -1;
 
-        for (const auto& wellPtrPair : schedule.back().wells) {
-            makeSegmentNodes(segID, keyword, *wellPtrPair.second, list);
+       for (const auto& wname : eso.wellNames()) {
+            makeSegmentNodes(segID, keyword, wname,
+                             eso.isMultiSegmentWell(wname),
+                             eso.segmentCount(wname), list);
         }
     }
 
-    void keywordSWithRecords(const ParseContext&          parseContext,
-                             ErrorGuard&                  errors,
-                             const DeckKeyword&           keyword,
-                             const Schedule&              schedule,
-                             SummaryConfig::keyword_list& list)
+    void keywordSWithRecords(const ParseContext&                parseContext,
+                             ErrorGuard&                        errors,
+                             const DeckKeyword&                 keyword,
+                             const EnumeratedSimulationObjects& eso,
+                             SummaryConfig::keyword_list&       list)
     {
         // Keyword has explicit records.  Process those and create
         // segment-related summary vectors for those wells/segments
@@ -1862,9 +1802,9 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
 
         for (const auto& record : keyword) {
             const auto& wellitem = record.getItem(0);
-            const auto& well_names = wellitem.defaultApplied(0)
-                ? schedule.wellNames()
-                : schedule.wellNames(wellitem.getTrimmedString(0));
+            const auto well_names = wellitem.defaultApplied(0)
+                ? eso.wellNames()
+                : eso.wellNames(wellitem.getTrimmedString(0));
 
             if (well_names.empty()) {
                 handleMissingWell(parseContext, errors, keyword.location(),
@@ -1877,16 +1817,18 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
                 ? -1 : record.getItem(1).get<int>(0);
 
             for (const auto& well_name : well_names) {
-                makeSegmentNodes(segID, keyword, schedule.back().wells(well_name), list);
+                makeSegmentNodes(segID, keyword, well_name,
+                                 eso.isMultiSegmentWell(well_name),
+                                 eso.segmentCount(well_name), list);
             }
         }
     }
 
-    void keywordS(SummaryConfig::keyword_list& list,
-                  const ParseContext&          parseContext,
-                  ErrorGuard&                  errors,
-                  const DeckKeyword&           keyword,
-                  const Schedule&              schedule)
+    void keywordS(SummaryConfig::keyword_list&       list,
+                  const ParseContext&                parseContext,
+                  ErrorGuard&                        errors,
+                  const DeckKeyword&                 keyword,
+                  const EnumeratedSimulationObjects& eso)
     {
         // Generate SMSPEC nodes for SUMMARY keywords of the form
         //
@@ -1912,13 +1854,12 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
         if (! keyword.empty()) {
             // Keyword with explicit records.  Handle as alternatives SOFR
             // and SPR above
-            keywordSWithRecords(parseContext, errors,
-                                keyword, schedule, list);
+            keywordSWithRecords(parseContext, errors, keyword, eso, list);
         }
         else {
             // Keyword with no explicit records.  Handle as alternative SGFR
             // above.
-            keywordSNoRecords(keyword, schedule, list);
+            keywordSNoRecords(keyword, eso, list);
         }
     }
 
@@ -1944,19 +1885,17 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
         };
     }
 
-    void check_udq(const KeywordLocation& location,
-                   const Schedule&        schedule,
-                   const ParseContext&    parseContext,
-                   ErrorGuard&            errors)
+    void check_udq(const KeywordLocation&             location,
+                   const EnumeratedSimulationObjects& eso,
+                   const ParseContext&                parseContext,
+                   ErrorGuard&                        errors)
     {
         if (! is_udq(location.keyword)) {
             // Nothing to do
             return;
         }
 
-        const auto& udq = schedule.getUDQConfig(schedule.size() - 1);
-
-        if (!udq.has_keyword(location.keyword)) {
+        if (!eso.hasUDQKeyword(location.keyword)) {
             std::string msg = "Summary output requested for UDQ {keyword}\n"
                               "In {file} line {line}\n"
                               "No definition for this UDQ found in the SCHEDULE section";
@@ -1964,7 +1903,7 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
             return;
         }
 
-        if (!udq.has_unit(location.keyword)) {
+        if (!eso.udqHasUnit(location.keyword)) {
             std::string msg = "Summary output requested for UDQ {keyword}\n"
                               "In {file} line {line}\n"
                               "No unit defined in the SCHEDULE section for {keyword}";
@@ -1972,25 +1911,19 @@ void connectionKeyword(const bool                   isGeomechWithFracturingRun,
         }
     }
 
-void handleKW(const std::vector<std::string>& node_names,
-              const std::vector<std::string>& node_names_with_wells,
-              const std::vector<int>&         analyticAquiferIDs,
-              const std::vector<int>&         numericAquiferIDs,
-              const bool                      isGeomechWithFracturingRun,
-              const DeckKeyword&              keyword,
-              const Schedule&                 schedule,
-              const FieldPropsManager&        field_props,
-              const CellIndexMapper&          gridDims,
-              const ParseContext&             parseContext,
-              ErrorGuard&                     errors,
-              SummaryConfigContext&           context,
-              SummaryConfig::keyword_list&    list,
-              SummaryConfig::keyword_list&    extraFracturingVectors,
-              const bool                      excludeFieldFromGroupKw = true)
+void handleKW(const EnumeratedSimulationObjects& eso,
+              const bool                         isGeomechWithFracturingRun,
+              const DeckKeyword&                 keyword,
+              const ParseContext&                parseContext,
+              ErrorGuard&                        errors,
+              SummaryConfigContext&              context,
+              SummaryConfig::keyword_list&       list,
+              SummaryConfig::keyword_list&       extraFracturingVectors,
+              const bool                         excludeFieldFromGroupKw = true)
 {
     using Cat = SummaryConfigNode::Category;
 
-    check_udq(keyword.location(), schedule, parseContext, errors);
+    check_udq(keyword.location(), eso, parseContext, errors);
 
     if (is_unsupported_compositional(keyword.name())) {
         OpmLog::warning(OpmInputError::format("Unhandled summary keyword {keyword}\n"
@@ -2002,15 +1935,21 @@ void handleKW(const std::vector<std::string>& node_names,
     switch (cat) {
     case Cat::Well:
         if (keyword.name().front() == 'L') {
-            keywordLW(list, parseContext, errors, keyword, schedule);
+            keywordLW(list, parseContext, errors, keyword, eso);
         }
         else {
-            keywordW(list, parseContext, errors, keyword, schedule);
+            if (is_well_comp(keyword.name())) {
+                OpmLog::warning(OpmInputError::format("Unhandled summary keyword {keyword}\n"
+                                                      "In {file} line {line}", keyword.location()));
+                return;
+            }
+
+            keywordW(list, parseContext, errors, keyword, eso);
         }
         break;
 
     case Cat::Group:
-        keywordG(list, parseContext, errors, keyword, schedule,
+        keywordG(list, parseContext, errors, keyword, eso,
                  excludeFieldFromGroupKw);
         break;
 
@@ -2020,23 +1959,23 @@ void handleKW(const std::vector<std::string>& node_names,
 
     case Cat::Block:
         if (keyword.name()[0] == 'L') {
-            keywordLB(list, keyword, gridDims);
+            keywordLB(list, keyword, eso);
         }
         else {
-            keywordB(list, keyword, gridDims);
+            keywordB(list, keyword, eso);
         }
         break;
 
     case Cat::Region:
-        keywordR(list, context, keyword, field_props, parseContext, errors);
+        keywordR(list, context, keyword, eso, parseContext, errors);
         break;
 
     case Cat::Connection:
         if (keyword.name().front() == 'L') {
-            keywordLC(list, parseContext, errors, keyword, schedule, gridDims);
+            keywordLC(list, parseContext, errors, keyword, eso);
         }
         else {
-            connectionKeyword(isGeomechWithFracturingRun, keyword, schedule, gridDims,
+            connectionKeyword(isGeomechWithFracturingRun, keyword, eso,
                               parseContext, errors, context,
                               list, extraFracturingVectors);
         }
@@ -2044,27 +1983,24 @@ void handleKW(const std::vector<std::string>& node_names,
 
     case Cat::Completion:
         if (is_well_completion(keyword.name())) {
-            keywordWL(list, parseContext, errors, keyword, schedule);
+            keywordWL(list, parseContext, errors, keyword, eso);
         }
         else {
-            keywordCL(list, parseContext, errors, keyword, schedule, gridDims);
+            keywordCL(list, parseContext, errors, keyword, eso);
         }
         break;
 
     case Cat::Segment:
-        keywordS(list, parseContext, errors, keyword, schedule);
+        keywordS(list, parseContext, errors, keyword, eso);
         break;
 
     case Cat::Node:
-        if (is_node_keyword_with_wells(keyword.name())) {
-            keyword_node(list, node_names_with_wells, parseContext, errors, keyword);
-        } else {
-            keyword_node(list, node_names, parseContext, errors, keyword);
-        }
+        keyword_node(keyword, eso, parseContext, errors, list);
         break;
 
     case Cat::Aquifer:
-        keywordAquifer(list, analyticAquiferIDs, numericAquiferIDs, parseContext, errors, keyword);
+        keywordAquifer(list, eso.analyticAquiferIDs(), eso.numericAquiferIDs(),
+                       parseContext, errors, keyword);
         break;
 
     case Cat::Miscellaneous:
@@ -2084,14 +2020,12 @@ void handleKW(const std::vector<std::string>& node_names,
     }
 }
 
-void handleKW(SummaryConfig::keyword_list& list,
-              const std::string&           keyword,
-              const std::vector<int>&      analyticAquiferIDs,
-              const std::vector<int>&      numericAquiferIDs,
-              const KeywordLocation&       location,
-              const Schedule&              schedule,
-              const ParseContext&          /* parseContext */,
-              ErrorGuard&                  /* errors */)
+void handleKW(SummaryConfig::keyword_list&       list,
+              const std::string&                 keyword,
+              const KeywordLocation&             location,
+              const EnumeratedSimulationObjects& eso,
+              const ParseContext&                /* parseContext */,
+              ErrorGuard&                        /* errors */)
 {
     if (is_udq(keyword)) {
         throw std::logic_error {
@@ -2104,11 +2038,11 @@ void handleKW(SummaryConfig::keyword_list& list,
 
     switch (cat) {
     case Cat::Well:
-        keywordW(list, keyword, location, schedule);
+        keywordW(list, keyword, location, eso);
         break;
 
     case Cat::Group:
-        keywordG(list, keyword, location, schedule);
+        keywordG(list, keyword, location, eso);
         break;
 
     case Cat::Field:
@@ -2116,8 +2050,8 @@ void handleKW(SummaryConfig::keyword_list& list,
         break;
 
     case Cat::Aquifer:
-        keywordAquifer(list, keyword, analyticAquiferIDs,
-                       numericAquiferIDs, location);
+        keywordAquifer(list, keyword, eso.analyticAquiferIDs(),
+                       eso.numericAquiferIDs(), location);
         break;
 
     case Cat::Miscellaneous:
@@ -2391,13 +2325,10 @@ bool operator<(const SummaryConfigNode& lhs, const SummaryConfigNode& rhs)
 
 // =====================================================================
 
-SummaryConfig::SummaryConfig(const Deck&              deck,
-                             const Schedule&          schedule,
-                             const FieldPropsManager& field_props,
-                             const AquiferConfig&     aquiferConfig,
-                             const ParseContext&      parseContext,
-                             ErrorGuard&              errors,
-                             CellIndexMapper          gridDims)
+SummaryConfig::SummaryConfig(const Deck&                        deck,
+                             const EnumeratedSimulationObjects& eso,
+                             const ParseContext&                parseContext,
+                             ErrorGuard&                        errors)
 {
     try {
         const auto section = SUMMARYSection { deck };
@@ -2406,17 +2337,6 @@ SummaryConfig::SummaryConfig(const Deck&              deck,
             declaredMaxRegionID(Runspec { deck })
         };
 
-        const bool node_names_needed = need_node_names(section);
-        const auto node_names = node_names_needed
-            ? collect_node_names(schedule)
-            : std::vector<std::string> {};
-
-        const auto node_names_with_wells = node_names_needed
-            ? collect_node_names(schedule, /*with_wells=*/true)
-            : std::vector<std::string> {};
-
-        const auto analyticAquifers = analyticAquiferIDs(aquiferConfig);
-        const auto numericAquifers = numericAquiferIDs(aquiferConfig);
         const auto isGeomechWithFracturingRun = [rspec = Runspec { deck }]()
         {
             return rspec.mech() && rspec.frac();
@@ -2427,11 +2347,8 @@ SummaryConfig::SummaryConfig(const Deck&              deck,
                 handleProcessingInstruction(kw.name());
             }
             else {
-                handleKW(node_names, node_names_with_wells,
-                         analyticAquifers, numericAquifers,
-                         isGeomechWithFracturingRun,
-                         kw, schedule, field_props, gridDims,
-                         parseContext, errors, context,
+                handleKW(eso, isGeomechWithFracturingRun,
+                         kw, parseContext, errors, context,
                          this->m_keywords, this->extraFracturingVectors_);
             }
         }
@@ -2455,9 +2372,7 @@ SummaryConfig::SummaryConfig(const Deck&              deck,
 
                 location.keyword = fmt::format("{}/{}", meta_keyword, kw);
 
-                handleKW(this->m_keywords, kw,
-                         analyticAquifers, numericAquifers,
-                         location, schedule, parseContext, errors);
+                handleKW(this->m_keywords, kw, location, eso, parseContext, errors);
             }
         }
 
@@ -2478,6 +2393,19 @@ SummaryConfig::SummaryConfig(const Deck&              deck,
         throw;
     }
 }
+
+SummaryConfig::SummaryConfig(const Deck&              deck,
+                             const Schedule&          schedule,
+                             const FieldPropsManager& field_props,
+                             const AquiferConfig&     aquiferConfig,
+                             const ParseContext&      parseContext,
+                             ErrorGuard&              errors,
+                             CellIndexMapper          gridDims)
+    : SummaryConfig { deck,
+                      makeEnumeratedSimObjs(schedule, field_props,
+                                            aquiferConfig, std::move(gridDims)),
+                      parseContext, errors }
+{}
 
 SummaryConfig::SummaryConfig(const Deck&              deck,
                              const Schedule&          schedule,
@@ -2586,9 +2514,24 @@ SummaryConfig& SummaryConfig::merge(SummaryConfig&& other)
 }
 
 SummaryConfig::keyword_list
-SummaryConfig::registerRequisiteUDQorActionSummaryKeys(const std::vector<std::string>& extraKeys,
-                                                       const EclipseState&             es,
-                                                       const Schedule&                 sched)
+SummaryConfig::registerRequisiteUDQorActionSummaryKeys(std::span<const std::string> extraKeys,
+                                                       const EclipseState&          es,
+                                                       const Schedule&              sched)
+{
+    if (extraKeys.empty()) {
+        return {};
+    }
+
+    const auto eso = makeEnumeratedSimObjs(sched, es.globalFieldProps(), es.aquifer(),
+                                           makeGlobalCellIndexMapper(es.gridDims()));
+
+    return registerRequisiteSummaryKeys(extraKeys, declaredMaxRegionID(es.runspec()), eso);
+}
+
+SummaryConfig::keyword_list
+SummaryConfig::registerRequisiteSummaryKeys(std::span<const std::string>       extraKeys,
+                                            const std::size_t                  declaredMaxRegionID,
+                                            const EnumeratedSimulationObjects& eso)
 {
     auto summaryNodes = keyword_list{};
 
@@ -2610,20 +2553,6 @@ SummaryConfig::registerRequisiteUDQorActionSummaryKeys(const std::vector<std::st
     {
         const auto excludeFieldFromGroupKw = false;
 
-        const bool node_names_needed = std::ranges::any_of(extraKeys, &is_node_keyword);
-        const auto node_names =
-            node_names_needed
-                ? collect_node_names(sched)
-                : std::vector<std::string>{};
-
-        const auto node_names_with_wells =
-            node_names_needed
-                ? collect_node_names(sched, /*with_wells=*/true)
-                : std::vector<std::string>{};
-
-        const auto analyticAquifers = analyticAquiferIDs(es.aquifer());
-        const auto numericAquifers = numericAquiferIDs(es.aquifer());
-
         // For all we know, we're in a geomechanical run.  However, for
         // this particular aspect of configuring summary vectors we can
         // ignore that additional complexity.
@@ -2633,18 +2562,11 @@ SummaryConfig::registerRequisiteUDQorActionSummaryKeys(const std::vector<std::st
 
         const auto parseCtx = ParseContext { InputErrorAction::IGNORE };
         auto errors = ErrorGuard {};
-
-        auto ctxt   = SummaryConfigContext {
-            declaredMaxRegionID(es.runspec())
-        };
+        auto ctxt   = SummaryConfigContext { declaredMaxRegionID };
 
         for (const auto& vector_name : extraKeys) {
-            handleKW(node_names, node_names_with_wells,
-                     analyticAquifers, numericAquifers,
-                     isGeomechWithFracturingRun,
+            handleKW(eso, isGeomechWithFracturingRun,
                      DeckKeyword { KeywordLocation{}, vector_name },
-                     sched, es.globalFieldProps(),
-                     makeGlobalCellIndexMapper(es.gridDims()),
                      parseCtx, errors,
                      ctxt, candidateSummaryNodes,
                      extraFracturing,
