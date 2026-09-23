@@ -212,6 +212,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/input/eclipse/Schedule/ScheduleGrid.cpp
   opm/input/eclipse/Schedule/ScheduleRestartInfo.cpp
   opm/input/eclipse/Schedule/ScheduleState.cpp
+  opm/input/eclipse/Schedule/ScheduleStateFunctions.cpp
   opm/input/eclipse/Schedule/ScheduleStatic.cpp
   opm/input/eclipse/Schedule/ScheduleTypes.cpp
   opm/input/eclipse/Schedule/SimpleRPTIntegerControlHandler.cpp
@@ -1220,6 +1221,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/input/eclipse/Schedule/ScheduleGrid.hpp
   opm/input/eclipse/Schedule/ScheduleRestartInfo.hpp
   opm/input/eclipse/Schedule/ScheduleState.hpp
+  opm/input/eclipse/Schedule/ScheduleStateFunctions.hpp
   opm/input/eclipse/Schedule/ScheduleStatic.hpp
   opm/input/eclipse/Schedule/ScheduleTypes.hpp
   opm/input/eclipse/Schedule/SimpleRPTIntegerControlHandler.hpp
