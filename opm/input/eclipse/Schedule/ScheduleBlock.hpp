@@ -57,7 +57,7 @@ public:
                   const time_point& start_time);
     std::size_t size() const;
     void push_back(const DeckKeyword& keyword);
-    std::optional<DeckKeyword> get(const std::string& kw) const;
+    const DeckKeyword* get(const std::string& kw) const;
     const time_point& start_time() const;
     const std::optional<time_point>& end_time() const;
     void end_time(const time_point& t);
