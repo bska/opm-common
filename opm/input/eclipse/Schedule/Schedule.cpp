@@ -77,6 +77,7 @@
 #include <opm/input/eclipse/Schedule/Well/WellFoamProperties.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellMatcher.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellMICPProperties.hpp>
+#include <opm/input/eclipse/Schedule/ScheduleStateFunctions.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellPolymerProperties.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellTestConfig.hpp>
 
@@ -1149,49 +1150,108 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
         return this->groupTree("FIELD", report_step);
     }
 
-    void Schedule::addWell(const std::string& wellName,
-                           const DeckRecord& record,
-                           std::size_t timeStep,
-                           Connection::Order wellConnectionOrder)
+    void Schedule::addWell(Well well)
+    {
+        ::Opm::addWell(std::move(well), this->snapshots.back());
+    }
+
+    void Schedule::addWell(const std::string&            wellName,
+                           const std::string&            group,
+                           const int                     headI,
+                           const int                     headJ,
+                           const Phase                   preferredPhase,
+                           const std::optional<double>&  ref_depth,
+                           const double                  drainageRadius,
+                           const bool                    allowCrossFlow,
+                           const bool                    automaticShutIn,
+                           const int                     pvt_table,
+                           const Well::GasInflowEquation gas_inflow,
+                           const std::size_t             timeStep,
+                           const Connection::Order       wellConnectionOrder)
+    {
+        const auto& sched_state = (*this)[timeStep];
+
+        auto well = Well {
+            wellName,
+            group,
+            timeStep,
+            /* insert_index = */ 0,
+            headI, headJ,
+            ref_depth,
+            WellType(preferredPhase),
+            sched_state.whistctl(),
+            wellConnectionOrder,
+            this->m_static.m_unit_system, // For initialising the UDAValue Dimensions.
+            drainageRadius,
+            allowCrossFlow,
+            automaticShutIn,
+            pvt_table,
+            gas_inflow,
+            this->m_static.m_runspec.temp()
+        };
+
+        this->addWell(std::move(well));
+
+        this->updateWPAVE(wellName, timeStep, sched_state.pavg());
+    }
+
+    void Schedule::addWell(const std::string&      wellName,
+                           const DeckRecord&       record,
+                           const std::size_t       timeStep,
+                           const Connection::Order wellConnectionOrder)
     {
         // We change from eclipse's 1 - n, to a 0 - n-1 solution
-        int headI = record.getItem<ParserKeywords::WELSPECS::HEAD_I>().get< int >(0) - 1;
-        int headJ = record.getItem<ParserKeywords::WELSPECS::HEAD_J>().get< int >(0) - 1;
+        const int headI = record.getItem<ParserKeywords::WELSPECS::HEAD_I>().get<int>(0) - 1;
+        const int headJ = record.getItem<ParserKeywords::WELSPECS::HEAD_J>().get<int>(0) - 1;
+
         Phase preferredPhase;
         {
-            const std::string phaseStr = record.getItem<ParserKeywords::WELSPECS::PHASE>().getTrimmedString(0);
+            const auto phaseStr = record
+                .getItem<ParserKeywords::WELSPECS::PHASE>()
+                .getTrimmedString(0);
+
             if (phaseStr == "LIQ") {
                 // We need a workaround in case the preferred phase is "LIQ",
                 // which is not proper phase and will cause the get_phase()
                 // function to throw. In that case we choose to treat it as OIL.
                 preferredPhase = Phase::OIL;
                 OpmLog::warning("LIQ_PREFERRED_PHASE",
-                                "LIQ preferred phase not supported for well " + wellName + ", using OIL instead");
-            } else {
+                                "LIQ preferred phase not "
+                                "supported for well " + wellName +
+                                ", using OIL instead");
+            }
+            else {
                 preferredPhase = get_phase(phaseStr);
             }
         }
-        const auto& refDepthItem = record.getItem<ParserKeywords::WELSPECS::REF_DEPTH>();
-        std::optional<double> ref_depth;
-        if (refDepthItem.hasValue( 0 ))
-            ref_depth = refDepthItem.getSIDouble( 0 );
 
-        double drainageRadius = record.getItem<ParserKeywords::WELSPECS::D_RADIUS>().getSIDouble(0);
-
-        bool allowCrossFlow = true;
-        const std::string& allowCrossFlowStr = record.getItem<ParserKeywords::WELSPECS::CROSSFLOW>().getTrimmedString(0);
-        if (allowCrossFlowStr == "NO")
-            allowCrossFlow = false;
-
-        bool automaticShutIn = true;
-        const std::string& automaticShutInStr = record.getItem<ParserKeywords::WELSPECS::AUTO_SHUTIN>().getTrimmedString(0);
-        if (automaticShutInStr == "STOP") {
-            automaticShutIn = false;
+        std::optional<double> ref_depth{};
+        if (const auto& refDepthItem = record.getItem<ParserKeywords::WELSPECS::REF_DEPTH>();
+            refDepthItem.hasValue(0))
+        {
+            ref_depth = refDepthItem.getSIDouble(0);
         }
 
-        const std::string& group = record.getItem<ParserKeywords::WELSPECS::GROUP>().getTrimmedString(0);
-        auto pvt_table = record.getItem<ParserKeywords::WELSPECS::P_TABLE>().get<int>(0);
-        auto gas_inflow = WellGasInflowEquationFromString(record.getItem<ParserKeywords::WELSPECS::INFLOW_EQ>().get<std::string>(0));
+        const double drainageRadius = record
+            .getItem<ParserKeywords::WELSPECS::D_RADIUS>()
+            .getSIDouble(0);
+
+        const auto allowCrossFlow = record
+            .getItem<ParserKeywords::WELSPECS::CROSSFLOW>()
+            .getTrimmedString(0) != "NO";
+
+        const auto automaticShutIn = record
+            .getItem<ParserKeywords::WELSPECS::AUTO_SHUTIN>()
+            .getTrimmedString(0) != "STOP";
+
+        const auto group = record.getItem<ParserKeywords::WELSPECS::GROUP>().getTrimmedString(0);
+
+        const auto pvt_table = record
+            .getItem<ParserKeywords::WELSPECS::P_TABLE>()
+            .get<int>(0);
+
+        const auto gas_inflow = WellGasInflowEquationFromString
+            (record.getItem<ParserKeywords::WELSPECS::INFLOW_EQ>().getTrimmedString(0));
 
         this->addWell(wellName,
                       group,
@@ -1208,67 +1268,12 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
                       wellConnectionOrder);
     }
 
-    void Schedule::addWell(Well well) {
-        const std::string wname = well.name();
-        auto& sched_state = this->snapshots.back();
-
-        sched_state.events().addEvent( ScheduleEvents::NEW_WELL );
-        sched_state.wellgroup_events().addWell( wname );
-        {
-            auto wo = sched_state.well_order.get();
-            wo.add( wname );
-            sched_state.well_order.update( std::move(wo) );
-        }
-        well.setInsertIndex(sched_state.wells.size());
-        sched_state.wells.update( std::move(well) );
-    }
-
-    void Schedule::addWell(const std::string& wellName,
-                           const std::string& group,
-                           int headI,
-                           int headJ,
-                           Phase preferredPhase,
-                           const std::optional<double>& ref_depth,
-                           double drainageRadius,
-                           bool allowCrossFlow,
-                           bool automaticShutIn,
-                           int pvt_table,
-                           Well::GasInflowEquation gas_inflow,
-                           std::size_t timeStep,
-                           Connection::Order wellConnectionOrder) {
-
-        const auto& sched_state = this->operator[](timeStep);
-        Well well(wellName,
-                  group,
-                  timeStep,
-                  0,
-                  headI, headJ,
-                  ref_depth,
-                  WellType(preferredPhase),
-                  sched_state.whistctl(),
-                  wellConnectionOrder,
-                  this->m_static.m_unit_system,
-                  drainageRadius,
-                  allowCrossFlow,
-                  automaticShutIn,
-                  pvt_table,
-                  gas_inflow,
-                  this->m_static.m_runspec.temp());
-
-        this->addWell( std::move(well) );
-
-        const auto& ts = this->operator[](timeStep);
-        this->updateWPAVE( wellName, timeStep, ts.pavg.get() );
-    }
-
-
     std::size_t Schedule::numWells() const {
         return this->snapshots.back().wells.size();
     }
 
     std::size_t Schedule::numWells(std::size_t timestep) const {
-        auto well_names = this->wellNames(timestep);
-        return well_names.size();
+        return Opm::numWells(this->snapshots[timestep]);
     }
 
     bool Schedule::hasWell(const std::string& wellName) const {
@@ -1276,11 +1281,11 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
     }
 
     bool Schedule::hasWell(const std::string& wellName, std::size_t timeStep) const {
-        return this->snapshots[timeStep].wells.has(wellName);
+        return Opm::hasWell(this->snapshots[timeStep], wellName);
     }
 
     bool Schedule::hasGroup(const std::string& groupName, std::size_t timeStep) const {
-        return this->snapshots[timeStep].groups.has(groupName);
+        return Opm::hasGroup(this->snapshots[timeStep], groupName);
     }
 
     // This function will return a list of wells which have changed
@@ -1331,8 +1336,6 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
 
     std::vector<Well> Schedule::getWells(std::size_t timeStep) const
     {
-        auto wells = std::vector<Well>{};
-
         if (timeStep >= this->snapshots.size()) {
             throw std::invalid_argument {
                 fmt::format("timeStep {} exceeds simulation run's "
@@ -1341,13 +1344,7 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
             };
         }
 
-        const auto& well_order = this->snapshots[timeStep].well_order();
-        std::ranges::transform(well_order, std::back_inserter(wells),
-                               [&wells = this->snapshots[timeStep].wells]
-                               (const auto& wname) -> decltype(auto)
-                               { return wells.get(wname); });
-
-        return wells;
+        return Opm::getWells(this->snapshots[timeStep]);
     }
 
     std::vector<Well> Schedule::getWellsatEnd() const {
@@ -1406,24 +1403,15 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
     }
 
     const Well& Schedule::getWell(const std::string& wellName, std::size_t timeStep) const {
-        return this->snapshots[timeStep].wells.get(wellName);
+        return Opm::getWell(this->snapshots[timeStep], wellName);
     }
 
     const Well& Schedule::getWell(std::size_t well_index, std::size_t timeStep) const {
-        const auto find_pred = [well_index] (const auto& well_pair) -> bool
-        {
-            return well_pair.second->seqIndex() == well_index;
-        };
-
-        auto well_ptr = this->snapshots[timeStep].wells.find( find_pred );
-        if (well_ptr == nullptr)
-            throw std::invalid_argument(fmt::format("There is no well with well_index:{} at report_step:{}", well_index, timeStep));
-
-        return *well_ptr;
+        return Opm::getWell(this->snapshots[timeStep], well_index);
     }
 
     const Group& Schedule::getGroup(const std::string& groupName, std::size_t timeStep) const {
-        return this->snapshots[timeStep].groups.get(groupName);
+        return Opm::getGroup(this->snapshots[timeStep], groupName);
     }
 
     void Schedule::updateGuideRateModel(const GuideRateModel& new_model, std::size_t report_step) {
@@ -1457,14 +1445,11 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
                         const std::size_t               timeStep,
                         const std::vector<std::string>& matching_wells) const
     {
-        const auto wm = this->wellMatcher(timeStep);
-
-        return (pattern == "?")
-            ? wm.sort(matching_wells) // ACTIONX handler
-            : wm.wells(pattern);      // Normal well name pattern matching
+        const auto& state = (timeStep < this->snapshots.size())
+            ? this->snapshots[timeStep]
+            : this->snapshots.back();
+        return Opm::wellNames(state, pattern, matching_wells);
     }
-
-
 
     std::vector<std::string>
     Schedule::wellNames(const std::string&    pattern,
@@ -1497,8 +1482,7 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
         const auto& schedState = (report_step < this->snapshots.size())
             ? this->snapshots[report_step]
             : this->snapshots.back();
-
-        return { &schedState.well_order(), schedState.wlist_manager() };
+        return Opm::wellMatcher(schedState);
     }
 
     std::function<std::unique_ptr<SegmentMatcher>()>
@@ -1519,23 +1503,23 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
 
     std::vector<std::string> Schedule::wellNames(std::size_t timeStep) const
     {
-        return this->snapshots[timeStep].well_order().names();
+        return ::Opm::wellNames(this->snapshots[timeStep]);
     }
 
     std::vector<std::string> Schedule::wellNames() const
     {
-        return this->snapshots.back().well_order().names();
+        return ::Opm::wellNames(this->snapshots.back());
     }
 
     std::vector<std::string> Schedule::groupNames(const std::string& pattern,
                                                   const std::size_t timeStep) const
     {
-        return this->snapshots[timeStep].group_order().names(pattern);
+        return ::Opm::groupNames(this->snapshots[timeStep], pattern);
     }
 
     const std::vector<std::string>& Schedule::groupNames(std::size_t timeStep) const
     {
-        return this->snapshots[timeStep].group_order().names();
+        return ::Opm::groupNames(this->snapshots[timeStep]);
     }
 
     std::vector<std::string> Schedule::groupNames(const std::string& pattern) const
@@ -1545,71 +1529,55 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
 
     const std::vector<std::string>& Schedule::groupNames() const
     {
-        return this->snapshots.back().group_order().names();
+        return ::Opm::groupNames(this->snapshots.back());
     }
 
     std::vector<const Group*> Schedule::restart_groups(std::size_t timeStep) const
     {
-        const auto restart_groups = this->snapshots[timeStep].group_order().restart_groups();
-
-        std::vector<const Group*> rst_groups(restart_groups.size(), nullptr);
-        for (std::size_t restart_index = 0;
-             restart_index < restart_groups.size(); ++restart_index)
-        {
-            const auto& group_name = restart_groups[restart_index];
-
-            if (group_name.has_value()) {
-                rst_groups[restart_index] = &this->getGroup(group_name.value(), timeStep);
-            }
-        }
-
-        return rst_groups;
+        return ::Opm::restart_groups(this->snapshots[timeStep]);
     }
 
-
-    void Schedule::addGroup(Group group) {
-        std::string group_name = group.name();
-        auto& sched_state = this->snapshots.back();
-        sched_state.groups.update(std::move(group) );
-        sched_state.events().addEvent( ScheduleEvents::NEW_GROUP );
-        sched_state.wellgroup_events().addGroup(group_name);
-        {
-            auto go = sched_state.group_order.get();
-            go.add( group_name );
-            sched_state.group_order.update( std::move(go) );
-        }
-
-        // All newly created groups are attached to the field group,
-        // can then be relocated with the GRUPTREE keyword.
-        if (group_name != "FIELD")
-            this->addGroupToGroup("FIELD", group_name);
+    void Schedule::addGroup(Group group)
+    {
+        ::Opm::addGroup(std::move(group), this->snapshots.back());
     }
 
-
-    void Schedule::addGroup(const std::string& groupName) {
+    void Schedule::addGroup(const std::string& groupName)
+    {
         const auto insert_index = this->snapshots.back().groups.size();
+
         this->addGroup(Group { groupName, insert_index, this->m_static.m_unit_system });
     }
 
-
-    void Schedule::addGroup(const RestartIO::RstGroup& rst_group) {
+    void Schedule::addGroup(const RestartIO::RstGroup& rst_group)
+    {
         const auto insert_index = this->snapshots.back().groups.size();
-        auto new_group = Group { rst_group, insert_index, this->m_static.m_unit_system };
+
+        auto new_group = Group {
+            rst_group, insert_index, this->m_static.m_unit_system
+        };
+
         if (rst_group.name != "FIELD") {
             // we also update the GuideRateConfig
             auto guide_rate_config = this->snapshots.back().guide_rate();
+
             if (new_group.isInjectionGroup()) {
-                for (const auto& [_, inj_prop] : new_group.injectionProperties()) {
-                    guide_rate_config.update_injection_group(new_group.name(), inj_prop);
+                for (const auto& phasePropPair : new_group.injectionProperties()) {
+                    guide_rate_config
+                        .update_injection_group(new_group.name(),
+                                                phasePropPair.second);
                 }
             }
+
             if (new_group.isProductionGroup()) {
                 guide_rate_config.update_production_group(new_group);
             }
-            this->snapshots.back().guide_rate.update( std::move(guide_rate_config) );
+
+            this->snapshots.back().guide_rate.update(std::move(guide_rate_config));
 
             // Common case.  Add new group.
-            this->addGroup( std::move(new_group) );
+            this->addGroup(std::move(new_group));
+
             return;
         }
 
@@ -1618,77 +1586,38 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
         // the restart file.  Happens at most once per run.
 
         auto& field = this->snapshots.back().groups.get("FIELD");
-        if (new_group.isProductionGroup())
-            // Initialise field-wide GCONPROD settings from restart.
+
+        if (new_group.isProductionGroup()) {
+             // Initialise field-wide GCONPROD settings from restart.
             field.updateProduction(new_group.productionProperties());
-        for (const auto phase : { Phase::GAS, Phase::WATER })
-            if (new_group.hasInjectionControl(phase))
+        }
+
+        for (const auto phase : {Phase::GAS, Phase::WATER}) {
+            if (new_group.hasInjectionControl(phase)) {
                 // Initialise field-wide GCONINJE settings (phase) from restart.
                 field.updateInjection(new_group.injectionProperties(phase));
-    }
-
-
-    void Schedule::addGroupToGroup( const std::string& parent_name, const std::string& child_name) {
-        auto parent_group = this->snapshots.back().groups.get(parent_name);
-        if (parent_group.addGroup(child_name))
-            this->snapshots.back().groups.update( std::move(parent_group) );
-
-        // Check and update backreference in child
-        const auto& child_group = this->snapshots.back().groups.get(child_name);
-        if (child_group.parent() != parent_name) {
-            auto old_parent = this->snapshots.back().groups.get(child_group.parent());
-            old_parent.delGroup(child_group.name());
-            this->snapshots.back().groups.update( std::move(old_parent) );
-
-            auto new_child_group = Group{ child_group };
-            new_child_group.updateParent(parent_name);
-            this->snapshots.back().groups.update( std::move(new_child_group) );
-        }
-
-        // Update standard network if required
-        auto network = this->snapshots.back().network.get();
-        if (!network.is_standard_network())
-            return;
-        if (network.has_node(child_name)) {
-            auto old_branch = network.uptree_branch(child_name);
-            if (old_branch.has_value()) {
-                auto new_branch = old_branch.value();
-                new_branch.set_uptree_node(parent_name);
-                network.add_or_replace_branch(new_branch);
-                this->snapshots.back().network.update( std::move(network));
             }
-            // If no previous uptree branch the child is a fixed-pressure node, so no need to update network
         }
     }
 
-    void Schedule::addWellToGroup( const std::string& group_name, const std::string& well_name , std::size_t timeStep) {
-        auto well = this->getWell(well_name, timeStep);
-        const auto old_gname = well.groupName();
-        if (old_gname != group_name) {
-            well.updateGroup(group_name);
-            this->snapshots.back().wells.update( std::move(well) );
-            this->snapshots.back().wellgroup_events().addEvent( well_name, ScheduleEvents::WELL_WELSPECS_UPDATE );
-
-            // Remove well child reference from previous group
-            auto group = this->snapshots.back().groups.get( old_gname );
-            group.delWell(well_name);
-            this->snapshots.back().groups.update( std::move(group) );
-        }
-
-        // Add well child reference to new group
-        auto group = this->snapshots.back().groups.get( group_name );
-        group.addWell(well_name);
-        this->snapshots.back().groups.update( std::move(group) );
-        this->snapshots.back().events().addEvent( ScheduleEvents::GROUP_CHANGE );
+    void Schedule::addGroupToGroup(const std::string& parent_name, const std::string& child_name)
+    {
+        ::Opm::addGroupToGroup(GroupTreeBranch { .parent = parent_name, .child = child_name },
+                               this->snapshots.back());
     }
 
-
-
-    Well::ProducerCMode Schedule::getGlobalWhistctlMmode(std::size_t timestep) const {
-        return this->operator[](timestep).whistctl();
+    void Schedule::addWellToGroup(const std::string& group_name,
+                                  const std::string& well_name,
+                                  const std::size_t  timeStep)
+    {
+        ::Opm::addWellToGroup(GroupTreeBranch { .parent = group_name, .child = well_name },
+                              this->snapshots[timeStep]);
     }
 
-
+    Well::ProducerCMode Schedule::getGlobalWhistctlMmode(const std::size_t timestep) const
+    {
+        return ::Opm::getGlobalWhistctlMmode(this->snapshots[timestep]);
+    }
 
     void Schedule::checkIfAllConnectionsIsShut(std::size_t reportStep) {
         const auto& well_names = this->wellNames(reportStep);
@@ -1710,7 +1639,7 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
     }
 
     const UDQConfig& Schedule::getUDQConfig(std::size_t timeStep) const {
-        return this->snapshots[timeStep].udq.get();
+        return Opm::getUDQConfig(this->snapshots[timeStep]);
     }
 
     std::optional<int> Schedule::exitStatus() const {
@@ -1720,7 +1649,6 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
     std::size_t Schedule::size() const {
         return this->snapshots.size();
     }
-
 
     double Schedule::seconds(std::size_t timeStep) const {
         if (this->snapshots.empty())
@@ -1734,8 +1662,9 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
         return DurationInSeconds(elapsed).count();
     }
 
-    std::time_t Schedule::simTime(std::size_t timeStep) const {
-        return std::chrono::system_clock::to_time_t( this->snapshots[timeStep].start_time() );
+    std::time_t Schedule::simTime(const std::size_t timeStep) const
+    {
+        return std::chrono::system_clock::to_time_t(this->snapshots[timeStep].start_time());
     }
 
     double Schedule::stepLength(std::size_t timeStep) const {
@@ -2249,22 +2178,21 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
 
     bool Schedule::isWList(std::size_t report_step, const std::string& pattern) const
     {
-        const ScheduleState * sched_state;
+        const auto& sched_state = (report_step < this->snapshots.size())
+            ? this->snapshots[report_step]
+            : this->snapshots.back();
 
-        if (report_step < this->snapshots.size())
-            sched_state = &this->snapshots[report_step];
-        else
-            sched_state = &this->snapshots.back();
-
-        return sched_state->wlist_manager.get().hasList(pattern);
+        return ::Opm::isWList(sched_state, pattern);
     }
 
-    const std::map< std::string, int >& Schedule::rst_keywords( std::size_t report_step ) const {
-        if (report_step == 0)
+    const std::map<std::string, int>&
+    Schedule::rst_keywords(const std::size_t report_step) const
+    {
+        if (report_step == 0) {
             return this->m_static.rst_config.keywords;
+        }
 
-        const auto& keywords = this->snapshots[report_step - 1].rst_config().keywords;
-        return keywords;
+        return this->snapshots[report_step - 1].rst_config().keywords;
     }
 
     bool Schedule::operator==(const Schedule& data) const {
@@ -2292,10 +2220,11 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
             ;
      }
 
+    std::string Schedule::formatDate(const std::time_t t)
+    {
+        const auto ts = TimeStampUTC {t};
 
-    std::string Schedule::formatDate(std::time_t t) {
-        const auto ts { TimeStampUTC(t) } ;
-        return fmt::format("{:04d}-{:02d}-{:02d}" , ts.year(), ts.month(), ts.day());
+        return fmt::format("{:04d}-{:02d}-{:02d}", ts.year(), ts.month(), ts.day());
     }
 
 namespace {
@@ -2755,7 +2684,7 @@ namespace {
     }
 
     const GasLiftOpt& Schedule::glo(std::size_t report_step) const {
-        return this->snapshots[report_step].glo();
+        return Opm::glo(this->snapshots[report_step]);
     }
 
 namespace {

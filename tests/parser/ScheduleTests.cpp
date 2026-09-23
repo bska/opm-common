@@ -5943,8 +5943,10 @@ END
 
 namespace {
 
-bool compare_dates(const time_point& t, int year, int month, int day) {
-    return t == TimeService::from_time_t( asTimeT( TimeStampUTC(year, month, day)));
+bool
+compare_dates(const time_point& t, const int year, const int month, const int day)
+{
+    return t == TimeService::from_time_t(asTimeT(TimeStampUTC(year, month, day)));
 }
 
 bool compare_dates(const time_point& t, const std::array<int, 3>& ymd)
@@ -5952,9 +5954,18 @@ bool compare_dates(const time_point& t, const std::array<int, 3>& ymd)
     return compare_dates(t, ymd[0], ymd[1], ymd[2]);
 }
 
-std::string dates_msg(const time_point& t, std::array<int,3>& ymd) {
-    auto ts = TimeStampUTC( std::chrono::system_clock::to_time_t(t) );
-    return fmt::format("Different dates: {}-{}-{} != {}-{}-{}", ts.year(), ts.month(), ts.day(), ymd[0], ymd[1], ymd[2]);
+std::string
+dates_msg(const time_point& t, const std::array<int, 3>& ymd)
+{
+    const auto ts = TimeStampUTC(std::chrono::system_clock::to_time_t(t));
+
+    return fmt::format("Different dates: {}-{}-{} != {}-{}-{}",
+                       ts.year(),
+                       ts.month(),
+                       ts.day(),
+                       ymd[0],
+                       ymd[1],
+                       ymd[2]);
 }
 
 } // Anonymous namespace
@@ -6003,38 +6014,46 @@ BOOST_AUTO_TEST_CASE(ScheduleDeckTest) {
         const auto& block = sched_deck[0];
         BOOST_CHECK_EQUAL( block.size(), 0 );
     }
+
     {
-        Parser parser;
-        auto deck = parser.parseString( createDeckWTEST() );
-        Runspec runspec{deck};
-        ScheduleDeck sched_deck( TimeService::from_time_t(runspec.start_time()), deck, {} );
-        BOOST_CHECK_EQUAL( sched_deck.size(), 6 );
+        const auto deck = Parser {}.parseString(createDeckWTEST());
 
-        std::vector<std::string> first_kw = {"WELSPECS", "WTEST", "SUMTHIN", "WCONINJH", "WELOPEN", "WCONINJH"};
-        std::vector<std::string> last_kw = {"WTEST", "WCONHIST", "WCONPROD", "WCONINJH", "WELOPEN", "WCONINJH"};
-        std::vector<std::array<int,3>> start_time = {{2007, 5, 10},
-                                                     {2007, 6, 10},
-                                                     {2007, 7, 10},
-                                                     {2007, 8, 10},
-                                                     {2007, 9, 10},
-                                                     {2007, 11,10}};
+        const Runspec runspec {deck};
+        const ScheduleDeck sched_deck(TimeService::from_time_t(runspec.start_time()), deck, {});
+        BOOST_CHECK_EQUAL(sched_deck.size(), 6);
 
-        for (std::size_t block_index = 0; block_index < sched_deck.size(); block_index++) {
+        const std::vector<std::string> first_kw
+            = {"WELSPECS", "WTEST", "SUMTHIN", "WCONINJH", "WELOPEN", "WCONINJH"};
+
+        const std::vector<std::string> last_kw
+            = {"WTEST", "WCONHIST", "WCONPROD", "WCONINJH", "WELOPEN", "WCONINJH"};
+
+        const std::vector<std::array<int, 3>> start_time = {{2007,  5, 10},
+                                                            {2007,  6, 10},
+                                                            {2007,  7, 10},
+                                                            {2007,  8, 10},
+                                                            {2007,  9, 10},
+                                                            {2007, 11, 10}};
+
+        for (std::size_t block_index = 0; block_index < sched_deck.size(); ++block_index) {
             const auto& block = sched_deck[block_index];
-            for (const auto& kw : block) {
-                (void) kw;
-            }
-            BOOST_CHECK_EQUAL( block[0].name(), first_kw[block_index]);
-            BOOST_CHECK_EQUAL( block[block.size() - 1].name(), last_kw[block_index]);
-            BOOST_CHECK_MESSAGE( compare_dates(block.start_time(), start_time[block_index]), dates_msg(block.start_time(), start_time[block_index]));
+
+            BOOST_CHECK_EQUAL(block[0].name(), first_kw[block_index]);
+            BOOST_CHECK_EQUAL(block[block.size() - 1].name(), last_kw[block_index]);
+            BOOST_CHECK_MESSAGE(compare_dates(block.start_time(), start_time[block_index]),
+                                dates_msg(block.start_time(), start_time[block_index]));
         }
+
         {
             const auto& block = sched_deck[0];
-            auto poro = block.get("PORO");
-            BOOST_CHECK_MESSAGE(!poro, "The block does not have a PORO keyword and block.get(\"PORO\") should evaluate to false");
 
-            auto welspecs = block.get("WELSPECS");
-            BOOST_CHECK_MESSAGE(welspecs.has_value(), "The block contains a WELSPECS keyword and block.get(\"WELSPECS\") should evaluate to true");
+            BOOST_CHECK_MESSAGE(block.get("PORO") == nullptr,
+                                "The block does not have a PORO keyword and block.get(\"PORO\") "
+                                "should return null");
+
+            BOOST_CHECK_MESSAGE(block.get("WELSPECS") != nullptr,
+                                "The block contains a WELSPECS keyword and block.get(\"WELSPECS\") "
+                                "should NOT return null");
         }
     }
 }
