@@ -22,22 +22,120 @@
 #include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/common/utility/OpmInputError.hpp>
 
-#include <opm/input/eclipse/Deck/DeckKeyword.hpp>
-
-#include <opm/input/eclipse/Parser/ParseContext.hpp>
-#include <opm/input/eclipse/Parser/ParserKeywords/W.hpp>
+#include <opm/input/eclipse/EclipseState/Phase.hpp>
 
 #include <opm/input/eclipse/Schedule/Action/SimulatorUpdate.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
+#include <opm/input/eclipse/Schedule/ScheduleTypes.hpp>
+#include <opm/input/eclipse/Schedule/Well/Connection.hpp>
+#include <opm/input/eclipse/Schedule/Well/WellEnums.hpp>
 #include <opm/input/eclipse/Schedule/Well/Well.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellMatcher.hpp>
+
+#include <opm/input/eclipse/Units/UnitSystem.hpp>
+
+#include <opm/input/eclipse/Deck/DeckItem.hpp>
+#include <opm/input/eclipse/Deck/DeckKeyword.hpp>
+#include <opm/input/eclipse/Deck/DeckRecord.hpp>
+
+#include <opm/input/eclipse/Parser/ParseContext.hpp>
+#include <opm/input/eclipse/Parser/ParserKeywords/W.hpp>
 
 #include "MSW/WelSegsSet.hpp"
 
 #include <fmt/format.h>
 
+#include <functional>
+#include <optional>
 #include <stdexcept>
 #include <iostream>
+
+namespace {
+
+    struct WellData {
+        std::string wellName{};
+        std::string groupName{};
+        std::size_t initStep{};
+        std::size_t insertIndex{};
+        Opm::Well::ProducerCMode whistCtl{};
+        Opm::Connection::Order compOrd{Opm::Connection::Order::TRACK};
+        std::reference_wrapper<const Opm::UnitSystem> unitSystem;
+        bool hasTemperature{false};
+    };
+
+    Opm::Well createWellObject(const Opm::DeckRecord& record,
+                               const WellData&        input)
+    {
+        using Kw = Opm::ParserKeywords::WELSPECS;
+
+        // Switch to zero-based indices for internal representation.
+        const int headI = record.getItem<Kw::HEAD_I>().get<int>(0) - 1;
+        const int headJ = record.getItem<Kw::HEAD_J>().get<int>(0) - 1;
+
+        auto preferredPhase = Opm::Phase::OIL;
+
+        if (const auto phaseStr = record.getItem<Kw::PHASE>().getTrimmedString(0);
+            phaseStr == "LIQ")
+        {
+            // We need a workaround in case the preferred phase is "LIQ",
+            // which is not proper phase and will cause the get_phase()
+            // function to throw. In that case we choose to treat it as OIL.
+            Opm::OpmLog::warning("LIQ_PREFERRED_PHASE",
+                                 fmt::format("LIQ preferred phase not "
+                                             "supported for well "
+                                             "{} , using OIL instead",
+                                             input.wellName));
+        }
+        else {
+            preferredPhase = Opm::get_phase(phaseStr);
+        }
+
+        auto ref_depth = std::optional<double>{};
+        if (const auto& refDepthItem = record.getItem<Kw::REF_DEPTH>();
+            refDepthItem.hasValue(0))
+        {
+            ref_depth.emplace(refDepthItem.getSIDouble(0));
+        }
+
+        const auto drainageRadius = record
+            .getItem<Kw::D_RADIUS>()
+            .getSIDouble(0);
+
+        const auto allowCrossFlow = record
+            .getItem<Kw::CROSSFLOW>()
+            .getTrimmedString(0) != "NO";
+
+        const auto automaticShutIn = record
+            .getItem<Kw::AUTO_SHUTIN>()
+            .getTrimmedString(0) != "STOP";
+
+        const auto pvt_table = record
+            .getItem<Kw::P_TABLE>()
+            .get<int>(0);
+
+        const auto gas_inflow = Opm::WellGasInflowEquationFromString
+            (record.getItem<Kw::INFLOW_EQ>().getTrimmedString(0));
+
+        return Opm::Well {
+            /* wname */        input.wellName,
+            /* gname */        input.groupName,
+            /* init_step */    input.initStep,
+            /* insert_index */ input.insertIndex,
+            /* headI */        headI,
+            /* headJ */        headJ,
+            /* ref_depth */    ref_depth,
+            /* wtype_arg */    Opm::WellType { preferredPhase },
+            /* ordering */     input.compOrd,
+            /* unit_system */  input.unitSystem,
+            /* dr */           drainageRadius,
+            /* allow_xflow */  allowCrossFlow,
+            /* auto_shutin */  automaticShutIn,
+            /* pvt_table */    pvt_table,
+            /* inflow_eq */    gas_inflow,
+            /* temp_option */  input.hasTemperature
+        };
+    }
+}
 
 namespace Opm {
 
@@ -217,8 +315,7 @@ void HandlerContext::welspecsCreateNewWell(const DeckRecord&  record,
 {
     auto wellConnectionOrder = Connection::Order::TRACK;
 
-    if (const auto& compord = block.get("COMPORD"); compord.has_value())
-    {
+    if (const auto* compord = block.get("COMPORD"); compord != nullptr) {
         const auto nrec = compord->size();
 
         for (auto compordRecordNr = 0*nrec; compordRecordNr < nrec; ++compordRecordNr) {
