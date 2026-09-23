@@ -601,8 +601,10 @@ namespace Opm {
         void addGroup(Group group);
         void addGroup(const std::string& groupName);
         void addGroup(const RestartIO::RstGroup& rst_group);
+        #if 0
         void addWell(const std::string& wellName, const DeckRecord& record,
                     std::size_t timeStep, ConnectionOrder connection_order);
+        #endif
         void checkIfAllConnectionsIsShut(std::size_t reportStep);
         void checkGasInjectionStreams(std::size_t report_step) const;
         void end_report(std::size_t report_step);
