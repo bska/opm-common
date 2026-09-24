@@ -21,6 +21,8 @@
 
 #include <opm/common/utility/shmatch.hpp>
 
+#include <opm/input/eclipse/Schedule/Well/WList.hpp>
+
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
@@ -181,6 +183,37 @@ bool Opm::WellMatcher::hasWell(const std::string& pattern) const
 
     // Regular well name.
     return this->m_well_order->has(patt);
+}
+
+bool Opm::WellMatcher::activeWellMatches(const ActiveWellMatch& match) const
+{
+    if (const auto& pattern = match.pattern.get();
+        pattern.empty() || (this->m_well_order == nullptr)) {
+        return false;
+    }
+    else if ((pattern.front() == '*') && (pattern.size() > 1)) {
+        // Well list ('*PROD') or well list template (*PROD*).  Check if the
+        // match.well is on any of well lists that match 'pattern'.
+
+        if (!this->m_wlm.has_value()) {
+            return false;
+        }
+
+        return std::ranges::any_of(this->m_wlm->get(),
+            [patt = match.pattern.get().substr(1),
+             &wname = match.wellName.get()](const auto& wlistPair)
+        {
+            return shmatch(patt, wlistPair.first.substr(1))
+                && wlistPair.second.has(wname);
+        });
+    }
+
+    // If we get here, the pattern denotes a regular well.  Check if match.well
+    // actually matches that pattern and, if so, whether it is a currently
+    // active well.
+
+    return shmatch(normalisePattern(match.pattern), match.wellName)
+        && this->m_well_order->has(match.wellName);
 }
 
 std::vector<std::string>

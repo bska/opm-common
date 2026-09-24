@@ -27,6 +27,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -35,6 +36,12 @@ namespace Opm {
 class WellMatcher
 {
 public:
+    struct ActiveWellMatch
+    {
+        std::reference_wrapper<const std::string> wellName;
+        std::reference_wrapper<const std::string> pattern;
+    };
+
     /// Default constructor.
     WellMatcher() = default;
 
@@ -122,6 +129,8 @@ public:
     /// \return Whether or not a well matching the \p pattern exists in the
     /// current collection.
     bool hasWell(const std::string& pattern) const;
+
+    bool activeWellMatches(const ActiveWellMatch& match) const;
 
     /// Sort a list of well names according to the established order.
     ///
