@@ -25,23 +25,28 @@
 
 #include <opm/material/fluidmatrixinteractions/EclEpsScalingPoints.hpp>
 
-#include <opm/material/fluidmatrixinteractions/EclEpsConfig.hpp>
-
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/SatfuncPropertyInitializers.hpp>
 #include <opm/input/eclipse/EclipseState/Tables/TableManager.hpp>
 
+#include <opm/input/eclipse/Units/Units.hpp>
+
 #include <opm/material/common/Means.hpp>
 
+#include <opm/material/fluidmatrixinteractions/EclEpsConfig.hpp>
 #include <opm/material/fluidmatrixinteractions/EclEpsGridProperties.hpp>
 
-#include <cmath>
-#include <stdexcept>
-#include <vector>
+#include <fmt/format.h>
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <cstddef>
 #include <iostream>
+#include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
     template <typename Scalar>
@@ -50,6 +55,33 @@ namespace {
         if (value_ptr != nullptr) {
             targetValue = static_cast<Scalar>(*value_ptr);
         }
+    }
+
+    double jfuncPermeability(const Opm::JFunc::Direction      direction,
+                             const Opm::EclEpsGridProperties& epsProperties,
+                             const std::size_t                activeIndex)
+    {
+        if (direction == Opm::JFunc::Direction::XY) {
+            return Opm::arithmeticMean(epsProperties.permx(activeIndex),
+                                       epsProperties.permy(activeIndex));
+        }
+
+        if (direction == Opm::JFunc::Direction::X) {
+            return epsProperties.permx(activeIndex);
+        }
+
+        if (direction == Opm::JFunc::Direction::Y) {
+            return epsProperties.permy(activeIndex);
+        }
+
+        if (direction == Opm::JFunc::Direction::Z) {
+            return epsProperties.permz(activeIndex);
+        }
+
+        throw std::runtime_error {
+            fmt::format("Illegal direction indicator '{}' for the JFUNC keyword.",
+                        static_cast<std::underlying_type_t<Opm::JFunc::Direction>>(direction))
+        };
     }
 } // Anonymous namespace
 
@@ -157,73 +189,36 @@ calculateLeverettFactors(const EclipseState&         eclState,
                          const EclEpsGridProperties& epsProperties,
                          const unsigned              activeIndex)
 {
-    // compute the Leverett capillary pressure scaling factors if
-    // applicable.  note that this needs to be done using non-SI units to
-    // make it correspond to the documentation.
-
+    // Compute the Leverett capillary pressure scaling factors.
     const auto& jfunc = eclState.getTableManager().getJFunc();
-    const auto jfuncDir = jfunc.direction();
 
-    Scalar perm;
-    if (jfuncDir == JFunc::Direction::X) {
-        perm = epsProperties.permx(activeIndex);
-    }
-    else if (jfuncDir == JFunc::Direction::Y) {
-        perm = epsProperties.permy(activeIndex);
-    }
-    else if (jfuncDir == JFunc::Direction::Z) {
-        perm = epsProperties.permz(activeIndex);
-    }
-    else if (jfuncDir == JFunc::Direction::XY) {
-        // TODO: verify that this really is the arithmetic mean.
-        //
-        // The documentation just says that the "average" should be
-        // used,  IMO the harmonic mean would be more appropriate because
-        // that's what's usually applied when calculating the fluxes.
+    const auto alpha = static_cast<Scalar>(jfunc.porosityExponent());
+    const auto beta  = static_cast<Scalar>(jfunc.permeabilityExponent());
+    const auto poro  = static_cast<Scalar>(epsProperties.poro(activeIndex));
+    const auto perm  = static_cast<Scalar>
+        (jfuncPermeability(jfunc.direction(), epsProperties, activeIndex));
 
-        double permx = epsProperties.permx(activeIndex);
-        double permy = epsProperties.permy(activeIndex);
-        perm = arithmeticMean(permx, permy);
-    }
-    else {
-        throw std::runtime_error {
-            "Illegal direction indicator for the JFUNC "
-            "keyword (" + std::to_string(int(jfuncDir)) + ")"
-        };
+    // Just to guard against division by zero in zero-permeability cells.
+    constexpr auto minPerm = static_cast<Scalar>
+        (1.0e-10 * prefix::milli*unit::darcy);
+
+    // The part of the Leverett capillary pressure scaling factor which does
+    // not depend on the phase-systen specific surface tension.
+    const auto commonFactor = std::pow(poro, alpha)
+        / std::pow(std::max(perm, minPerm), beta);
+
+    const auto jfuncFlag = jfunc.flag();
+
+    if ((jfuncFlag == JFunc::Flag::WATER) || (jfuncFlag == JFunc::Flag::BOTH)) {
+        // Oil-water Leverett factor.
+        this->pcowLeverettFactor = commonFactor *
+            static_cast<Scalar>(jfunc.owSurfaceTension());
     }
 
-    // convert permeability from m^2 to mD
-    perm *= 1.01325e15;
-
-    const Scalar poro  = epsProperties.poro(activeIndex);
-    const Scalar alpha = jfunc.alphaFactor();
-    const Scalar beta  = jfunc.betaFactor();
-
-    // the part of the Leverett capillary pressure which does not depend
-    // on surface tension.
-    const Scalar commonFactor = std::pow(poro, alpha) / std::pow(perm, beta);
-
-    // multiply the documented constant by 10^5 because we want the
-    // pressures in [Pa], not in [bar]
-    const Scalar Uconst = 0.318316 * 1e5;
-
-    // compute the oil-water Leverett factor.
-    const auto& jfuncFlag = jfunc.flag();
-    if ((jfuncFlag == JFunc::Flag::WATER) ||
-        (jfuncFlag == JFunc::Flag::BOTH))
-    {
-        // note that we use the surface tension in terms of [dyn/cm]
-        const Scalar gamma = jfunc.owSurfaceTension();
-        this->pcowLeverettFactor = commonFactor * gamma * Uconst;
-    }
-
-    // compute the gas-oil Leverett factor.
-    if ((jfuncFlag == JFunc::Flag::GAS) ||
-        (jfuncFlag == JFunc::Flag::BOTH))
-    {
-        // note that we use the surface tension in terms of [dyn/cm]
-        const Scalar gamma = jfunc.goSurfaceTension();
-        this->pcgoLeverettFactor = commonFactor * gamma * Uconst;
+    if ((jfuncFlag == JFunc::Flag::GAS) || (jfuncFlag == JFunc::Flag::BOTH)) {
+        // Gas-oil Leverett factor.
+        this->pcgoLeverettFactor = commonFactor *
+            static_cast<Scalar>(jfunc.goSurfaceTension());
     }
 }
 

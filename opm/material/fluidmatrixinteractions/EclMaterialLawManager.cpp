@@ -131,95 +131,120 @@ initParamsForElements(const EclipseState& eclState, std::size_t numCompressedEle
     params_ = std::move(initParams.params_);
 }
 
-// TODO: Better (proper?) handling of mixed wettability systems - see ecl kw OPTIONS switch 74
-// Note: Without OPTIONS[74] the negative part of the Pcow curve is not scaled
+// TODO: Better (proper?) handling of mixed wettability systems - see ecl kw
+// OPTIONS switch 74 Note: Without OPTIONS[74] the negative part of the Pcow
+// curve is not scaled.
 template<class TraitsT>
 std::pair<typename TraitsT::Scalar, bool>
 Manager<TraitsT>::
-applySwatinit(unsigned elemIdx,
-              Scalar pcow,
-              Scalar Sw)
+applySwatinit(unsigned elemIdx, Scalar pcow, Scalar Sw)
 {
-    // Default is no SWATINIT scaling of the negative part of the Pcow curve, so look up saturation using the input Pcow curve
+    // Default is no SWATINIT scaling of the negative part of the Pcow
+    // curve, so look up saturation using the input Pcow curve
     if (pcow <= 0.0) {
         return {Sw, /*newSwatInit*/ true};
     }
 
-    auto& elemScaledEpsInfo = params_.oilWaterScaledEpsInfoDrainage[elemIdx];
-    if (Sw <= elemScaledEpsInfo.Swl)
+    auto& elemScaledEpsInfo = this->params_
+        .oilWaterScaledEpsInfoDrainage[elemIdx];
+
+    if (Sw <= elemScaledEpsInfo.Swl) {
         Sw = elemScaledEpsInfo.Swl;
+    }
 
     // Two-phase gas/water runs have no oil/water curve: scale the gas/water
     // Pc curve instead.  Its scaling reference is maxPcgo (see
     // EclEpsScalingPoints::init for the GasWater system type).
     const bool gasWater = this->isTwoPhaseGasWater_();
-    Scalar& maxPc = gasWater ? elemScaledEpsInfo.maxPcgo : elemScaledEpsInfo.maxPcow;
 
-    // specify a fluid state which only stores the saturations
-    using FluidState = SimpleModularFluidState<Scalar,
-                                                TraitsT::numPhases,
-                                                /*numComponents=*/0,
-                                                /*FluidSystem=*/void, /* -> don't care */
-                                                /*storePressure=*/false,
-                                                /*storeTemperature=*/false,
-                                                /*storeComposition=*/false,
-                                                /*storeFugacity=*/false,
-                                                /*storeSaturation=*/true,
-                                                /*storeDensity=*/false,
-                                                /*storeViscosity=*/false,
-                                                /*storeEnthalpy=*/false>;
-    FluidState fs;
-    fs.setSaturation(TraitsT::wettingPhaseIdx, Sw);
-    fs.setSaturation(TraitsT::gasPhaseIdx, 0);
-    fs.setSaturation(TraitsT::nonWettingPhaseIdx, 0);
-    std::array<Scalar, numPhases> pc = { 0 };
-    MaterialLaw::capillaryPressures(pc, materialLawParams(elemIdx), fs);
-    const Scalar pcowAtSw = gasWater
-        ? pc[gasPhaseIdx] - pc[waterPhaseIdx]
-        : pc[oilPhaseIdx] - pc[waterPhaseIdx];
-    constexpr const Scalar pcowAtSwThreshold = 1.0e-6; //Pascal
+    const auto pcowAtSw = [elemIdx, gasWater, Sw, this]()
+    {
+        // Specify a fluid state which only stores the saturations.
+        using FluidState = SimpleModularFluidState
+            <Scalar,
+             TraitsT::numPhases,
+             /* numComponents    = */ 0,
+             /* FluidSystem      = */ void, // <- don't care
+             /* storePressure    = */ false,
+             /* storeTemperature = */ false,
+             /* storeComposition = */ false,
+             /* storeFugacity    = */ false,
+             /* storeSaturation  = */ true,
+             /* storeDensity     = */ false,
+             /* storeViscosity   = */ false,
+             /* storeEnthalpy    = */ false>;
 
-    // avoid division by very small number and avoid negative PCW at connate Sw
-    // (look up saturation on input Pcow curve in this case)
+        FluidState fs{};
+        fs.setSaturation(TraitsT::wettingPhaseIdx, Sw);
+        fs.setSaturation(TraitsT::gasPhaseIdx, 0);
+        fs.setSaturation(TraitsT::nonWettingPhaseIdx, 0);
+
+        std::array<Scalar, numPhases> pc{};
+        MaterialLaw::capillaryPressures(pc, this->materialLawParams(elemIdx), fs);
+
+        return gasWater
+            ? pc[gasPhaseIdx] - pc[waterPhaseIdx]
+            : pc[oilPhaseIdx] - pc[waterPhaseIdx];
+    }();
+
+    constexpr const Scalar pcowAtSwThreshold = 1.0e-6; // Pascal.
+
+    // Avoid division by very small number and avoid negative PCW at connate
+    // Sw (look up saturation on input Pcow curve in this case)
     if (pcowAtSw < pcowAtSwThreshold) {
-        return {Sw, /*newSwatInit*/ true};
+        return { Sw, /* newSwatInit */ true };
     }
 
-    // Sufficiently positive value, continue with max. capillary pressure (PCW) scaling to honor SWATINIT value
-    const Scalar newMaxPcow = maxPc * (pcow/pcowAtSw);
+    // If we get here, the capillary pressure has a sufficiently large
+    // positive value.  Continue with max. capillary pressure (PCW) scaling
+    // to honor SWATINIT value
+    Scalar& maxPc = gasWater
+        ? elemScaledEpsInfo.maxPcgo
+        : elemScaledEpsInfo.maxPcow;
 
-    // Limit max. capillary pressure with PPCWMAX
+    const Scalar newMaxPcow = maxPc *
+        (gasWater ? elemScaledEpsInfo.pcgoLeverettFactor
+                  : elemScaledEpsInfo.pcowLeverettFactor) *
+        (pcow / pcowAtSw);
+
+    // Limit maximum capillary pressure with PPCWMAX.
     bool newSwatInit = false;
-    int satRegionIdx = satnumRegionIdx(elemIdx);
-    if (enablePpcwmax() && (newMaxPcow > maxAllowPc_[satRegionIdx])) {
-        // Two options in PPCWMAX to modify connate Sw or not.  In both cases, init. Sw needs to be
-        // re-calculated (done in opm-simulators)
+
+    if (const auto satRegionIdx = satnumRegionIdx(elemIdx);
+        this->enablePpcwmax() && (newMaxPcow > maxAllowPc_[satRegionIdx]))
+    {
+        // Two options in PPCWMAX to modify connate Sw or not.  In both
+        // cases, the initial Sw needs to be re-calculated (deferred to
+        // simulator layer)
         newSwatInit = true;
-        if (modifySwl_[satRegionIdx] == false) {
-            // Max. cap. pressure set to PCWO in PPCWMAX
-            maxPc = maxAllowPc_[satRegionIdx];
+
+        if (! this->modifySwl_[satRegionIdx]) {
+            // Maximum capillary pressure set to PCOW in PPCWMAX.
+            maxPc = this->maxAllowPc_[satRegionIdx];
         }
         else {
-            // Max. cap. pressure remains unscaled and connate Sw is set to SWATINIT value
+            // Maximum capillary pressure remains unscaled and connate Sw is
+            // set to SWATINIT value.
             elemScaledEpsInfo.Swl = Sw;
         }
     }
-    // Max. cap. pressure adjusted from SWATINIT data
-    else
+    else {
+        // Maximum capillary pressure adjusted from SWATINIT data.
         maxPc = newMaxPcow;
+    }
 
     if (gasWater) {
-        gasWaterScaledEpsPointsDrainage(elemIdx).init(elemScaledEpsInfo,
-                                                      gasWaterConfig_,
-                                                      EclTwoPhaseSystemType::GasWater);
+        this->gasWaterScaledEpsPointsDrainage(elemIdx)
+            .init(elemScaledEpsInfo, this->gasWaterConfig_,
+                  EclTwoPhaseSystemType::GasWater);
     }
     else {
-        oilWaterScaledEpsPointsDrainage(elemIdx).init(elemScaledEpsInfo,
-                                                      oilWaterConfig_,
-                                                      EclTwoPhaseSystemType::OilWater);
+        this->oilWaterScaledEpsPointsDrainage(elemIdx)
+            .init(elemScaledEpsInfo, this->oilWaterConfig_,
+                  EclTwoPhaseSystemType::OilWater);
     }
 
-    return {Sw, newSwatInit};
+    return { Sw, newSwatInit };
 }
 
 template<class TraitsT>
