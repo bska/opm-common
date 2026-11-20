@@ -16,11 +16,13 @@
     },
     {
       "name": "OIL_WAT_SURF_TENSTION",
-      "value_type": "DOUBLE"
+      "value_type": "DOUBLE",
+      "dimension": "SurfaceTension"
     },
     {
       "name": "OIL_GAS_SURF_TENSTION",
-      "value_type": "DOUBLE"
+      "value_type": "DOUBLE",
+      "dimension": "SurfaceTension"
     },
     {
       "name": "POROSITY_POWER",

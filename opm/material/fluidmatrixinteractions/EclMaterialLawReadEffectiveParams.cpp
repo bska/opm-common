@@ -40,11 +40,79 @@
 
 #include <opm/material/fluidmatrixinteractions/EclMaterialLawManager.hpp>
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <string>
+
+namespace {
+
+/// Identify saturation regions with a zero-valued maximum capillary
+/// pressure but a capillary pressure curve which is not identically zero.
+///
+/// \tparam EffLaw Two-phase effective saturation function law.
+///
+/// \param[in] effParams Per-region effective parameters for \p EffLaw.
+///   Null entries are ignored.
+///
+/// \param[in] maxPc Callback for the unscaled maximum capillary pressure in
+///   a particular saturation region.
+///
+/// \return One-based indices of affected saturation regions.
+template <class EffLaw, class ParamVector, class MaxPc>
+std::vector<std::size_t>
+regionsWithZeroReferencePc(const ParamVector& effParams, MaxPc&& maxPc)
+{
+    using Scalar = typename EffLaw::Scalar;
+
+    auto regions = std::vector<std::size_t>{};
+
+    const auto numSatRegions = effParams.size();
+    for (auto satRegionIdx = std::size_t{0}; satRegionIdx < numSatRegions; ++satRegionIdx) {
+        if ((effParams[satRegionIdx] == nullptr) || (maxPc(satRegionIdx) != Scalar{0})) {
+            continue;
+        }
+
+        // Sample the curve to determine whether or not it is identically
+        // zero.  Sufficiently fine to catch any realistic input table.
+        constexpr auto numSamples = 1000;
+
+        const auto& params = *effParams[satRegionIdx];
+        for (auto i = 0; i <= numSamples; ++i) {
+            const auto s = static_cast<Scalar>(i) / numSamples;
+
+            if (EffLaw::twoPhaseSatPcnw(params, s) != Scalar{0}) {
+                regions.push_back(satRegionIdx + 1);
+                break;
+            }
+        }
+    }
+
+    return regions;
+}
+
+void warnZeroLeverettReferencePc(const std::string&              system,
+                                 const std::vector<std::size_t>& regions)
+{
+    if (regions.empty()) {
+        return;
+    }
+
+    Opm::OpmLog::warning
+        (fmt::format("The {} J-function (JFUNC) value at the end-point of maximum "
+                     "capillary pressure is zero in saturation region(s) {}, "
+                     "but the J-function is not identically zero.\n"
+                     "The Leverett scaling factor will not be applied in "
+                     "these regions, and the capillary pressure will be "
+                     "the unscaled J-function values.",
+                     system, fmt::join(regions, ", ")));
+}
+
+} // Anonymous namespace
 
 namespace Opm::EclMaterialLaw {
 
@@ -75,6 +143,8 @@ read()
         readOilWaterParameters_(satRegionIdx);
         readGasWaterParameters_(satRegionIdx);
     }
+
+    this->checkLeverettScalingReferenceValues_();
 }
 
 /* private methods, alphabetically sorted*/
@@ -484,6 +554,39 @@ readOilWaterParameters_(unsigned satRegionIdx)
 
     case SatFuncControls::KeywordFamily::Undefined:
         throw std::domain_error("No valid saturation keyword family specified");
+    }
+}
+
+template <class Traits>
+void
+ReadEffectiveParams<Traits>::
+checkLeverettScalingReferenceValues_() const
+{
+    const auto& unscaled = [this](const std::size_t satRegionIdx)
+        -> const auto& { return this->parent_.unscaledEpsInfo(satRegionIdx); };
+
+    if (this->parent_.oilWaterConfig().enableLeverettScaling()) {
+        warnZeroLeverettReferencePc
+            ("oil/water",
+             regionsWithZeroReferencePc<typename TwoPhaseTypes<Traits>::OilWaterEffectiveLaw>
+             (params_.oilWaterEffectiveParamVector,
+              [&unscaled](const std::size_t r) { return unscaled(r).maxPcow; }));
+    }
+
+    if (this->parent_.gasOilConfig().enableLeverettScaling()) {
+        warnZeroLeverettReferencePc
+            ("gas/oil",
+             regionsWithZeroReferencePc<typename TwoPhaseTypes<Traits>::GasOilEffectiveLaw>
+             (params_.gasOilEffectiveParamVector,
+              [&unscaled](const std::size_t r) { return unscaled(r).maxPcgo; }));
+    }
+
+    if (this->parent_.gasWaterConfig().enableLeverettScaling()) {
+        warnZeroLeverettReferencePc
+            ("gas/water",
+             regionsWithZeroReferencePc<typename TwoPhaseTypes<Traits>::GasWaterEffectiveLaw>
+             (params_.gasWaterEffectiveParamVector,
+              [&unscaled](const std::size_t r) { return unscaled(r).maxPcgo; }));
     }
 }
 

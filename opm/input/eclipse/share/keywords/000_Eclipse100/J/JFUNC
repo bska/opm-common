@@ -26,11 +26,13 @@
     {
       "name": "ALPHA_FACTOR",
       "value_type": "DOUBLE",
+      "dimension": "1",
       "default": 0.5
     },
     {
       "name": "BETA_FACTOR",
       "value_type": "DOUBLE",
+      "dimension": "1",
       "default": 0.5
     },
     {

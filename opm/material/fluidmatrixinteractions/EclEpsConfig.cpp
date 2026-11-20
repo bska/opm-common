@@ -26,14 +26,77 @@
  */
 
 #include <config.h>
+
 #include <opm/material/fluidmatrixinteractions/EclEpsConfig.hpp>
 
-#include <opm/input/eclipse/EclipseState/EclipseState.hpp>
-#include <stdexcept>
+#include <opm/common/OpmLog/OpmLog.hpp>
 
+#include <opm/input/eclipse/EclipseState/EclipseState.hpp>
+#include <opm/input/eclipse/EclipseState/Tables/JFunc.hpp>
+#include <opm/input/eclipse/EclipseState/Tables/TableManager.hpp>
+
+#include <stdexcept>
 #include <cassert>
 
+#include <fmt/format.h>
+
+namespace {
+
+    void logIncompatibleVerticalCapPressScaling(const Opm::EclTwoPhaseSystemType twoPhaseSystemType,
+                                                const std::string&               vertScalingCapPressArray)
+    {
+        auto system = std::string{};
+
+        switch (twoPhaseSystemType) {
+        case Opm::EclTwoPhaseSystemType::OilWater:
+            system = "Oil/Water";
+            break;
+
+        case Opm::EclTwoPhaseSystemType::GasOil:
+            system = "Gas/Oil";
+            break;
+
+        case Opm::EclTwoPhaseSystemType::GasWater:
+            system = "Gas/Water";
+            break;
+        }
+
+        Opm::OpmLog::warning(fmt::format(R"({} system capillary pressure vertical scaling array {}
+is not applicable and will be ignored in a run with active Leverett J-Function scaling)",
+                                         system, vertScalingCapPressArray));
+    }
+}
+
 namespace Opm {
+
+bool EclEpsConfig::leverettScalingActive(const EclipseState&         eclState,
+                                         const EclTwoPhaseSystemType twoPhaseSystemType)
+{
+    const auto& tmgr = eclState.getTableManager();
+
+    if (! tmgr.useJFunc()) {
+        return false;
+    }
+
+    if (twoPhaseSystemType == EclTwoPhaseSystemType::GasWater) {
+        // Two-phase gas/water runs have a single capillary pressure curve,
+        // so Leverett scaling applies irrespective of the JFUNC flag.
+        return true;
+    }
+
+    switch (tmgr.getJFunc().flag()) {
+    case JFunc::Flag::BOTH:
+        return true;
+
+    case JFunc::Flag::WATER:
+        return twoPhaseSystemType == EclTwoPhaseSystemType::OilWater;
+
+    case JFunc::Flag::GAS:
+        return twoPhaseSystemType == EclTwoPhaseSystemType::GasOil;
+    }
+
+    return false;
+}
 
 void EclEpsConfig::initFromState(const EclipseState& eclState,
                                  EclTwoPhaseSystemType twoPhaseSystemType,
@@ -41,6 +104,7 @@ void EclEpsConfig::initFromState(const EclipseState& eclState,
                                  const std::string& suffix)
 {
     const auto& endscale = eclState.runspec().endpointScaling();
+
     // find out if endpoint scaling is used in the first place
     if (!endscale) {
         // it is not used, i.e., just set all enable$Foo attributes to 0 and be done
@@ -57,52 +121,53 @@ void EclEpsConfig::initFromState(const EclipseState& eclState,
     // endpoint scaling is used, i.e., at least saturation scaling needs to be enabled
     enableSatScaling_ = true;
     enableThreePointKrSatScaling_ = endscale.threepoint();
-
-    if (eclState.getTableManager().useJFunc()) {
-        const auto flag = eclState.getTableManager().getJFunc().flag();
-
-        enableLeverettScaling_ = (flag == JFunc::Flag::BOTH)
-            || ((twoPhaseSystemType == EclTwoPhaseSystemType::OilWater) &&
-                (flag == JFunc::Flag::WATER))
-            || ((twoPhaseSystemType == EclTwoPhaseSystemType::GasOil) &&
-                (flag == JFunc::Flag::GAS))
-            || (twoPhaseSystemType == EclTwoPhaseSystemType::GasWater);
-    }
+    this->enableLeverettScaling_ = leverettScalingActive(eclState, twoPhaseSystemType);
 
     const auto& fp = eclState.fieldProps();
-    // The prefix selects the keywords of the imbibition curve ("I": IKRW, IPCW,
-    // ...). The drainage curve (no prefix) only depends on the plain keywords. In
-    // particular, an imbibition-only IKRWR must not switch the drainage curve to
-    // three-point scaling.
+
+    // Prefix 'I' selects properties for the imbibition curves.  The
+    // drainage curves, without a prefix, inspects the plain keywords.  As
+    // an example, a run's imbibition-only IKRWR property must not activate
+    // three-point vertical scaling for the drainage relative permeability
+    // curve for water.
     auto hasKR = [&fp, &prefix, &suffix](const std::string& scaling)
     {
         return fp.has_double(prefix + "KR" + scaling + suffix);
     };
-    // With Leverett (JFUNC) scaling the imbibition Pc keywords (IPCW, IPCG) are
-    // ignored, as before, instead of triggering the error below. The material
-    // law manager issues a warning about it.
-    auto hasPC = [&fp, &prefix, this](const std::string& scaling)
+
+    auto hasPC = [&fp, &prefix](const std::string& scaling)
     {
-        return fp.has_double(prefix + "PC" + scaling)
-            && (prefix.empty() || !this->enableLeverettScaling_);
+        return fp.has_double(prefix + "PC" + scaling);
     };
 
-    // check if we are supposed to scale the Y axis of the capillary pressure
+    auto vertScalingCapPressArray = std::string{};
+
+    // Check if run requests vertical saturation function scaling for this
+    // twoPhaseSystemType.
     if (twoPhaseSystemType == EclTwoPhaseSystemType::OilWater) {
         this->setEnableThreePointKrwScaling(hasKR("WR"));
         this->setEnableThreePointKrnScaling(hasKR("ORW"));
 
+        if (hasPC("W")) {
+            vertScalingCapPressArray = prefix + "PCW";
+        }
+
         this->enableKrnScaling_ = hasKR("O") || this->enableThreePointKrnScaling();
         this->enableKrwScaling_ = hasKR("W") || this->enableThreePointKrwScaling();
-        this->enablePcScaling_  = hasPC("W") || fp.has_double("SWATINIT");
+        this->enablePcScaling_  = fp.has_double("SWATINIT")
+            || !vertScalingCapPressArray.empty();
     }
     else if (twoPhaseSystemType == EclTwoPhaseSystemType::GasOil) {
         this->setEnableThreePointKrwScaling(hasKR("ORG"));
         this->setEnableThreePointKrnScaling(hasKR("GR"));
 
+        if (hasPC("G")) {
+            vertScalingCapPressArray = prefix + "PCG";
+        }
+
         this->enableKrnScaling_ = hasKR("G") || this->enableThreePointKrnScaling();
         this->enableKrwScaling_ = hasKR("O") || this->enableThreePointKrwScaling();
-        this->enablePcScaling_  = hasPC("G");
+        this->enablePcScaling_  = ! vertScalingCapPressArray.empty();
     }
     else {
         assert(twoPhaseSystemType == EclTwoPhaseSystemType::GasWater);
@@ -113,18 +178,30 @@ void EclEpsConfig::initFromState(const EclipseState& eclState,
         this->enableKrnScaling_ = hasKR("G") || this->enableThreePointKrnScaling();
         this->enableKrwScaling_ = hasKR("W") || this->enableThreePointKrwScaling();
 
+        if (hasPC("G")) {
+            vertScalingCapPressArray = prefix + "PCG";
+        }
+
         // PCG is reused as the gas-water capillary pressure (Pcgw) for
         // two-phase gas-water systems (see EclEpsScalingPoints::init()).
-        // SWATINIT scales this curve too (EclMaterialLawManager::applySwatinit).
-        this->enablePcScaling_  = hasPC("G") || fp.has_double("SWATINIT");
+        // SWATINIT scales this curve too
+        // (EclMaterialLawManager::applySwatinit).
+        this->enablePcScaling_ = fp.has_double("SWATINIT") ||
+            ! vertScalingCapPressArray.empty();
     }
 
-    if (enablePcScaling_ && enableLeverettScaling_) {
-        throw std::runtime_error {
-            "Capillary pressure scaling and the Leverett scaling function "
-            "are mutually exclusive. The deck contains the PCW/PCG property "
-            "and the JFUNC keyword applies to the water phase."
-        };
+    if (this->enableLeverettScaling_) {
+        // Leverett J-function scaling is implemented as vertical scaling of
+        // the capillary pressure curve.  The maximum capillary pressure is
+        // the Leverett factor times the curve's unscaled maximum value (see
+        // EclEpsScalingPointsInfo::extractScaled()), and the PCW/PCG
+        // keywords are ignored.
+        this->enablePcScaling_ = true;
+
+        if (! vertScalingCapPressArray.empty()) {
+            logIncompatibleVerticalCapPressScaling(twoPhaseSystemType,
+                                                   vertScalingCapPressArray);
+        }
     }
 }
 

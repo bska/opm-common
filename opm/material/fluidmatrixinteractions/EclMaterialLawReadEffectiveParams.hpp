@@ -105,6 +105,17 @@ private:
 
     void readOilWaterParameters_(unsigned satRegionIdx);
 
+    /// Issue a warning for those saturation regions in which Leverett
+    /// J-function scaling (keyword JFUNC) does not apply because the
+    /// J-function's vertical scaling reference value--i.e., the maximum
+    /// capillary pressure value--is zero while the J-function itself is
+    /// not identically zero.  Vertical scaling of the capillary pressure
+    /// curve is not defined in this case so the capillary pressure would
+    /// be the unscaled J-function values.
+    ///
+    /// Must be called after the effective parameters have been read.
+    void checkLeverettScalingReferenceValues_() const;
+
     typename Manager<Traits>::Params& params_;
     const EclipseState& eclState_;
     const Manager<Traits>& parent_;

@@ -3707,7 +3707,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(GasWaterImbibitionPcScalingConfig, Scalar, Types)
         BOOST_CHECK_NO_THROW(manager = init(deckString("JFUNC\n GAS 1* 22.0 /\n", "IPCG\n 1*0.5 /\n")));
         BOOST_REQUIRE(manager);
         BOOST_CHECK(manager->gasWaterImbibitionConfig().enableLeverettScaling());
-        BOOST_CHECK(!manager->gasWaterImbibitionConfig().enablePcScaling());
+
+        // Leverett scaling is implemented as vertical Pc scaling, with
+        // the IPCG keyword being ignored.
+        BOOST_CHECK(manager->gasWaterImbibitionConfig().enablePcScaling());
     }
 }
 

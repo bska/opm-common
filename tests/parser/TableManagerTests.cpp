@@ -1906,10 +1906,10 @@ VFPPROD \n\
 
 BOOST_AUTO_TEST_CASE(JFuncTestThrowingOnBrokenData) {
     auto deck = createSingleRecordDeckWithJFuncBrokenFlag();
-    BOOST_CHECK_THROW(Opm::TableManager tm (deck), std::invalid_argument);
+    BOOST_CHECK_THROW(Opm::TableManager tm (deck), OpmInputError);
 
     auto deck2 = createSingleRecordDeckWithJFuncBrokenDirection();
-    BOOST_CHECK_THROW(Opm::TableManager tm2 (deck2), std::invalid_argument);
+    BOOST_CHECK_THROW(Opm::TableManager tm2 (deck2), OpmInputError);
 }
 
 BOOST_AUTO_TEST_CASE(JFuncTestThrowingGalore) {
@@ -1920,14 +1920,16 @@ BOOST_AUTO_TEST_CASE(JFuncTestThrowingGalore) {
 }
 
 BOOST_AUTO_TEST_CASE(JFuncTest) {
+    constexpr auto dyne_per_cm = unit::dyne / (prefix::centi*unit::meter);
+
     const auto deck = createSingleRecordDeckWithJFuncBoth();
     Opm::TableManager tables(deck);
     BOOST_CHECK(tables.useJFunc());
 
     const Opm::JFunc& jt = tables.getJFunc();
     BOOST_CHECK(jt.flag() == Opm::JFunc::Flag::BOTH);
-    BOOST_CHECK_CLOSE(jt.owSurfaceTension(), 55.0, epsilon());
-    BOOST_CHECK_CLOSE(jt.goSurfaceTension(), 88.0, epsilon());
+    BOOST_CHECK_CLOSE(jt.owSurfaceTension(), 55.0*dyne_per_cm, epsilon());
+    BOOST_CHECK_CLOSE(jt.goSurfaceTension(), 88.0*dyne_per_cm, epsilon());
     BOOST_CHECK_CLOSE(jt.alphaFactor(), 0.5, epsilon()); // default
     BOOST_CHECK_CLOSE(jt.betaFactor(),  0.5, epsilon());  // default
     BOOST_CHECK(jt.direction() == Opm::JFunc::Direction::XY); // default
@@ -1939,11 +1941,11 @@ BOOST_AUTO_TEST_CASE(JFuncTest) {
 
     const auto& jt2 = tables2.getJFunc();
     BOOST_CHECK(jt2.flag() == Opm::JFunc::Flag::WATER);
-    BOOST_CHECK_CLOSE(jt2.owSurfaceTension(), 2.7182, epsilon());
+    BOOST_CHECK_CLOSE(jt2.owSurfaceTension(), 2.7182*dyne_per_cm, epsilon());
     BOOST_CHECK_THROW(jt2.goSurfaceTension(), std::invalid_argument);
-    BOOST_CHECK_CLOSE(jt2.alphaFactor(), 0.6, epsilon()); // default
-    BOOST_CHECK_CLOSE(jt2.betaFactor(),  0.7, epsilon());  // default
-    BOOST_CHECK(jt2.direction() == Opm::JFunc::Direction::Z); // default
+    BOOST_CHECK_CLOSE(jt2.alphaFactor(), 0.6, epsilon());
+    BOOST_CHECK_CLOSE(jt2.betaFactor(),  0.7, epsilon());
+    BOOST_CHECK(jt2.direction() == Opm::JFunc::Direction::Z);
 }
 
 

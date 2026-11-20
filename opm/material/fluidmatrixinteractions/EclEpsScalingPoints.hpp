@@ -69,14 +69,12 @@ struct EclEpsScalingPointsInfo
     Scalar Swu; // water
     Scalar Sgu; // gas
 
-    // maximum capillary pressures
+    // maximum capillary pressures.  In a run with Leverett J-function
+    // scaling (keyword JFUNC), the scaled values include the Leverett
+    // factor whereas the unscaled values are the maximum J-function values
+    // in the input tables.
     Scalar maxPcow; // maximum capillary pressure of the oil-water system
     Scalar maxPcgo; // maximum capillary pressure of the gas-oil system
-
-    // the Leverett capillary pressure scaling factors. (those only make sense for the
-    // scaled points, for the unscaled ones they are 1.0.)
-    Scalar pcowLeverettFactor;
-    Scalar pcgoLeverettFactor;
 
     // Scaled relative permeabilities at residual displacing saturation
     Scalar Krwr;  // water
@@ -102,8 +100,6 @@ struct EclEpsScalingPointsInfo
             && (Sgu == data.Sgu)
             && (maxPcow == data.maxPcow)
             && (maxPcgo == data.maxPcgo)
-            && (pcowLeverettFactor == data.pcowLeverettFactor)
-            && (pcgoLeverettFactor == data.pcgoLeverettFactor)
             && (Krwr == data.Krwr)
             && (Krgr == data.Krgr)
             && (Krorw == data.Krorw)
@@ -137,9 +133,30 @@ struct EclEpsScalingPointsInfo
                        unsigned activeIndex);
 
 private:
-    void calculateLeverettFactors(const EclipseState& eclState,
-                                  const EclEpsGridProperties& epsProperties,
-                                  unsigned activeIndex);
+    /// Apply Leverett J-function scaling to the maximum capillary
+    /// pressures.
+    ///
+    /// Multiplies the unscaled maximum capillary pressure values by the
+    /// cell's Leverett factors.
+    ///
+    /// \param[in] eclState Run's static parameters.  Needed to access
+    ///   the JFUNC keyword data.
+    ///
+    /// \param[in] epsProperties Cell-wise end-point scaling properties,
+    ///   including porosity and permeability.
+    ///
+    /// \param[in] activeIndex Active cell index.
+    ///
+    /// \param[in] scaleOilWater Whether or not to apply the oil/water
+    ///   Leverett factor to maxPcow.
+    ///
+    /// \param[in] scaleGas Whether or not to apply the gas/oil Leverett
+    ///   factor to maxPcgo.
+    void applyLeverettScaling(const EclipseState& eclState,
+                              const EclEpsGridProperties& epsProperties,
+                              unsigned activeIndex,
+                              bool scaleOilWater,
+                              bool scaleGas);
 };
 
 /*!
@@ -199,25 +216,13 @@ public:
      * \brief Sets the maximum capillary pressure
      */
     void setMaxPcnw(Scalar value)
-    { maxPcnwOrLeverettFactor_ = value; }
+    { maxPcnw_ = value; }
 
     /*!
      * \brief Returns the maximum capillary pressure
      */
     OPM_HOST_DEVICE Scalar maxPcnw() const
-    { return maxPcnwOrLeverettFactor_; }
-
-    /*!
-     * \brief Sets the Leverett scaling factor for capillary pressure
-     */
-    void setLeverettFactor(Scalar value)
-    { maxPcnwOrLeverettFactor_ = value; }
-
-    /*!
-     * \brief Returns the Leverett scaling factor for capillary pressure
-     */
-    OPM_HOST_DEVICE Scalar leverettFactor() const
-    { return maxPcnwOrLeverettFactor_; }
+    { return maxPcnw_; }
 
     /*!
      * \brief Set wetting-phase relative permeability at residual saturation
@@ -275,7 +280,7 @@ public:
 
 private:
     // Points used for vertical scaling of capillary pressure
-    Scalar maxPcnwOrLeverettFactor_{};
+    Scalar maxPcnw_{};
 
     // Maximum wetting phase relative permability value.
     Scalar maxKrw_{};

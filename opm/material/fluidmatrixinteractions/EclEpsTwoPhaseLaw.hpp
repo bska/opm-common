@@ -508,11 +508,7 @@ private:
     template <class Evaluation>
     OPM_HOST_DEVICE static Evaluation unscaledToScaledPcnw_(const Params& params, const Evaluation& unscaledPcnw)
     {
-        if (params.config().enableLeverettScaling()) {
-            Scalar alpha = params.scaledPoints().leverettFactor();
-            return unscaledPcnw*alpha;
-        }
-        else if (params.config().enablePcScaling()) {
+        if (params.config().enablePcScaling()) {
             const auto& scaled_maxPcnw = params.scaledPoints().maxPcnw();
             const auto& unscaled_maxPcnw = params.unscaledPoints().maxPcnw();
 
@@ -531,11 +527,7 @@ private:
     template <class Evaluation>
     OPM_HOST_DEVICE static Evaluation scaledToUnscaledPcnw_(const Params& params, const Evaluation& scaledPcnw)
     {
-        if (params.config().enableLeverettScaling()) {
-            Scalar alpha = params.scaledPoints().leverettFactor();
-            return scaledPcnw/alpha;
-        }
-        else if (params.config().enablePcScaling()) {
+        if (params.config().enablePcScaling()) {
             const auto& scaled_maxPcnw = params.scaledPoints().maxPcnw();
             const auto& unscaled_maxPcnw = params.unscaledPoints().maxPcnw();
 

@@ -64,6 +64,10 @@ class TableColumn;
 
 }
 
+namespace Opm::data {
+    class Solution;
+}
+
 namespace Opm::EclMaterialLaw {
 
 template<class Traits> class InitParams;
@@ -190,6 +194,8 @@ public:
         const auto& info = params_.oilWaterScaledEpsInfoDrainage[elemIdx];
         return this->isTwoPhaseGasWater_() ? info.maxPcgo : info.maxPcow;
     }
+
+    void exportEffectiveMaxCapPress(data::Solution& maxPc) const;
 
     bool enableEndPointScaling() const
     { return enableEndPointScaling_; }

@@ -207,7 +207,9 @@ namespace {
             this->vectors_.insert(this->vectors_.end(),
             {
                 {"SWLPC", ::Opm::UnitSystem::measure::identity, true },
+#if 0
                 {"PCW"  , ::Opm::UnitSystem::measure::pressure, true },
+#endif
             });
         }
 
@@ -215,7 +217,10 @@ namespace {
             this->vectors_.insert(this->vectors_.end(),
             {
                 {"SGLPC", ::Opm::UnitSystem::measure::identity, true },
+#if 0
                 {"PCG"  , ::Opm::UnitSystem::measure::pressure, true },
+#endif
+
             });
         }
     }

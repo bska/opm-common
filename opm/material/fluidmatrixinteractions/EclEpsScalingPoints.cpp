@@ -25,23 +25,29 @@
 
 #include <opm/material/fluidmatrixinteractions/EclEpsScalingPoints.hpp>
 
-#include <opm/material/fluidmatrixinteractions/EclEpsConfig.hpp>
-
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/SatfuncPropertyInitializers.hpp>
+#include <opm/input/eclipse/EclipseState/Runspec.hpp>
 #include <opm/input/eclipse/EclipseState/Tables/TableManager.hpp>
+
+#include <opm/input/eclipse/Units/Units.hpp>
 
 #include <opm/material/common/Means.hpp>
 
+#include <opm/material/fluidmatrixinteractions/EclEpsConfig.hpp>
 #include <opm/material/fluidmatrixinteractions/EclEpsGridProperties.hpp>
 
-#include <cmath>
-#include <stdexcept>
-#include <vector>
+#include <fmt/format.h>
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <cstddef>
 #include <iostream>
+#include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
     template <typename Scalar>
@@ -50,6 +56,33 @@ namespace {
         if (value_ptr != nullptr) {
             targetValue = static_cast<Scalar>(*value_ptr);
         }
+    }
+
+    double jfuncPermeability(const Opm::JFunc::Direction      direction,
+                             const Opm::EclEpsGridProperties& epsProperties,
+                             const std::size_t                activeIndex)
+    {
+        if (direction == Opm::JFunc::Direction::XY) {
+            return Opm::arithmeticMean(epsProperties.permx(activeIndex),
+                                       epsProperties.permy(activeIndex));
+        }
+
+        if (direction == Opm::JFunc::Direction::X) {
+            return epsProperties.permx(activeIndex);
+        }
+
+        if (direction == Opm::JFunc::Direction::Y) {
+            return epsProperties.permy(activeIndex);
+        }
+
+        if (direction == Opm::JFunc::Direction::Z) {
+            return epsProperties.permz(activeIndex);
+        }
+
+        throw std::runtime_error {
+            fmt::format("Illegal direction indicator '{}' for the JFUNC keyword.",
+                        static_cast<std::underlying_type_t<Opm::JFunc::Direction>>(direction))
+        };
     }
 } // Anonymous namespace
 
@@ -66,8 +99,6 @@ void Opm::EclEpsScalingPointsInfo<Scalar>::print() const
               << "    Sgu: " << Sgu << '\n'
               << "    maxPcow: " << maxPcow << '\n'
               << "    maxPcgo: " << maxPcgo << '\n'
-              << "    pcowLeverettFactor: " << pcowLeverettFactor << '\n'
-              << "    pcgoLeverettFactor: " << pcgoLeverettFactor << '\n'
               << "    Krwr: " << Krwr << '\n'
               << "    Krgr: " << Krgr << '\n'
               << "    Krorw: " << Krorw << '\n'
@@ -98,10 +129,6 @@ extractUnscaled(const satfunc::RawTableEndPoints&    rtep,
     this->maxPcgo = rfunc.pc.g[satRegionIdx];
     this->maxPcow = rfunc.pc.w[satRegionIdx];
 
-    // there are no "unscaled" Leverett factors, so we just set them to 1.0
-    this->pcowLeverettFactor = 1.0;
-    this->pcgoLeverettFactor = 1.0;
-
     this->Krwr    = rfunc.krw.r [satRegionIdx];
     this->Krgr    = rfunc.krg.r [satRegionIdx];
     this->Krorw   = rfunc.kro.rw[satRegionIdx];
@@ -130,8 +157,31 @@ extractScaled(const EclipseState&         eclState,
     updateIfNonNull(this->Sogcr,   epsProperties.sogcr(activeIndex));
     updateIfNonNull(this->Swu,     epsProperties.swu(activeIndex));
     updateIfNonNull(this->Sgu,     epsProperties.sgu(activeIndex));
-    updateIfNonNull(this->maxPcow, epsProperties.pcw(activeIndex));
-    updateIfNonNull(this->maxPcgo, epsProperties.pcg(activeIndex));
+
+    // Leverett J-function scaling (keyword JFUNC) takes precedence over the
+    // vertical capillary pressure scaling keywords (PCW/PCG).  The gas
+    // capillary pressure is the gas/water capillary pressure in two-phase
+    // gas/water runs.
+    const auto leverettOilWater = EclEpsConfig::
+        leverettScalingActive(eclState, EclTwoPhaseSystemType::OilWater);
+
+    const auto leverettGas = EclEpsConfig::
+        leverettScalingActive(eclState, eclState.runspec().phases().active(Phase::OIL)
+                              ? EclTwoPhaseSystemType::GasOil
+                              : EclTwoPhaseSystemType::GasWater);
+
+    if (leverettOilWater || leverettGas) {
+        this->applyLeverettScaling(eclState, epsProperties, activeIndex,
+                                   leverettOilWater, leverettGas);
+    }
+
+    if (! leverettOilWater) {
+        updateIfNonNull(this->maxPcow, epsProperties.pcw(activeIndex));
+    }
+
+    if (! leverettGas) {
+        updateIfNonNull(this->maxPcgo, epsProperties.pcg(activeIndex));
+    }
 
     updateIfNonNull(this->Krwr,  epsProperties.krwr(activeIndex));
     updateIfNonNull(this->Krgr,  epsProperties.krgr(activeIndex));
@@ -142,88 +192,54 @@ extractScaled(const EclipseState&         eclState,
     updateIfNonNull(this->maxKrg,  epsProperties.krg(activeIndex));
     updateIfNonNull(this->maxKrow, epsProperties.kro(activeIndex));
     updateIfNonNull(this->maxKrog, epsProperties.kro(activeIndex));
-
-    this->pcowLeverettFactor = 1.0;
-    this->pcgoLeverettFactor = 1.0;
-
-    if (eclState.getTableManager().useJFunc()) {
-        this->calculateLeverettFactors(eclState, epsProperties, activeIndex);
-    }
 }
 
 template <typename Scalar>
 void Opm::EclEpsScalingPointsInfo<Scalar>::
-calculateLeverettFactors(const EclipseState&         eclState,
-                         const EclEpsGridProperties& epsProperties,
-                         const unsigned              activeIndex)
+applyLeverettScaling(const EclipseState&         eclState,
+                     const EclEpsGridProperties& epsProperties,
+                     const unsigned              activeIndex,
+                     const bool                  scaleOilWater,
+                     const bool                  scaleGas)
 {
-    // compute the Leverett capillary pressure scaling factors if
-    // applicable.  note that this needs to be done using non-SI units to
-    // make it correspond to the documentation.
-
+    // Compute the Leverett capillary pressure scaling factors.
     const auto& jfunc = eclState.getTableManager().getJFunc();
-    const auto jfuncDir = jfunc.direction();
 
-    Scalar perm;
-    if (jfuncDir == JFunc::Direction::X) {
-        perm = epsProperties.permx(activeIndex);
-    }
-    else if (jfuncDir == JFunc::Direction::Y) {
-        perm = epsProperties.permy(activeIndex);
-    }
-    else if (jfuncDir == JFunc::Direction::Z) {
-        perm = epsProperties.permz(activeIndex);
-    }
-    else if (jfuncDir == JFunc::Direction::XY) {
-        // TODO: verify that this really is the arithmetic mean.
-        //
-        // The documentation just says that the "average" should be
-        // used,  IMO the harmonic mean would be more appropriate because
-        // that's what's usually applied when calculating the fluxes.
+    const auto alpha = static_cast<Scalar>(jfunc.porosityExponent());
+    const auto beta  = static_cast<Scalar>(jfunc.permeabilityExponent());
+    const auto poro  = static_cast<Scalar>(epsProperties.poro(activeIndex));
+    const auto perm  = static_cast<Scalar>
+        (jfuncPermeability(jfunc.direction(), epsProperties, activeIndex));
 
-        double permx = epsProperties.permx(activeIndex);
-        double permy = epsProperties.permy(activeIndex);
-        perm = arithmeticMean(permx, permy);
-    }
-    else {
-        throw std::runtime_error {
-            "Illegal direction indicator for the JFUNC "
-            "keyword (" + std::to_string(int(jfuncDir)) + ")"
-        };
+    // Just to guard against division by zero in zero-permeability cells.
+    constexpr auto minPerm = static_cast<Scalar>
+        (1.0e-10 * prefix::milli*unit::darcy);
+
+    // The part of the Leverett capillary pressure scaling factor which does
+    // not depend on the phase-systen specific surface tension.
+    const auto commonFactor = std::pow(poro, alpha)
+        / std::pow(std::max(perm, minPerm), beta);
+
+    // The maximum capillary pressure values are the J-function values of
+    // the input tables at this point.  Multiply by the Leverett factors to
+    // get the cell's maximum capillary pressures.  The vertical scaling of
+    // the capillary pressure curve then reduces to multiplying the
+    // J-function by the Leverett factor.
+
+    if (scaleOilWater) {
+        this->maxPcow *= commonFactor *
+            static_cast<Scalar>(jfunc.owSurfaceTension());
     }
 
-    // convert permeability from m^2 to mD
-    perm *= 1.01325e15;
+    if (scaleGas) {
+        // In two-phase gas/water runs, maxPcgo is the maximum gas/water
+        // capillary pressure.  JFUNC's WATER flag provides only the
+        // oil/water surface tension in this case.
+        const auto surfaceTension = (jfunc.flag() == JFunc::Flag::WATER)
+            ? jfunc.owSurfaceTension()
+            : jfunc.goSurfaceTension();
 
-    const Scalar poro  = epsProperties.poro(activeIndex);
-    const Scalar alpha = jfunc.alphaFactor();
-    const Scalar beta  = jfunc.betaFactor();
-
-    // the part of the Leverett capillary pressure which does not depend
-    // on surface tension.
-    const Scalar commonFactor = std::pow(poro, alpha) / std::pow(perm, beta);
-
-    // multiply the documented constant by 10^5 because we want the
-    // pressures in [Pa], not in [bar]
-    const Scalar Uconst = 0.318316 * 1e5;
-
-    // compute the oil-water Leverett factor.
-    const auto& jfuncFlag = jfunc.flag();
-    if ((jfuncFlag == JFunc::Flag::WATER) ||
-        (jfuncFlag == JFunc::Flag::BOTH))
-    {
-        // note that we use the surface tension in terms of [dyn/cm]
-        const Scalar gamma = jfunc.owSurfaceTension();
-        this->pcowLeverettFactor = commonFactor * gamma * Uconst;
-    }
-
-    // compute the gas-oil Leverett factor.
-    if ((jfuncFlag == JFunc::Flag::GAS) ||
-        (jfuncFlag == JFunc::Flag::BOTH))
-    {
-        // note that we use the surface tension in terms of [dyn/cm]
-        const Scalar gamma = jfunc.goSurfaceTension();
-        this->pcgoLeverettFactor = commonFactor * gamma * Uconst;
+        this->maxPcgo *= commonFactor * static_cast<Scalar>(surfaceTension);
     }
 }
 
@@ -232,7 +248,7 @@ calculateLeverettFactors(const EclipseState&         eclState,
 template<class Scalar>
 void Opm::EclEpsScalingPoints<Scalar>::
 init(const EclEpsScalingPointsInfo<Scalar>& epsInfo,
-     const EclEpsConfig&                    config,
+     [[maybe_unused]] const EclEpsConfig&   config,
      const EclTwoPhaseSystemType            epsSystemType)
 {
     if (epsSystemType == EclTwoPhaseSystemType::OilWater) {
@@ -253,10 +269,7 @@ init(const EclEpsScalingPointsInfo<Scalar>& epsInfo,
         saturationKrnPoints_[1] = epsInfo.Swcr + epsInfo.Sgl;
         saturationKrnPoints_[0] = epsInfo.Swl + epsInfo.Sgl;
 
-        if (config.enableLeverettScaling())
-            maxPcnwOrLeverettFactor_ = epsInfo.pcowLeverettFactor;
-        else
-            maxPcnwOrLeverettFactor_ = epsInfo.maxPcow;
+        maxPcnw_ = epsInfo.maxPcow;
 
         Krwr_   = epsInfo.Krwr;
         Krnr_   = epsInfo.Krorw;
@@ -284,10 +297,7 @@ init(const EclEpsScalingPointsInfo<Scalar>& epsInfo,
         saturationKrnPoints_[1] = epsInfo.Sogcr;
         saturationKrnPoints_[0] = 1.0 - epsInfo.Swl - epsInfo.Sgu;
 
-        if (config.enableLeverettScaling())
-            maxPcnwOrLeverettFactor_ = epsInfo.pcgoLeverettFactor;
-        else
-            maxPcnwOrLeverettFactor_ = epsInfo.maxPcgo;
+        maxPcnw_ = epsInfo.maxPcgo;
 
         Krwr_   = epsInfo.Krorg;
         Krnr_   = epsInfo.Krgr;
@@ -313,10 +323,7 @@ init(const EclEpsScalingPointsInfo<Scalar>& epsInfo,
         saturationKrnPoints_[0] = 1.0 - epsInfo.Sgu;
 
         // Pcgo is used for Pcgw for gas-water systems
-        if (config.enableLeverettScaling())
-            maxPcnwOrLeverettFactor_ = epsInfo.pcgoLeverettFactor;
-        else
-            maxPcnwOrLeverettFactor_ = epsInfo.maxPcgo;
+        maxPcnw_ = epsInfo.maxPcgo;
 
         Krwr_   = epsInfo.Krwr;
         Krnr_   = epsInfo.Krgr;

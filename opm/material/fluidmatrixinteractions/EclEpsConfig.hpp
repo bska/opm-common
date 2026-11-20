@@ -160,9 +160,13 @@ public:
     /*!
      * \brief Specify whether the Leverett capillary pressure scaling is enabled.
      *
-     * If setting this to true, Leverett capillary pressure scaling will be used instead
-     * of the normal capillary pressure scaling and the value of enablePcScaling() will
-     * not matter anymore.
+     * Leverett scaling is implemented as vertical capillary pressure
+     * scaling, with the scaled maximum capillary pressure being the
+     * Leverett factor times the unscaled maximum capillary pressure.
+     * Enabling Leverett scaling therefore requires enabling capillary
+     * pressure scaling too, see setEnablePcScaling().  The vertical
+     * capillary pressure scaling keywords (e.g., PCW) are ignored when
+     * Leverett scaling is enabled.
      */
     void setEnableLeverettScaling(bool yesno)
     { enableLeverettScaling_ = yesno; }
@@ -170,12 +174,25 @@ public:
     /*!
      * \brief Returns whether the Leverett capillary pressure scaling is enabled.
      *
-     * If this returns true, Leverett capillary pressure scaling will be used instead of
-     * the normal capillary pressure scaling and the value of enablePcScaling() does not
-     * matter anymore.
+     * If this returns true, enablePcScaling() returns true as well, and the
+     * vertical capillary pressure scaling keywords (e.g., PCW) are ignored.
      */
-    OPM_HOST_DEVICE bool enableLeverettScaling() const
+    bool enableLeverettScaling() const
     { return enableLeverettScaling_; }
+
+    /*!
+     * \brief Whether or not Leverett J-function scaling (keyword JFUNC)
+     * applies to a particular two-phase system.
+     *
+     * \param[in] eclState Run's static parameters.
+     *
+     * \param[in] twoPhaseSystemType Two-phase system.
+     *
+     * \return Whether or not the run uses Leverett J-function scaling of
+     * the capillary pressure in \p twoPhaseSystemType.
+     */
+    static bool leverettScalingActive(const EclipseState&         eclState,
+                                      const EclTwoPhaseSystemType twoPhaseSystemType);
 
     /*!
      * \brief Reads all relevant material parameters form a cell of a parsed ECL deck.
